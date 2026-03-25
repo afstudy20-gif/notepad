@@ -174,7 +174,10 @@
   const toolbarActions = {
     new: () => createNote(),
     open: () => fileInput.click(),
-    save: () => downloadNote(),
+    toggleSaveMenu: () => toggleSaveDropdown(),
+    saveTxt: () => { closeSaveDropdown(); downloadNote(); },
+    savePdf: () => { closeSaveDropdown(); downloadAsPdf(); },
+    saveWord: () => { closeSaveDropdown(); downloadAsWord(); },
     print: () => window.print(),
     undo: () => execCmd('undo'),
     redo: () => execCmd('redo'),
@@ -201,6 +204,22 @@
     }
   };
 
+  function toggleSaveDropdown() {
+    const dd = $('#saveDropdown');
+    dd.classList.toggle('open');
+  }
+
+  function closeSaveDropdown() {
+    $('#saveDropdown').classList.remove('open');
+  }
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.save-dropdown-wrap')) {
+      closeSaveDropdown();
+    }
+  });
+
   function downloadNote() {
     const note = getActiveNote();
     if (!note) return;
@@ -209,6 +228,35 @@
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = (note.title || 'untitled') + '.txt';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  function downloadAsPdf() {
+    const note = getActiveNote();
+    if (!note) return;
+    const title = note.title || 'untitled';
+    const clone = editor.cloneNode(true);
+    clone.style.padding = '20px';
+    clone.style.fontFamily = 'sans-serif';
+    html2pdf().set({
+      margin: 10,
+      filename: title + '.pdf',
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    }).from(clone).save();
+  }
+
+  function downloadAsWord() {
+    const note = getActiveNote();
+    if (!note) return;
+    const title = note.title || 'untitled';
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{font-family:sans-serif;font-size:14px;line-height:1.6;}</style></head><body>${editor.innerHTML}</body></html>`;
+    const blob = htmlDocx.asBlob(html);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = title + '.docx';
     a.click();
     URL.revokeObjectURL(a.href);
   }
@@ -333,7 +381,7 @@
       switch (e.key.toLowerCase()) {
         case 's':
           e.preventDefault();
-          autoSave();
+          toggleSaveDropdown();
           break;
         case 'h':
           if (!e.shiftKey) {
