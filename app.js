@@ -213,6 +213,13 @@
     $('#saveDropdown').classList.remove('open');
   }
 
+  // Paste as plain text only (like a real notepad)
+  editor.addEventListener('paste', (e) => {
+    e.preventDefault();
+    const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+    document.execCommand('insertText', false, text);
+  });
+
   // Close dropdown when clicking outside
   document.addEventListener('click', (e) => {
     if (!e.target.closest('.save-dropdown-wrap')) {
