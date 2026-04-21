@@ -1,4 +1,4 @@
-const CACHE = 'notepad-v9';
+const CACHE = 'notepad-v10';
 const ASSETS = [
   './',
   './index.html',
@@ -24,10 +24,13 @@ self.addEventListener('message', (e) => {
 });
 
 self.addEventListener('activate', (e) => {
-  e.waitUntil(
-    caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
-  );
-  self.clients.claim();
+  e.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)));
+    await self.clients.claim();
+    const clients = await self.clients.matchAll({ type: 'window' });
+    clients.forEach(c => c.navigate(c.url).catch(() => {}));
+  })());
 });
 
 self.addEventListener('fetch', (e) => {
@@ -35,20 +38,15 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   const sameOrigin = url.origin === self.location.origin;
-  // Network-first for same-origin HTML/JS/CSS to avoid stale app code
-  if (sameOrigin && /\.(html|js|css|webmanifest)$/.test(url.pathname) || url.pathname.endsWith('/')) {
+  // NETWORK-ONLY for same-origin app code — no caching to avoid stale bugs.
+  // Offline fallback only if network totally unavailable.
+  if (sameOrigin) {
     e.respondWith(
-      fetch(req).then(resp => {
-        if (resp && resp.status === 200) {
-          const copy = resp.clone();
-          caches.open(CACHE).then(c => c.put(req, copy)).catch(() => {});
-        }
-        return resp;
-      }).catch(() => caches.match(req))
+      fetch(req, { cache: 'no-store' }).catch(() => caches.match(req))
     );
     return;
   }
-  // Cache-first for everything else (CDN libs, images)
+  // Cache-first for CDN libs (html2pdf, html-docx-js)
   e.respondWith(
     caches.match(req).then(cached => {
       const fetchPromise = fetch(req).then(resp => {
