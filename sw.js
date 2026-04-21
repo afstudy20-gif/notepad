@@ -1,4 +1,4 @@
-const CACHE = 'notepad-v1';
+const CACHE = 'notepad-v3';
 const ASSETS = [
   './',
   './index.html',
@@ -29,6 +29,22 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+  const sameOrigin = url.origin === self.location.origin;
+  // Network-first for same-origin HTML/JS/CSS to avoid stale app code
+  if (sameOrigin && /\.(html|js|css|webmanifest)$/.test(url.pathname) || url.pathname.endsWith('/')) {
+    e.respondWith(
+      fetch(req).then(resp => {
+        if (resp && resp.status === 200) {
+          const copy = resp.clone();
+          caches.open(CACHE).then(c => c.put(req, copy)).catch(() => {});
+        }
+        return resp;
+      }).catch(() => caches.match(req))
+    );
+    return;
+  }
+  // Cache-first for everything else (CDN libs, images)
   e.respondWith(
     caches.match(req).then(cached => {
       const fetchPromise = fetch(req).then(resp => {
