@@ -179,6 +179,12 @@
     saveTxt: () => { closeSaveDropdown(); downloadNote(); },
     savePdf: () => { closeSaveDropdown(); downloadAsPdf(); },
     saveWord: () => { closeSaveDropdown(); downloadAsWord(); },
+    toggleShareMenu: () => toggleShareDropdown(),
+    shareDevice: () => { closeShareDropdown(); shareViaDevice(); },
+    shareWhatsApp: () => { closeShareDropdown(); shareWhatsApp(); },
+    shareEmail: () => { closeShareDropdown(); shareEmail(); },
+    shareEmailPdf: () => { closeShareDropdown(); downloadAsPdf(); shareEmail(true); },
+    shareWhatsAppPdf: () => { closeShareDropdown(); downloadAsPdf(); shareWhatsApp(true); },
     print: () => window.print(),
     undo: () => execCmd('undo'),
     redo: () => execCmd('redo'),
@@ -207,12 +213,72 @@
   };
 
   function toggleSaveDropdown() {
-    const dd = $('#saveDropdown');
-    dd.classList.toggle('open');
+    $('#saveDropdown').classList.toggle('open');
+    $('#shareDropdown').classList.remove('open');
   }
 
   function closeSaveDropdown() {
     $('#saveDropdown').classList.remove('open');
+  }
+
+  function toggleShareDropdown() {
+    $('#shareDropdown').classList.toggle('open');
+    $('#saveDropdown').classList.remove('open');
+  }
+
+  function closeShareDropdown() {
+    $('#shareDropdown').classList.remove('open');
+  }
+
+  async function shareViaDevice() {
+    const note = getActiveNote();
+    if (!note) return;
+    const title = note.title || 'Untitled';
+    const text = editor.innerText || '';
+    if (!navigator.share) {
+      alert('Bu tarayıcı cihazdan paylaşımı desteklemiyor. WhatsApp/E-posta seçeneğini kullanın.');
+      return;
+    }
+    try {
+      // Try file share if supported (Word docx)
+      if (navigator.canShare) {
+        const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>${editor.innerHTML}</body></html>`;
+        const blob = (typeof htmlDocx !== 'undefined') ? htmlDocx.asBlob(html) : new Blob([text], { type: 'text/plain' });
+        const ext = blob.type.includes('word') ? 'docx' : 'txt';
+        const file = new File([blob], `${title}.${ext}`, { type: blob.type });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({ title, text: title, files: [file] });
+          return;
+        }
+      }
+      await navigator.share({ title, text });
+    } catch (err) {
+      if (err.name !== 'AbortError') alert('Paylaşım başarısız: ' + err.message);
+    }
+  }
+
+  function shareWhatsApp(withPdfHint = false) {
+    const note = getActiveNote();
+    if (!note) return;
+    const title = note.title || 'Untitled';
+    const text = editor.innerText || '';
+    const body = withPdfHint
+      ? `*${title}*\n\n${text}\n\n(PDF indirildi — WhatsApp'ta ataç simgesiyle ekleyin)`
+      : `*${title}*\n\n${text}`;
+    const url = `https://wa.me/?text=${encodeURIComponent(body)}`;
+    window.open(url, '_blank');
+  }
+
+  function shareEmail(withPdfHint = false) {
+    const note = getActiveNote();
+    if (!note) return;
+    const title = note.title || 'Untitled';
+    const text = editor.innerText || '';
+    const body = withPdfHint
+      ? `${text}\n\n(PDF dosyası indirildi — e-postaya ek olarak iliştirin)`
+      : text;
+    const url = `mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`;
+    window.location.href = url;
   }
 
   // Paste as plain text only (like a real notepad)
@@ -284,6 +350,7 @@
   document.addEventListener('click', (e) => {
     if (!e.target.closest('.save-dropdown-wrap')) {
       closeSaveDropdown();
+      closeShareDropdown();
     }
   });
 

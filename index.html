@@ -59,6 +59,19 @@
             <button data-action="saveWord">Save as Word (.docx)</button>
           </div>
         </div>
+        <div class="save-dropdown-wrap">
+          <button title="Paylaş" data-action="toggleShareMenu">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="margin-left:2px"><path d="M7 10l5 5 5-5z"/></svg>
+          </button>
+          <div class="save-dropdown" id="shareDropdown">
+            <button data-action="shareDevice">Cihazdan Paylaş (dosya)</button>
+            <button data-action="shareWhatsApp">WhatsApp (metin)</button>
+            <button data-action="shareEmail">E-posta (metin)</button>
+            <button data-action="shareEmailPdf">E-posta + PDF indir</button>
+            <button data-action="shareWhatsAppPdf">WhatsApp + PDF indir</button>
+          </div>
+        </div>
         <button title="Print (Ctrl+P)" data-action="print">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
         </button>
