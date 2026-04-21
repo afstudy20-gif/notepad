@@ -296,16 +296,30 @@
     const findText = $('#findInput').value;
     const replaceWith = $('#replaceInput').value;
     if (!findText) return;
+    const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, null);
+    const nodes = [];
+    let node;
+    while ((node = walker.nextNode())) nodes.push(node);
+    const needle = findText.toLowerCase();
     let count = 0;
-    // Move cursor to start
-    const sel = window.getSelection();
-    sel.collapse(editor, 0);
-    while (window.find(findText, false, false, false)) {
-      document.execCommand('insertText', false, replaceWith);
-      count++;
-      if (count > 10000) break;
+    for (const n of nodes) {
+      const hay = n.nodeValue;
+      const lower = hay.toLowerCase();
+      if (!lower.includes(needle)) continue;
+      let out = '';
+      let i = 0;
+      while (i < hay.length) {
+        if (lower.slice(i, i + needle.length) === needle) {
+          out += replaceWith;
+          i += needle.length;
+          count++;
+        } else {
+          out += hay[i++];
+        }
+      }
+      n.nodeValue = out;
     }
-    scheduleSave();
+    if (count > 0) scheduleSave();
   }
 
   // --- Event Listeners ---
@@ -369,7 +383,18 @@
       note.title = file.name.replace(/\.[^.]+$/, '');
       noteTitle.value = note.title;
       if (file.name.endsWith('.html')) {
-        editor.innerHTML = ev.target.result;
+        // Sanitize: parse and strip scripts/event handlers
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(ev.target.result, 'text/html');
+        doc.querySelectorAll('script,style,iframe,object,embed,link,meta').forEach(el => el.remove());
+        doc.querySelectorAll('*').forEach(el => {
+          [...el.attributes].forEach(a => {
+            if (a.name.startsWith('on') || /^(href|src)$/i.test(a.name) && /^javascript:/i.test(a.value)) {
+              el.removeAttribute(a.name);
+            }
+          });
+        });
+        editor.innerHTML = doc.body.innerHTML;
       } else {
         editor.innerText = ev.target.result;
       }
@@ -402,6 +427,68 @@
       e.preventDefault();
       createNote();
     }
+    // Escape closes find dialog
+    if (e.key === 'Escape') {
+      const dlg = $('#findReplaceDialog');
+      if (dlg.style.display === 'flex') toggleFindReplace();
+    }
+  });
+
+  // Enter in find dialog triggers Find Next
+  ['#findInput', '#replaceInput'].forEach(sel => {
+    $(sel).addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        findNext();
+      }
+    });
+  });
+
+  // Sidebar toggle (mobile)
+  $('#sidebarToggle').addEventListener('click', () => {
+    $('#sidebar').classList.toggle('open');
+  });
+
+  // Close sidebar when note clicked on mobile
+  noteList.addEventListener('click', () => {
+    if (window.innerWidth <= 768) $('#sidebar').classList.remove('open');
+  });
+
+  // Export all notes as JSON backup
+  $('#btnExportAll').addEventListener('click', () => {
+    const backup = { version: 1, exported: new Date().toISOString(), notes };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `notepad-backup-${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+  // Import JSON backup
+  $('#btnImportAll').addEventListener('click', () => $('#backupInput').click());
+  $('#backupInput').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (!Array.isArray(data.notes)) throw new Error('Invalid backup');
+        if (!confirm(`Import ${data.notes.length} notes? This merges with existing notes.`)) return;
+        const existingIds = new Set(notes.map(n => n.id));
+        for (const n of data.notes) {
+          if (!n.id || !existingIds.has(n.id)) notes.push(n);
+        }
+        notes.sort((a, b) => (b.updated || 0) - (a.updated || 0));
+        saveNotes();
+        renderNoteList();
+      } catch (err) {
+        alert('Invalid backup file: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
   });
 
   // Click outside dialog to close
@@ -413,4 +500,10 @@
 
   // --- Init ---
   loadNotes();
+
+  // Handle PWA shortcut ?action=new
+  if (new URLSearchParams(location.search).get('action') === 'new') {
+    createNote();
+    history.replaceState(null, '', location.pathname);
+  }
 })();

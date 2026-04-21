@@ -33,6 +33,63 @@ body {
   font-weight: 600;
 }
 
+.privacy-note {
+  margin-top: 6px;
+  font-size: 11px;
+  color: rgba(255,255,255,0.55);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  line-height: 1.3;
+}
+
+.privacy-note svg {
+  flex-shrink: 0;
+  color: #4ade80;
+}
+
+.sidebar-footer {
+  display: flex;
+  gap: 6px;
+  padding: 10px 12px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+.sidebar-footer button {
+  flex: 1;
+  padding: 6px 8px;
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.75);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 5px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.sidebar-footer button:hover {
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+}
+
+.sidebar-toggle {
+  display: none;
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  z-index: 110;
+  width: 36px;
+  height: 36px;
+  border: 1px solid #e0e0e0;
+  background: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  color: #333;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
 .btn-create {
   margin: 16px 20px 8px;
   padding: 10px;
@@ -440,9 +497,9 @@ body {
 /* Responsive */
 @media (max-width: 768px) {
   .sidebar {
-    width: 240px;
+    width: 260px;
     position: fixed;
-    left: -240px;
+    left: -260px;
     top: 0;
     bottom: 0;
     z-index: 100;
@@ -450,5 +507,12 @@ body {
   }
   .sidebar.open {
     left: 0;
+    box-shadow: 0 0 30px rgba(0,0,0,0.25);
+  }
+  .sidebar-toggle {
+    display: flex;
+  }
+  .toolbar {
+    padding-left: 54px;
   }
 }

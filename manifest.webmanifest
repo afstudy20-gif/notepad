@@ -1,0 +1,24 @@
+{
+  "name": "Notepad — Local-Only Text Editor",
+  "short_name": "Notepad",
+  "description": "Local-only online notepad. All notes stored in your browser. Nothing uploaded.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "background_color": "#f0f2f5",
+  "theme_color": "#1a1a2e",
+  "orientation": "any",
+  "categories": ["productivity", "utilities"],
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "New Note",
+      "short_name": "New",
+      "url": "./index.html?action=new",
+      "description": "Create a new note"
+    }
+  ]
+}
