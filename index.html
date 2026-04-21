@@ -160,6 +160,74 @@
     </div>
   </main>
 
+  <!-- Image Edit Panel -->
+  <aside class="image-panel" id="imagePanel" hidden>
+    <div class="image-panel-header">
+      <h3>Resim Düzenle</h3>
+      <button class="dialog-close" id="closeImagePanel">&times;</button>
+    </div>
+    <div class="image-panel-body">
+      <div class="ip-actions">
+        <button id="ipReplace">Resmi Değiştir</button>
+        <button id="ipResetAll">Tümünü Sıfırla</button>
+      </div>
+
+      <div class="ip-section">
+        <label>Parlaklık <span data-val="brightness">1.00</span></label>
+        <input type="range" data-filter="brightness" min="0" max="3" step="0.01" value="1">
+        <label>Kontrast <span data-val="contrast">1.00</span></label>
+        <input type="range" data-filter="contrast" min="0" max="3" step="0.01" value="1">
+        <label>Doygunluk <span data-val="saturate">1.00</span></label>
+        <input type="range" data-filter="saturate" min="0" max="3" step="0.01" value="1">
+        <label>Ton <span data-val="hue-rotate">0°</span></label>
+        <input type="range" data-filter="hue-rotate" min="0" max="360" step="1" value="0">
+        <label>Bulanıklık <span data-val="blur">0px</span></label>
+        <input type="range" data-filter="blur" min="0" max="20" step="0.1" value="0">
+        <label>Gri Ton <span data-val="grayscale">0.00</span></label>
+        <input type="range" data-filter="grayscale" min="0" max="1" step="0.01" value="0">
+        <label>Sepya <span data-val="sepia">0.00</span></label>
+        <input type="range" data-filter="sepia" min="0" max="1" step="0.01" value="0">
+        <label>İnvert <span data-val="invert">0.00</span></label>
+        <input type="range" data-filter="invert" min="0" max="1" step="0.01" value="0">
+      </div>
+
+      <div class="ip-section">
+        <h4>Kırp</h4>
+        <label>Üst <span data-val="cropTop">0%</span></label>
+        <input type="range" data-crop="top" min="0" max="90" step="1" value="0">
+        <label>Sağ <span data-val="cropRight">0%</span></label>
+        <input type="range" data-crop="right" min="0" max="90" step="1" value="0">
+        <label>Alt <span data-val="cropBottom">0%</span></label>
+        <input type="range" data-crop="bottom" min="0" max="90" step="1" value="0">
+        <label>Sol <span data-val="cropLeft">0%</span></label>
+        <input type="range" data-crop="left" min="0" max="90" step="1" value="0">
+      </div>
+
+      <div class="ip-section">
+        <h4>Dönüşüm</h4>
+        <label>Döndür <span data-val="rotate">0°</span></label>
+        <input type="range" data-xform="rotate" min="-180" max="180" step="1" value="0">
+        <div class="ip-buttons">
+          <button data-xform-btn="flipH">Yatay Çevir</button>
+          <button data-xform-btn="flipV">Dikey Çevir</button>
+        </div>
+      </div>
+
+      <div class="ip-section">
+        <h4>Boyut</h4>
+        <label>Genişlik <span data-val="width">100%</span></label>
+        <input type="range" data-size="width" min="10" max="100" step="1" value="100">
+      </div>
+
+      <div class="ip-actions">
+        <button id="ipDelete" class="ip-danger">Resmi Sil</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Hidden file input for image replace -->
+  <input type="file" id="imageReplaceInput" accept="image/*" style="display:none">
+
   <!-- Find & Replace Dialog -->
   <div class="dialog-overlay" id="findReplaceDialog" style="display:none">
     <div class="dialog">

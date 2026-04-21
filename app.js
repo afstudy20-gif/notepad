@@ -79,6 +79,7 @@
     updateCounts();
     renderNoteList();
     localStorage.setItem(ACTIVE_KEY, activeId);
+    if (typeof deselectImage === 'function') deselectImage();
   }
 
   function getActiveNote() {
@@ -559,6 +560,173 @@
 
   // --- Init ---
   loadNotes();
+
+  // --- Image Editor ---
+  let selectedImg = null;
+  const imagePanel = $('#imagePanel');
+
+  const defaultImgState = () => ({
+    filters: { brightness: 1, contrast: 1, saturate: 1, 'hue-rotate': 0, blur: 0, grayscale: 0, sepia: 0, invert: 0 },
+    crop: { top: 0, right: 0, bottom: 0, left: 0 },
+    xform: { rotate: 0, flipH: false, flipV: false },
+    size: { width: 100 }
+  });
+
+  function getImgState(img) {
+    try {
+      return JSON.parse(img.dataset.editState) || defaultImgState();
+    } catch {
+      return defaultImgState();
+    }
+  }
+
+  function applyImgState(img, state) {
+    const f = state.filters;
+    img.style.filter = [
+      `brightness(${f.brightness})`,
+      `contrast(${f.contrast})`,
+      `saturate(${f.saturate})`,
+      `hue-rotate(${f['hue-rotate']}deg)`,
+      `blur(${f.blur}px)`,
+      `grayscale(${f.grayscale})`,
+      `sepia(${f.sepia})`,
+      `invert(${f.invert})`
+    ].join(' ');
+
+    const c = state.crop;
+    img.style.clipPath = `inset(${c.top}% ${c.right}% ${c.bottom}% ${c.left}%)`;
+
+    const x = state.xform;
+    const scaleX = x.flipH ? -1 : 1;
+    const scaleY = x.flipV ? -1 : 1;
+    img.style.transform = `rotate(${x.rotate}deg) scale(${scaleX}, ${scaleY})`;
+
+    img.style.width = state.size.width + '%';
+    img.style.maxWidth = '100%';
+
+    img.dataset.editState = JSON.stringify(state);
+  }
+
+  function selectImage(img) {
+    if (selectedImg) selectedImg.classList.remove('img-selected');
+    selectedImg = img;
+    img.classList.add('img-selected');
+    imagePanel.hidden = false;
+    syncPanelToImage(img);
+  }
+
+  function deselectImage() {
+    if (selectedImg) selectedImg.classList.remove('img-selected');
+    selectedImg = null;
+    imagePanel.hidden = true;
+  }
+
+  function syncPanelToImage(img) {
+    const state = getImgState(img);
+    applyImgState(img, state);
+    // Sliders
+    imagePanel.querySelectorAll('input[data-filter]').forEach(inp => {
+      const key = inp.dataset.filter;
+      inp.value = state.filters[key];
+      updateValDisplay(inp);
+    });
+    imagePanel.querySelectorAll('input[data-crop]').forEach(inp => {
+      inp.value = state.crop[inp.dataset.crop];
+      updateValDisplay(inp);
+    });
+    imagePanel.querySelectorAll('input[data-xform]').forEach(inp => {
+      inp.value = state.xform[inp.dataset.xform];
+      updateValDisplay(inp);
+    });
+    imagePanel.querySelectorAll('input[data-size]').forEach(inp => {
+      inp.value = state.size[inp.dataset.size];
+      updateValDisplay(inp);
+    });
+  }
+
+  function updateValDisplay(inp) {
+    const valEl = imagePanel.querySelector(`[data-val="${inp.dataset.filter || inp.dataset.xform || inp.dataset.size || ('crop' + cap(inp.dataset.crop || ''))}"]`);
+    if (!valEl) return;
+    const v = parseFloat(inp.value);
+    const key = inp.dataset.filter;
+    if (key === 'hue-rotate') valEl.textContent = v + '°';
+    else if (key === 'blur') valEl.textContent = v + 'px';
+    else if (inp.dataset.filter) valEl.textContent = v.toFixed(2);
+    else if (inp.dataset.crop) valEl.textContent = v + '%';
+    else if (inp.dataset.xform === 'rotate') valEl.textContent = v + '°';
+    else if (inp.dataset.size === 'width') valEl.textContent = v + '%';
+  }
+
+  function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+  // Click image in editor → select
+  editor.addEventListener('click', (e) => {
+    if (e.target.tagName === 'IMG') {
+      e.preventDefault();
+      selectImage(e.target);
+    } else if (selectedImg) {
+      deselectImage();
+    }
+  });
+
+  // Slider bindings
+  imagePanel.addEventListener('input', (e) => {
+    if (!selectedImg || e.target.tagName !== 'INPUT') return;
+    const inp = e.target;
+    const state = getImgState(selectedImg);
+    if (inp.dataset.filter) state.filters[inp.dataset.filter] = parseFloat(inp.value);
+    else if (inp.dataset.crop) state.crop[inp.dataset.crop] = parseFloat(inp.value);
+    else if (inp.dataset.xform) state.xform[inp.dataset.xform] = parseFloat(inp.value);
+    else if (inp.dataset.size) state.size[inp.dataset.size] = parseFloat(inp.value);
+    applyImgState(selectedImg, state);
+    updateValDisplay(inp);
+    scheduleSave();
+  });
+
+  // Flip buttons
+  imagePanel.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-xform-btn]');
+    if (!btn || !selectedImg) return;
+    const state = getImgState(selectedImg);
+    const key = btn.dataset.xformBtn;
+    state.xform[key] = !state.xform[key];
+    applyImgState(selectedImg, state);
+    scheduleSave();
+  });
+
+  $('#closeImagePanel').addEventListener('click', deselectImage);
+
+  $('#ipResetAll').addEventListener('click', () => {
+    if (!selectedImg) return;
+    applyImgState(selectedImg, defaultImgState());
+    syncPanelToImage(selectedImg);
+    scheduleSave();
+  });
+
+  $('#ipDelete').addEventListener('click', () => {
+    if (!selectedImg) return;
+    if (!confirm('Resmi sil?')) return;
+    selectedImg.remove();
+    deselectImage();
+    scheduleSave();
+  });
+
+  $('#ipReplace').addEventListener('click', () => {
+    if (!selectedImg) return;
+    $('#imageReplaceInput').click();
+  });
+
+  $('#imageReplaceInput').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file || !selectedImg) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      selectedImg.src = ev.target.result;
+      scheduleSave();
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  });
 
   // Image file picker
   $('#imageInput').addEventListener('change', (e) => {
