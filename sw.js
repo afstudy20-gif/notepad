@@ -6,6 +6,8 @@ const ASSETS = [
   './app.js',
   './manifest.webmanifest',
   './icon.svg',
+  './icon-192.png',
+  './icon-512.png',
   'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js',
   'https://cdn.jsdelivr.net/npm/html-docx-js@0.3.1/dist/html-docx.js'
 ];
