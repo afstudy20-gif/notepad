@@ -1,4 +1,4 @@
-const CACHE = 'notepad-v7';
+const CACHE = 'notepad-v8';
 const ASSETS = [
   './',
   './index.html',
@@ -13,10 +13,14 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', (e) => {
+  self.skipWaiting();
   e.waitUntil(
     caches.open(CACHE).then(c => c.addAll(ASSETS.map(u => new Request(u, { cache: 'reload' })))).catch(() => {})
   );
-  self.skipWaiting();
+});
+
+self.addEventListener('message', (e) => {
+  if (e.data === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('activate', (e) => {
