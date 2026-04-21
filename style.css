@@ -389,6 +389,9 @@ body.has-image-panel .editor-area {
   display: block;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   cursor: pointer;
+  -webkit-user-drag: none;
+  user-select: none;
+  pointer-events: auto;
 }
 
 #editor img.img-selected {

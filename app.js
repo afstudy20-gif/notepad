@@ -785,14 +785,26 @@
 
   function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
-  // Click image in editor → select (mousedown more reliable in contenteditable)
-  editor.addEventListener('mousedown', (e) => {
-    if (e.target.tagName === 'IMG') {
+  // Image selection via pointerdown (fires before focus changes). Delegated on document.
+  document.addEventListener('pointerdown', (e) => {
+    const img = e.target.closest && e.target.closest('#editor img');
+    if (img) {
       e.preventDefault();
-      e.stopPropagation();
-      selectImage(e.target);
-    } else if (selectedImg && !e.target.closest('.image-panel')) {
-      deselectImage();
+      selectImage(img);
+      return;
+    }
+    if (!selectedImg) return;
+    if (e.target.closest('.image-panel')) return;
+    if (e.target.closest('.toolbar')) return;
+    deselectImage();
+  }, true);
+
+  // Also handle click as backup
+  editor.addEventListener('click', (e) => {
+    const img = e.target.closest && e.target.closest('img');
+    if (img) {
+      e.preventDefault();
+      selectImage(img);
     }
   });
 
