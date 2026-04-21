@@ -239,7 +239,12 @@
     insertOrderedList: () => execCmd('insertOrderedList'),
     insertUnorderedList: () => execCmd('insertUnorderedList'),
     findReplace: () => toggleFindReplace(),
-    insertImage: () => $('#imageInput').click(),
+    insertImage: () => {
+      const inp = $('#imageInput');
+      if (!inp) { console.warn('imageInput not found'); return; }
+      inp.value = '';
+      try { inp.click(); } catch (err) { console.error('imageInput.click failed', err); }
+    },
     toggleOrientation: () => {
       const note = getActiveNote();
       if (!note) return;
@@ -1166,6 +1171,17 @@
   const btnImportFile = $('#btnImportFile');
   if (btnImportFile) {
     btnImportFile.addEventListener('click', () => fileInput.click());
+  }
+
+  // Direct binding for Insert Image (delegation backup)
+  const btnInsertImage = document.querySelector('button[data-action="insertImage"]');
+  if (btnInsertImage) {
+    btnInsertImage.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const inp = $('#imageInput');
+      if (inp) { inp.value = ''; inp.click(); }
+    });
   }
 
   // OCR engine selector
