@@ -542,6 +542,64 @@
   // Create note
   $('#btnCreate').addEventListener('click', createNote);
 
+  // Note context menu (right-click on note item)
+  const ctxMenu = $('#noteContextMenu');
+  let ctxTargetId = null;
+
+  noteList.addEventListener('contextmenu', (e) => {
+    const item = e.target.closest('.note-item');
+    if (!item) return;
+    e.preventDefault();
+    ctxTargetId = item.dataset.id;
+    ctxMenu.hidden = false;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const mw = 180, mh = 130;
+    ctxMenu.style.left = Math.min(e.clientX, vw - mw) + 'px';
+    ctxMenu.style.top = Math.min(e.clientY, vh - mh) + 'px';
+  });
+
+  ctxMenu.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-ctx]');
+    if (!btn || !ctxTargetId) return;
+    const action = btn.dataset.ctx;
+    const note = notes.find(n => n.id === ctxTargetId);
+    ctxMenu.hidden = true;
+    if (!note) return;
+    if (action === 'rename') {
+      const name = prompt('Yeni ad:', note.title || 'Untitled Note');
+      if (name === null) return;
+      note.title = name.trim();
+      if (activeId === note.id) noteTitle.value = note.title;
+      saveNotes();
+      renderNoteList();
+    } else if (action === 'duplicate') {
+      const copy = {
+        ...note,
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        title: (note.title || 'Untitled') + ' (kopya)',
+        updated: Date.now()
+      };
+      notes.unshift(copy);
+      activeId = copy.id;
+      saveNotes();
+      renderNoteList();
+      loadNote(copy.id);
+    } else if (action === 'delete') {
+      if (confirm(`"${note.title || 'Untitled Note'}" silinsin mi?`)) {
+        deleteNote(note.id);
+      }
+    }
+    ctxTargetId = null;
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('#noteContextMenu')) ctxMenu.hidden = true;
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') ctxMenu.hidden = true;
+  });
+  window.addEventListener('blur', () => ctxMenu.hidden = true);
+
   // Delete note
   $('#btnDelete').addEventListener('click', () => {
     if (confirm('Delete this note?')) {

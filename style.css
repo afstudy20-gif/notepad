@@ -399,6 +399,44 @@ body.has-image-panel .editor-area {
   outline-offset: 3px;
 }
 
+/* Context Menu */
+.context-menu {
+  position: fixed;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+  padding: 4px 0;
+  min-width: 160px;
+  z-index: 1000;
+  font-size: 13px;
+}
+
+.context-menu[hidden] {
+  display: none;
+}
+
+.context-menu button {
+  display: block;
+  width: 100%;
+  padding: 8px 14px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  color: #333;
+}
+
+.context-menu button:hover {
+  background: #f0f4ff;
+  color: #4361ee;
+}
+
+.context-menu .ctx-danger:hover {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
 /* Image Edit Panel */
 .image-panel {
   position: fixed;
