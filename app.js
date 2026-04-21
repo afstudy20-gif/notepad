@@ -633,8 +633,65 @@
     xlsx: 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
     pdfjs: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.mjs',
     pdfWorker: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs',
-    tesseract: 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'
+    tesseract: 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js',
+    paddleOcr: 'https://cdn.jsdelivr.net/npm/@paddlejs-models/ocr@1.1.3/lib/index.js'
   };
+
+  // OCR engine: 'paddle' (fast, WASM, Latin+CJK) | 'tesseract' (slower, better Turkish)
+  let ocrEngine = localStorage.getItem('ocr_engine') || 'paddle';
+  let paddleOcrReady = null;
+
+  async function runOcr(imageSrc, progressCb) {
+    if (ocrEngine === 'paddle') {
+      try {
+        return await runPaddleOcr(imageSrc, progressCb);
+      } catch (err) {
+        console.warn('PaddleOCR failed, falling back to tesseract:', err);
+        return await runTesseract(imageSrc, progressCb);
+      }
+    }
+    return await runTesseract(imageSrc, progressCb);
+  }
+
+  async function runPaddleOcr(imageSrc, progressCb) {
+    if (!paddleOcrReady) {
+      progressCb && progressCb(0, 'PaddleOCR yükleniyor (ilk seferlik ~8MB)...');
+      paddleOcrReady = (async () => {
+        const mod = await import(/* webpackIgnore: true */ CDN.paddleOcr);
+        await mod.default.init();
+        return mod.default;
+      })();
+    }
+    const ocr = await paddleOcrReady;
+    progressCb && progressCb(50, 'PaddleOCR tanıma çalışıyor...');
+    const img = typeof imageSrc === 'string' ? await loadImg(imageSrc) : imageSrc;
+    const result = await ocr.recognize(img);
+    progressCb && progressCb(100, 'Tamamlandı');
+    const text = Array.isArray(result.text) ? result.text.join('\n') : (result.text || '');
+    return { text };
+  }
+
+  async function runTesseract(imageSrc, progressCb) {
+    await loadScript(CDN.tesseract);
+    const { data } = await window.Tesseract.recognize(imageSrc, 'tur+eng', {
+      logger: m => {
+        if (m.status === 'recognizing text' && progressCb) {
+          progressCb(Math.round(m.progress * 100), `Tesseract: ${Math.round(m.progress * 100)}%`);
+        }
+      }
+    });
+    return { text: data.text };
+  }
+
+  function loadImg(src) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = src;
+    });
+  }
 
   const loadedScripts = new Set();
   function loadScript(url, isModule = false) {
@@ -739,24 +796,19 @@
     }
     // OCR empty pages
     if (needsOcr) {
-      await loadScript(CDN.tesseract);
       for (let i = 0; i < pages.length; i++) {
         if (typeof pages[i] !== 'object' || !pages[i].page) continue;
         const { page, ocrPageNum } = pages[i];
-        showImport(`OCR sayfa ${ocrPageNum}/${total}...`, 50 + (ocrPageNum / total) * 50);
+        const baseMsg = `OCR sayfa ${ocrPageNum}/${total}`;
+        const basePct = 50 + (ocrPageNum / total) * 50;
+        showImport(baseMsg, basePct);
         const viewport = page.getViewport({ scale: 2 });
         const canvas = document.createElement('canvas');
         canvas.width = viewport.width;
         canvas.height = viewport.height;
         await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
-        const { data } = await window.Tesseract.recognize(canvas, 'tur+eng', {
-          logger: m => {
-            if (m.status === 'recognizing text') {
-              showImport(`OCR sayfa ${ocrPageNum}/${total}: ${Math.round(m.progress * 100)}%`, 50 + (ocrPageNum / total) * 50);
-            }
-          }
-        });
-        pages[i] = `<p>${escapeHtml(data.text).replace(/\n/g, '<br>')}</p>`;
+        const { text } = await runOcr(canvas, (p, msg) => showImport(`${baseMsg}: ${msg}`, basePct));
+        pages[i] = `<p>${escapeHtml(text).replace(/\n/g, '<br>')}</p>`;
       }
     }
     return pages.join('\n');
@@ -764,18 +816,11 @@
 
   async function importImage(file) {
     showImport('Resim OCR başlatılıyor...');
-    await loadScript(CDN.tesseract);
     const dataUrl = await readAs(file, 'readAsDataURL');
-    const { data } = await window.Tesseract.recognize(dataUrl, 'tur+eng', {
-      logger: m => {
-        if (m.status === 'recognizing text') {
-          showImport(`OCR: ${Math.round(m.progress * 100)}%`, m.progress * 100);
-        }
-      }
-    });
+    const { text } = await runOcr(dataUrl, (p, msg) => showImport(msg, p));
     const imgHtml = `<img src="${dataUrl}" class="pasted-image" alt="">`;
-    const textHtml = data.text.trim()
-      ? `<p><strong>OCR Metni:</strong></p><p>${escapeHtml(data.text).replace(/\n/g, '<br>')}</p>`
+    const textHtml = text.trim()
+      ? `<p><strong>OCR Metni:</strong></p><p>${escapeHtml(text).replace(/\n/g, '<br>')}</p>`
       : '<p><em>Metin bulunamadı.</em></p>';
     return imgHtml + textHtml;
   }
@@ -1116,6 +1161,17 @@
     });
     e.target.value = '';
   });
+
+  // OCR engine selector
+  const ocrSel = $('#ocrEngine');
+  if (ocrSel) {
+    ocrSel.value = ocrEngine;
+    ocrSel.addEventListener('change', (e) => {
+      ocrEngine = e.target.value;
+      localStorage.setItem('ocr_engine', ocrEngine);
+      paddleOcrReady = null;
+    });
+  }
 
   // Handle PWA shortcut ?action=new
   if (new URLSearchParams(location.search).get('action') === 'new') {
