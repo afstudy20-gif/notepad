@@ -40,11 +40,22 @@
   }
 
   // --- Notes CRUD ---
+  const PAGE_SIZES = {
+    free:   null,
+    a3:     { w: '297mm', h: '420mm' },
+    a4:     { w: '210mm', h: '297mm' },
+    a5:     { w: '148mm', h: '210mm' },
+    letter: { w: '216mm', h: '279mm' },
+    legal:  { w: '216mm', h: '356mm' }
+  };
+
   function createNote() {
     const note = {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
       title: '',
       content: '',
+      pageSize: 'free',
+      pageOrientation: 'portrait',
       updated: Date.now()
     };
     notes.unshift(note);
@@ -80,6 +91,36 @@
     renderNoteList();
     localStorage.setItem(ACTIVE_KEY, activeId);
     if (typeof deselectImage === 'function') deselectImage();
+    applyPageLayout(note);
+    syncPageControls(note);
+  }
+
+  function applyPageLayout(note) {
+    const wrapper = document.querySelector('.editor-wrapper');
+    const size = note.pageSize || 'free';
+    const orient = note.pageOrientation || 'portrait';
+    if (size === 'free' || !PAGE_SIZES[size]) {
+      wrapper.classList.remove('page-mode');
+      editor.style.removeProperty('--page-w');
+      editor.style.removeProperty('--page-h');
+      document.documentElement.style.removeProperty('--print-size');
+      return;
+    }
+    wrapper.classList.add('page-mode');
+    const { w, h } = PAGE_SIZES[size];
+    const [pw, ph] = orient === 'landscape' ? [h, w] : [w, h];
+    editor.style.setProperty('--page-w', pw);
+    editor.style.setProperty('--page-h', ph);
+    document.documentElement.style.setProperty('--print-size', `${pw} ${ph}`);
+  }
+
+  function syncPageControls(note) {
+    $('#pageSize').value = note.pageSize || 'free';
+    const btn = $('#btnOrientation');
+    if (btn) {
+      btn.classList.toggle('landscape', (note.pageOrientation || 'portrait') === 'landscape');
+      btn.title = (note.pageOrientation || 'portrait') === 'landscape' ? 'Yatay (tıkla → dikey)' : 'Dikey (tıkla → yatay)';
+    }
   }
 
   function getActiveNote() {
@@ -199,6 +240,14 @@
     insertUnorderedList: () => execCmd('insertUnorderedList'),
     findReplace: () => toggleFindReplace(),
     insertImage: () => $('#imageInput').click(),
+    toggleOrientation: () => {
+      const note = getActiveNote();
+      if (!note) return;
+      note.pageOrientation = (note.pageOrientation === 'landscape') ? 'portrait' : 'landscape';
+      applyPageLayout(note);
+      syncPageControls(note);
+      scheduleSave();
+    },
     insertDateTime: () => {
       const dt = new Date().toLocaleString();
       execCmd('insertText', dt);
@@ -466,6 +515,13 @@
   $('#fontSize').addEventListener('change', (e) => {
     execCmd('fontSize', e.target.value);
   });
+  $('#pageSize').addEventListener('change', (e) => {
+    const note = getActiveNote();
+    if (!note) return;
+    note.pageSize = e.target.value;
+    applyPageLayout(note);
+    scheduleSave();
+  });
 
   // Editor input
   editor.addEventListener('input', () => {
@@ -729,12 +785,13 @@
 
   function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
-  // Click image in editor → select
-  editor.addEventListener('click', (e) => {
+  // Click image in editor → select (mousedown more reliable in contenteditable)
+  editor.addEventListener('mousedown', (e) => {
     if (e.target.tagName === 'IMG') {
       e.preventDefault();
+      e.stopPropagation();
       selectImage(e.target);
-    } else if (selectedImg) {
+    } else if (selectedImg && !e.target.closest('.image-panel')) {
       deselectImage();
     }
   });

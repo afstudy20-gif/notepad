@@ -291,6 +291,19 @@ body.has-image-panel .editor-area {
   border-color: #bbb;
 }
 
+#btnOrientation svg {
+  transition: transform 0.2s;
+}
+
+#btnOrientation.landscape svg {
+  transform: rotate(90deg);
+}
+
+#btnOrientation.landscape {
+  background: #e8eaed;
+  color: #4361ee;
+}
+
 /* Note Title */
 .note-title-bar {
   display: flex;
@@ -334,6 +347,23 @@ body.has-image-panel .editor-area {
   flex: 1;
   overflow: auto;
   background: #fff;
+}
+
+/* Page mode: wrapper becomes gray workspace, editor becomes page */
+.editor-wrapper.page-mode {
+  background: #e5e7eb;
+  padding: 24px;
+  display: flex;
+  justify-content: center;
+}
+
+.editor-wrapper.page-mode #editor {
+  width: var(--page-w, 210mm);
+  min-height: var(--page-h, 297mm);
+  background: #fff;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+  padding: 20mm 15mm;
+  border-radius: 2px;
 }
 
 #editor {
@@ -645,17 +675,33 @@ body.has-image-panel .editor-area {
 
 /* Print */
 @media print {
-  .sidebar, .toolbar, .note-title-bar, .status-bar {
+  .sidebar, .toolbar, .note-title-bar, .status-bar, .image-panel, .sidebar-toggle {
     display: none !important;
+  }
+  body.has-image-panel .editor-area {
+    margin-right: 0;
   }
   .editor-area {
     position: static;
   }
-  .editor-wrapper {
+  .editor-wrapper,
+  .editor-wrapper.page-mode {
     overflow: visible;
+    background: #fff;
+    padding: 0;
+  }
+  .editor-wrapper.page-mode #editor {
+    box-shadow: none;
+    border-radius: 0;
+    width: 100%;
+    min-height: auto;
   }
   #editor {
     padding: 0;
+  }
+  @page {
+    size: var(--print-size, auto);
+    margin: 15mm;
   }
 }
 
