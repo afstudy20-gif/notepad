@@ -626,6 +626,7 @@
   });
 
   // --- Init ---
+  document.body.classList.add('has-image-panel');
   loadNotes();
 
   // --- Image Editor ---
@@ -678,14 +679,16 @@
     if (selectedImg) selectedImg.classList.remove('img-selected');
     selectedImg = img;
     img.classList.add('img-selected');
-    imagePanel.hidden = false;
+    $('#imagePanelEmpty').hidden = true;
+    $('#imagePanelBody').hidden = false;
     syncPanelToImage(img);
   }
 
   function deselectImage() {
     if (selectedImg) selectedImg.classList.remove('img-selected');
     selectedImg = null;
-    imagePanel.hidden = true;
+    $('#imagePanelEmpty').hidden = false;
+    $('#imagePanelBody').hidden = true;
   }
 
   function syncPanelToImage(img) {
@@ -760,8 +763,6 @@
     applyImgState(selectedImg, state);
     scheduleSave();
   });
-
-  $('#closeImagePanel').addEventListener('click', deselectImage);
 
   $('#ipResetAll').addEventListener('click', () => {
     if (!selectedImg) return;
