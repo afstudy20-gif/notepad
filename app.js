@@ -1162,6 +1162,12 @@
     e.target.value = '';
   });
 
+  // Sidebar "Dosya İçe Aktar" triggers main file picker
+  const btnImportFile = $('#btnImportFile');
+  if (btnImportFile) {
+    btnImportFile.addEventListener('click', () => fileInput.click());
+  }
+
   // OCR engine selector
   const ocrSel = $('#ocrEngine');
   if (ocrSel) {
