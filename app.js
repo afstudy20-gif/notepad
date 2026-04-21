@@ -191,6 +191,7 @@
     insertOrderedList: () => execCmd('insertOrderedList'),
     insertUnorderedList: () => execCmd('insertUnorderedList'),
     findReplace: () => toggleFindReplace(),
+    insertImage: () => $('#imageInput').click(),
     insertDateTime: () => {
       const dt = new Date().toLocaleString();
       execCmd('insertText', dt);
@@ -558,6 +559,21 @@
 
   // --- Init ---
   loadNotes();
+
+  // Image file picker
+  $('#imageInput').addEventListener('change', (e) => {
+    const files = [...e.target.files].filter(f => f.type.startsWith('image/'));
+    editor.focus();
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        insertImage(ev.target.result);
+        scheduleSave();
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+  });
 
   // Handle PWA shortcut ?action=new
   if (new URLSearchParams(location.search).get('action') === 'new') {
