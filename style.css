@@ -342,8 +342,18 @@ body {
 }
 
 #editor:empty::before {
-  content: 'Start typing your note...';
+  content: 'Start typing your note... (paste images too)';
   color: #bbb;
+}
+
+#editor .pasted-image,
+#editor img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  margin: 8px 0;
+  display: block;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
 
 /* Status Bar */

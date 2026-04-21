@@ -215,9 +215,67 @@
 
   // Paste as plain text only (like a real notepad)
   editor.addEventListener('paste', (e) => {
+    const cd = e.clipboardData || window.clipboardData;
+    if (!cd) return;
+    // Check for images in clipboard
+    for (const item of cd.items || []) {
+      if (item.type && item.type.startsWith('image/')) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          insertImage(ev.target.result);
+          scheduleSave();
+        };
+        reader.readAsDataURL(file);
+        return;
+      }
+    }
+    // Fallback: plain text paste
     e.preventDefault();
-    const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+    const text = cd.getData('text/plain');
     document.execCommand('insertText', false, text);
+  });
+
+  function insertImage(src) {
+    const img = document.createElement('img');
+    img.src = src;
+    img.className = 'pasted-image';
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0 && editor.contains(sel.anchorNode)) {
+      const range = sel.getRangeAt(0);
+      range.deleteContents();
+      range.insertNode(img);
+      range.setStartAfter(img);
+      range.setEndAfter(img);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    } else {
+      editor.appendChild(img);
+    }
+  }
+
+  // Drag & drop image files into editor
+  editor.addEventListener('dragover', (e) => {
+    if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) {
+      e.preventDefault();
+    }
+  });
+  editor.addEventListener('drop', (e) => {
+    const files = e.dataTransfer && e.dataTransfer.files;
+    if (!files || !files.length) return;
+    const imgs = [...files].filter(f => f.type.startsWith('image/'));
+    if (!imgs.length) return;
+    e.preventDefault();
+    imgs.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        insertImage(ev.target.result);
+        scheduleSave();
+      };
+      reader.readAsDataURL(file);
+    });
   });
 
   // Close dropdown when clicking outside
