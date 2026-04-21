@@ -702,6 +702,65 @@ body.has-image-panel .editor-area {
   background: #3a56d4;
 }
 
+/* Import Overlay */
+.import-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.import-overlay[hidden] {
+  display: none;
+}
+
+.import-box {
+  background: #fff;
+  padding: 30px 40px;
+  border-radius: 12px;
+  min-width: 320px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+
+.import-spinner {
+  width: 40px;
+  height: 40px;
+  margin: 0 auto 16px;
+  border: 3px solid #e0e0e0;
+  border-top-color: #4361ee;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.import-text {
+  font-size: 14px;
+  color: #333;
+  margin-bottom: 12px;
+}
+
+.import-progress {
+  width: 100%;
+  height: 6px;
+  background: #e5e7eb;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.import-bar {
+  height: 100%;
+  background: #4361ee;
+  width: 0%;
+  transition: width 0.2s;
+}
+
 /* Scrollbar */
 .note-list::-webkit-scrollbar,
 .editor-wrapper::-webkit-scrollbar {

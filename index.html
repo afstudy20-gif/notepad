@@ -287,7 +287,16 @@
   </div>
 
   <!-- Hidden file input for Open -->
-  <input type="file" id="fileInput" accept=".txt,.md,.html" style="display:none">
+  <input type="file" id="fileInput" accept=".txt,.md,.html,.docx,.xlsx,.xls,.csv,.pdf,.jpg,.jpeg,.png,.gif,.bmp,.webp" style="display:none">
+
+  <!-- Import progress overlay -->
+  <div class="import-overlay" id="importOverlay" hidden>
+    <div class="import-box">
+      <div class="import-spinner"></div>
+      <div class="import-text" id="importText">Yükleniyor...</div>
+      <div class="import-progress"><div class="import-bar" id="importBar"></div></div>
+    </div>
+  </div>
   <!-- Hidden file input for image insert -->
   <input type="file" id="imageInput" accept="image/*" multiple style="display:none">
 

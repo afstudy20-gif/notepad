@@ -627,39 +627,194 @@
   $('#btnReplace').addEventListener('click', replaceText);
   $('#btnReplaceAll').addEventListener('click', replaceAll);
 
-  // Open file
-  fileInput.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
+  // --- Multi-format Importer ---
+  const CDN = {
+    mammoth: 'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.8.0/mammoth.browser.min.js',
+    xlsx: 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
+    pdfjs: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.mjs',
+    pdfWorker: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs',
+    tesseract: 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'
+  };
+
+  const loadedScripts = new Set();
+  function loadScript(url, isModule = false) {
+    if (loadedScripts.has(url)) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = url;
+      if (isModule) s.type = 'module';
+      s.onload = () => { loadedScripts.add(url); resolve(); };
+      s.onerror = () => reject(new Error('Script yüklenemedi: ' + url));
+      document.head.appendChild(s);
+    });
+  }
+
+  function showImport(text, pct = 0) {
+    const ov = $('#importOverlay');
+    ov.hidden = false;
+    $('#importText').textContent = text;
+    $('#importBar').style.width = Math.max(0, Math.min(100, pct)) + '%';
+  }
+
+  function hideImport() {
+    $('#importOverlay').hidden = true;
+  }
+
+  function readAs(file, how) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result);
+      r.onerror = () => reject(r.error);
+      r[how](file);
+    });
+  }
+
+  function sanitizeHtml(html) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    doc.querySelectorAll('script,style,iframe,object,embed,link,meta').forEach(el => el.remove());
+    doc.querySelectorAll('*').forEach(el => {
+      [...el.attributes].forEach(a => {
+        if (a.name.startsWith('on')) el.removeAttribute(a.name);
+        if (/^(href|src)$/i.test(a.name) && /^javascript:/i.test(a.value)) el.removeAttribute(a.name);
+      });
+    });
+    return doc.body.innerHTML;
+  }
+
+  async function importTxt(file) {
+    const text = await readAs(file, 'readAsText');
+    return escapeHtml(text).replace(/\n/g, '<br>');
+  }
+
+  async function importHtml(file) {
+    const text = await readAs(file, 'readAsText');
+    return sanitizeHtml(text);
+  }
+
+  async function importDocx(file) {
+    showImport('Word dosyası yükleniyor...');
+    await loadScript(CDN.mammoth);
+    const buf = await readAs(file, 'readAsArrayBuffer');
+    showImport('Word ayrıştırılıyor...', 50);
+    const res = await window.mammoth.convertToHtml({ arrayBuffer: buf });
+    return sanitizeHtml(res.value);
+  }
+
+  async function importXlsx(file) {
+    showImport('Excel dosyası yükleniyor...');
+    await loadScript(CDN.xlsx);
+    const buf = await readAs(file, 'readAsArrayBuffer');
+    showImport('Excel ayrıştırılıyor...', 50);
+    const wb = window.XLSX.read(buf, { type: 'array' });
+    const parts = [];
+    wb.SheetNames.forEach(name => {
+      parts.push(`<h3>${escapeHtml(name)}</h3>`);
+      parts.push(window.XLSX.utils.sheet_to_html(wb.Sheets[name], { editable: false }));
+    });
+    return sanitizeHtml(parts.join('\n'));
+  }
+
+  async function importPdf(file) {
+    showImport('PDF yükleniyor...');
+    // pdf.js v4 is ESM; use dynamic import
+    const pdfjs = await import(/* webpackIgnore: true */ CDN.pdfjs);
+    pdfjs.GlobalWorkerOptions.workerSrc = CDN.pdfWorker;
+    const buf = await readAs(file, 'readAsArrayBuffer');
+    const pdf = await pdfjs.getDocument({ data: buf }).promise;
+    const total = pdf.numPages;
+    const pages = [];
+    let needsOcr = false;
+    for (let i = 1; i <= total; i++) {
+      showImport(`PDF sayfa ${i}/${total} okunuyor...`, (i / total) * 50);
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      const text = content.items.map(it => it.str).join(' ').trim();
+      if (text) {
+        pages.push(`<p>${escapeHtml(text).replace(/\n/g, '<br>')}</p>`);
+      } else {
+        needsOcr = true;
+        pages.push({ ocrPageNum: i, page });
+      }
+    }
+    // OCR empty pages
+    if (needsOcr) {
+      await loadScript(CDN.tesseract);
+      for (let i = 0; i < pages.length; i++) {
+        if (typeof pages[i] !== 'object' || !pages[i].page) continue;
+        const { page, ocrPageNum } = pages[i];
+        showImport(`OCR sayfa ${ocrPageNum}/${total}...`, 50 + (ocrPageNum / total) * 50);
+        const viewport = page.getViewport({ scale: 2 });
+        const canvas = document.createElement('canvas');
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+        const { data } = await window.Tesseract.recognize(canvas, 'tur+eng', {
+          logger: m => {
+            if (m.status === 'recognizing text') {
+              showImport(`OCR sayfa ${ocrPageNum}/${total}: ${Math.round(m.progress * 100)}%`, 50 + (ocrPageNum / total) * 50);
+            }
+          }
+        });
+        pages[i] = `<p>${escapeHtml(data.text).replace(/\n/g, '<br>')}</p>`;
+      }
+    }
+    return pages.join('\n');
+  }
+
+  async function importImage(file) {
+    showImport('Resim OCR başlatılıyor...');
+    await loadScript(CDN.tesseract);
+    const dataUrl = await readAs(file, 'readAsDataURL');
+    const { data } = await window.Tesseract.recognize(dataUrl, 'tur+eng', {
+      logger: m => {
+        if (m.status === 'recognizing text') {
+          showImport(`OCR: ${Math.round(m.progress * 100)}%`, m.progress * 100);
+        }
+      }
+    });
+    const imgHtml = `<img src="${dataUrl}" class="pasted-image" alt="">`;
+    const textHtml = data.text.trim()
+      ? `<p><strong>OCR Metni:</strong></p><p>${escapeHtml(data.text).replace(/\n/g, '<br>')}</p>`
+      : '<p><em>Metin bulunamadı.</em></p>';
+    return imgHtml + textHtml;
+  }
+
+  async function importFile(file) {
+    const ext = (file.name.split('.').pop() || '').toLowerCase();
+    try {
+      let html;
+      if (['txt', 'md'].includes(ext)) html = await importTxt(file);
+      else if (ext === 'html') html = await importHtml(file);
+      else if (ext === 'docx') html = await importDocx(file);
+      else if (['xlsx', 'xls', 'csv'].includes(ext)) html = await importXlsx(file);
+      else if (ext === 'pdf') html = await importPdf(file);
+      else if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(ext)) html = await importImage(file);
+      else {
+        alert('Desteklenmeyen format: ' + ext);
+        return;
+      }
       createNote();
       const note = getActiveNote();
       note.title = file.name.replace(/\.[^.]+$/, '');
       noteTitle.value = note.title;
-      if (file.name.endsWith('.html')) {
-        // Sanitize: parse and strip scripts/event handlers
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(ev.target.result, 'text/html');
-        doc.querySelectorAll('script,style,iframe,object,embed,link,meta').forEach(el => el.remove());
-        doc.querySelectorAll('*').forEach(el => {
-          [...el.attributes].forEach(a => {
-            if (a.name.startsWith('on') || /^(href|src)$/i.test(a.name) && /^javascript:/i.test(a.value)) {
-              el.removeAttribute(a.name);
-            }
-          });
-        });
-        editor.innerHTML = doc.body.innerHTML;
-      } else {
-        editor.innerText = ev.target.result;
-      }
+      editor.innerHTML = html;
       note.content = editor.innerHTML;
       saveNotes();
       renderNoteList();
       updateCounts();
-    };
-    reader.readAsText(file);
+    } catch (err) {
+      console.error(err);
+      alert('İçe aktarma hatası: ' + (err.message || err));
+    } finally {
+      hideImport();
+    }
+  }
+
+  fileInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
     fileInput.value = '';
+    if (file) await importFile(file);
   });
 
   // Keyboard shortcuts
