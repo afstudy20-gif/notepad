@@ -359,18 +359,32 @@
     const img = document.createElement('img');
     img.src = src;
     img.className = 'pasted-image';
+    editor.focus();
     const sel = window.getSelection();
-    if (sel && sel.rangeCount > 0 && editor.contains(sel.anchorNode)) {
-      const range = sel.getRangeAt(0);
-      range.deleteContents();
-      range.insertNode(img);
-      range.setStartAfter(img);
-      range.setEndAfter(img);
-      sel.removeAllRanges();
-      sel.addRange(range);
-    } else {
-      editor.appendChild(img);
+    let inserted = false;
+    try {
+      if (sel && sel.rangeCount > 0 && editor.contains(sel.anchorNode)) {
+        const range = sel.getRangeAt(0);
+        range.deleteContents();
+        range.insertNode(img);
+        // Add line break after image
+        const br = document.createElement('br');
+        img.after(br);
+        const newRange = document.createRange();
+        newRange.setStartAfter(br);
+        newRange.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(newRange);
+        inserted = true;
+      }
+    } catch (err) {
+      inserted = false;
     }
+    if (!inserted) {
+      editor.appendChild(img);
+      editor.appendChild(document.createElement('br'));
+    }
+    img.scrollIntoView({ block: 'nearest' });
   }
 
   // Drag & drop image files into editor
@@ -926,12 +940,22 @@
   // Image file picker
   $('#imageInput').addEventListener('change', (e) => {
     const files = [...e.target.files].filter(f => f.type.startsWith('image/'));
+    if (!files.length) return;
     editor.focus();
+    let remaining = files.length;
     files.forEach(file => {
       const reader = new FileReader();
       reader.onload = (ev) => {
         insertImage(ev.target.result);
-        scheduleSave();
+        remaining--;
+        if (remaining === 0) {
+          updateCounts();
+          scheduleSave();
+        }
+      };
+      reader.onerror = () => {
+        alert('Resim yüklenemedi: ' + file.name);
+        remaining--;
       };
       reader.readAsDataURL(file);
     });
