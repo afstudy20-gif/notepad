@@ -327,7 +327,7 @@
   <script>
     // One-time force unregister any old SW + purge all caches, then hard reload
     (async () => {
-      const KEY = 'sw_purged_v21';
+      const KEY = 'sw_purged_v22';
       if (!('serviceWorker' in navigator)) return;
       if (localStorage.getItem(KEY)) return;
       try {
@@ -342,7 +342,7 @@
       location.reload();
     })();
   </script>
-  <script src="app.js?v=21"></script>
+  <script src="app.js?v=22"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

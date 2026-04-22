@@ -388,11 +388,12 @@ body.has-image-panel .editor-area {
   margin: 8px 0;
   display: block;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-  cursor: grab;
+  cursor: pointer;
   -webkit-user-drag: element;
   user-select: none;
   pointer-events: auto;
 }
+#editor img.img-selected { cursor: grab; }
 #editor img.img-selected:active { cursor: grabbing; }
 
 #editor img.img-selected {
@@ -633,7 +634,7 @@ body.has-image-panel .editor-area {
   border-color: #dc2626 !important;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 768px) {
   .image-panel {
     display: none;
   }
