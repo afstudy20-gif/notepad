@@ -1144,14 +1144,35 @@
 
   // Image file picker
   $('#imageInput').addEventListener('change', (e) => {
-    const files = [...e.target.files].filter(f => f.type.startsWith('image/'));
-    if (!files.length) return;
+    const allFiles = [...e.target.files];
+    console.log('[insertImage] files picked:', allFiles.map(f => f.name + ' ' + f.type));
+    const files = allFiles.filter(f => f.type.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp|svg|avif|heic)$/i.test(f.name));
+    if (!files.length) {
+      alert('Resim dosyası bulunamadı. Seçilen: ' + allFiles.map(f => f.name).join(', '));
+      e.target.value = '';
+      return;
+    }
+    if (!getActiveNote()) createNote();
     editor.focus();
+    // Put caret at end if no selection in editor
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0 || !editor.contains(sel.anchorNode)) {
+      const r = document.createRange();
+      r.selectNodeContents(editor);
+      r.collapse(false);
+      sel.removeAllRanges();
+      sel.addRange(r);
+    }
     let remaining = files.length;
     files.forEach(file => {
       const reader = new FileReader();
       reader.onload = (ev) => {
-        insertImage(ev.target.result);
+        try {
+          insertImage(ev.target.result);
+        } catch (err) {
+          console.error('[insertImage] insert failed', err);
+          alert('Resim eklenemedi: ' + err.message);
+        }
         remaining--;
         if (remaining === 0) {
           updateCounts();
