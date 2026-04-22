@@ -1227,13 +1227,21 @@
     img.dataset.editState = JSON.stringify(state);
   }
 
-  // --- Resize overlay ---
+  // --- Resize / Crop overlay (Word-style) ---
+  let cropMode = false;
+  let cropDraft = null; // {top,right,bottom,left} in %
+  let lockAspect = true;
+
   const selOverlay = document.createElement('div');
   selOverlay.className = 'img-sel-overlay';
   selOverlay.hidden = true;
-  selOverlay.innerHTML = ['nw','ne','sw','se'].map(p =>
-    `<div class="img-handle h-${p}" data-handle="${p}"></div>`
-  ).join('');
+  const HANDLES = ['nw','n','ne','e','se','s','sw','w'];
+  selOverlay.innerHTML =
+    '<div class="img-crop-mask mask-t"></div>' +
+    '<div class="img-crop-mask mask-r"></div>' +
+    '<div class="img-crop-mask mask-b"></div>' +
+    '<div class="img-crop-mask mask-l"></div>' +
+    HANDLES.map(p => `<div class="img-handle h-${p}" data-handle="${p}"></div>`).join('');
   document.body.appendChild(selOverlay);
 
   function positionOverlay() {
@@ -1247,11 +1255,29 @@
     selOverlay.style.top = r.top + 'px';
     selOverlay.style.width = r.width + 'px';
     selOverlay.style.height = r.height + 'px';
+    selOverlay.classList.toggle('crop-mode', cropMode);
+    updateCropMask();
+  }
+
+  function updateCropMask() {
+    const c = cropMode ? (cropDraft || { top:0,right:0,bottom:0,left:0 }) : null;
+    const t = selOverlay.querySelector('.mask-t');
+    const r = selOverlay.querySelector('.mask-r');
+    const b = selOverlay.querySelector('.mask-b');
+    const l = selOverlay.querySelector('.mask-l');
+    if (!cropMode) {
+      [t,r,b,l].forEach(el => { if (el) el.style.display = 'none'; });
+      return;
+    }
+    [t,r,b,l].forEach(el => { if (el) el.style.display = 'block'; });
+    t.style.cssText += `;top:0;left:0;right:0;height:${c.top}%`;
+    b.style.cssText += `;bottom:0;left:0;right:0;height:${c.bottom}%`;
+    l.style.cssText += `;top:${c.top}%;bottom:${c.bottom}%;left:0;width:${c.left}%`;
+    r.style.cssText += `;top:${c.top}%;bottom:${c.bottom}%;right:0;width:${c.right}%`;
   }
 
   window.addEventListener('scroll', positionOverlay, true);
   window.addEventListener('resize', positionOverlay);
-  // Refresh overlay after drop/drag
   editor.addEventListener('dragend', () => setTimeout(positionOverlay, 50));
   editor.addEventListener('drop', () => setTimeout(positionOverlay, 50));
 
@@ -1259,19 +1285,43 @@
     const h = e.target.dataset.handle;
     if (!h || !selectedImg) return;
     e.preventDefault(); e.stopPropagation();
-    const startX = e.clientX;
+
+    if (cropMode) {
+      startCropDrag(e, h);
+    } else {
+      startResizeDrag(e, h);
+    }
+  });
+
+  function startResizeDrag(e, h) {
+    const startX = e.clientX, startY = e.clientY;
     const startW = selectedImg.offsetWidth;
     const startH = selectedImg.offsetHeight;
     const aspect = startW / Math.max(1, startH);
-    const leftHandle = h.includes('w');
+    const west = h.includes('w'), east = h.includes('e');
+    const north = h.includes('n'), south = h.includes('s');
     const onMove = (ev) => {
       let dx = ev.clientX - startX;
-      if (leftHandle) dx = -dx;
-      const newW = Math.max(24, startW + dx);
+      let dy = ev.clientY - startY;
+      if (west) dx = -dx;
+      if (north) dy = -dy;
+      let newW = startW, newH = startH;
+      if (east || west) newW = Math.max(24, startW + dx);
+      if (north || south) newH = Math.max(24, startH + dy);
+      if (lockAspect) {
+        if ((east || west) && (north || south)) {
+          newH = newW / aspect;
+        } else if (east || west) {
+          newH = newW / aspect;
+        } else {
+          newW = newH * aspect;
+        }
+      }
       selectedImg.style.width = newW + 'px';
-      selectedImg.style.height = (newW / aspect) + 'px';
+      selectedImg.style.height = newH + 'px';
       positionOverlay();
       updatePanelPreview();
+      syncSizeInputs();
     };
     const onUp = () => {
       document.removeEventListener('pointermove', onMove);
@@ -1280,7 +1330,66 @@
     };
     document.addEventListener('pointermove', onMove);
     document.addEventListener('pointerup', onUp);
-  });
+  }
+
+  function startCropDrag(e, h) {
+    const rect = selectedImg.getBoundingClientRect();
+    const startX = e.clientX, startY = e.clientY;
+    const start = { ...cropDraft };
+    const onMove = (ev) => {
+      const dxP = ((ev.clientX - startX) / rect.width) * 100;
+      const dyP = ((ev.clientY - startY) / rect.height) * 100;
+      const c = { ...start };
+      if (h.includes('n')) c.top = Math.max(0, Math.min(100 - c.bottom - 5, start.top + dyP));
+      if (h.includes('s')) c.bottom = Math.max(0, Math.min(100 - c.top - 5, start.bottom - dyP));
+      if (h.includes('w')) c.left = Math.max(0, Math.min(100 - c.right - 5, start.left + dxP));
+      if (h.includes('e')) c.right = Math.max(0, Math.min(100 - c.left - 5, start.right - dxP));
+      cropDraft = c;
+      updateCropMask();
+    };
+    const onUp = () => {
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+    };
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+  }
+
+  function enterCropMode() {
+    if (!selectedImg) return;
+    cropMode = true;
+    const state = getImgState(selectedImg);
+    cropDraft = { ...state.crop };
+    $('#ipCropToggle').hidden = true;
+    $('#ipCropApply').hidden = false;
+    $('#ipCropCancel').hidden = false;
+    positionOverlay();
+  }
+
+  function exitCropMode() {
+    cropMode = false;
+    cropDraft = null;
+    $('#ipCropToggle').hidden = false;
+    $('#ipCropApply').hidden = true;
+    $('#ipCropCancel').hidden = true;
+    positionOverlay();
+  }
+
+  function applyCrop() {
+    if (!selectedImg || !cropDraft) { exitCropMode(); return; }
+    const state = getImgState(selectedImg);
+    state.crop = { ...cropDraft };
+    applyImgState(selectedImg, state);
+    exitCropMode();
+    scheduleSave();
+  }
+
+  function syncSizeInputs() {
+    const w = $('#ipWidth'), h = $('#ipHeight');
+    if (!selectedImg || !w || !h) return;
+    w.value = selectedImg.offsetWidth | 0;
+    h.value = selectedImg.offsetHeight | 0;
+  }
 
   function updatePanelPreview() {
     if (!selectedImg) return;
@@ -1295,7 +1404,7 @@
   }
 
   function selectImage(img) {
-    console.log('[select] selectImage fired', img);
+    if (selectedImg && selectedImg !== img && cropMode) exitCropMode();
     if (selectedImg) selectedImg.classList.remove('img-selected');
     selectedImg = img;
     img.classList.add('img-selected');
@@ -1306,7 +1415,7 @@
     syncPanelToImage(img);
     positionOverlay();
     updatePanelPreview();
-    console.log('[select] panel body hidden?', ipb && ipb.hidden, 'overlay hidden?', selOverlay.hidden);
+    syncSizeInputs();
   }
 
   function deselectImage() {
@@ -1398,15 +1507,64 @@
     scheduleSave();
   });
 
-  // Flip buttons
+  // Flip / rotate buttons
   imagePanel.addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-xform-btn]');
     if (!btn || !selectedImg) return;
     const state = getImgState(selectedImg);
     const key = btn.dataset.xformBtn;
-    state.xform[key] = !state.xform[key];
+    if (key === 'flipH' || key === 'flipV') {
+      state.xform[key] = !state.xform[key];
+    } else if (key === 'rotCW') {
+      state.xform.rotate = ((state.xform.rotate || 0) + 90) % 360;
+    } else if (key === 'rotCCW') {
+      state.xform.rotate = ((state.xform.rotate || 0) - 90 + 360) % 360;
+    }
     applyImgState(selectedImg, state);
+    syncPanelToImage(selectedImg);
+    positionOverlay();
     scheduleSave();
+  });
+
+  // Crop toggle buttons
+  $('#ipCropToggle').addEventListener('click', enterCropMode);
+  $('#ipCropApply').addEventListener('click', applyCrop);
+  $('#ipCropCancel').addEventListener('click', exitCropMode);
+
+  // Aspect lock
+  $('#ipLockAspect').addEventListener('click', () => {
+    lockAspect = !lockAspect;
+    const btn = $('#ipLockAspect');
+    btn.textContent = lockAspect ? '🔒' : '🔓';
+    btn.setAttribute('aria-pressed', lockAspect);
+  });
+
+  // Size inputs
+  $('#ipWidth').addEventListener('input', () => {
+    if (!selectedImg) return;
+    const w = parseInt($('#ipWidth').value, 10);
+    if (!w || w < 10) return;
+    const aspect = selectedImg.offsetWidth / Math.max(1, selectedImg.offsetHeight);
+    selectedImg.style.width = w + 'px';
+    if (lockAspect) {
+      const h = Math.round(w / aspect);
+      selectedImg.style.height = h + 'px';
+      $('#ipHeight').value = h;
+    }
+    positionOverlay(); updatePanelPreview(); scheduleSave();
+  });
+  $('#ipHeight').addEventListener('input', () => {
+    if (!selectedImg) return;
+    const h = parseInt($('#ipHeight').value, 10);
+    if (!h || h < 10) return;
+    const aspect = selectedImg.offsetWidth / Math.max(1, selectedImg.offsetHeight);
+    selectedImg.style.height = h + 'px';
+    if (lockAspect) {
+      const w = Math.round(h * aspect);
+      selectedImg.style.width = w + 'px';
+      $('#ipWidth').value = w;
+    }
+    positionOverlay(); updatePanelPreview(); scheduleSave();
   });
 
   $('#ipResetAll').addEventListener('click', () => {

@@ -8,7 +8,7 @@
   <title>Notepad — Local-Only Text Editor</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
-  <link rel="stylesheet" href="style.css?v=26">
+  <link rel="stylesheet" href="style.css?v=27">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -231,12 +231,39 @@
     </div>
     <div class="image-panel-body" id="imagePanelBody" hidden>
       <div class="ip-info" id="ipInfo"></div>
-      <div class="ip-actions">
-        <button id="ipReplace">Resmi Değiştir</button>
-        <button id="ipResetAll">Tümünü Sıfırla</button>
+
+      <div class="ip-group">
+        <div class="ip-group-title">Boyut</div>
+        <div class="ip-size-row">
+          <label>G<input type="number" id="ipWidth" min="10" step="1"></label>
+          <label>Y<input type="number" id="ipHeight" min="10" step="1"></label>
+          <button id="ipLockAspect" class="ip-lock" title="Oranı kilitle" aria-pressed="true">🔒</button>
+        </div>
       </div>
 
-      <div class="ip-section">
+      <div class="ip-group">
+        <div class="ip-group-title">Kırp</div>
+        <div class="ip-btn-row">
+          <button id="ipCropToggle" class="ip-toggle">✂ Kırp Modu</button>
+          <button id="ipCropApply" hidden>✓ Uygula</button>
+          <button id="ipCropCancel" hidden>✕ İptal</button>
+        </div>
+      </div>
+
+      <div class="ip-group">
+        <div class="ip-group-title">Dönüşüm</div>
+        <div class="ip-btn-row">
+          <button data-xform-btn="rotCCW" title="Sola 90°">↺ 90°</button>
+          <button data-xform-btn="rotCW" title="Sağa 90°">↻ 90°</button>
+          <button data-xform-btn="flipH" title="Yatay çevir">⇋</button>
+          <button data-xform-btn="flipV" title="Dikey çevir">⇵</button>
+        </div>
+        <label>Döndür <span data-val="rotate">0°</span></label>
+        <input type="range" data-xform="rotate" min="-180" max="180" step="1" value="0">
+      </div>
+
+      <div class="ip-group">
+        <div class="ip-group-title">Düzeltmeler</div>
         <label>Parlaklık <span data-val="brightness">1.00</span></label>
         <input type="range" data-filter="brightness" min="0" max="3" step="0.01" value="1">
         <label>Kontrast <span data-val="contrast">1.00</span></label>
@@ -247,6 +274,10 @@
         <input type="range" data-filter="hue-rotate" min="0" max="360" step="1" value="0">
         <label>Bulanıklık <span data-val="blur">0px</span></label>
         <input type="range" data-filter="blur" min="0" max="20" step="0.1" value="0">
+      </div>
+
+      <div class="ip-group">
+        <div class="ip-group-title">Sanatsal Efektler</div>
         <label>Gri Ton <span data-val="grayscale">0.00</span></label>
         <input type="range" data-filter="grayscale" min="0" max="1" step="0.01" value="0">
         <label>Sepya <span data-val="sepia">0.00</span></label>
@@ -255,30 +286,12 @@
         <input type="range" data-filter="invert" min="0" max="1" step="0.01" value="0">
       </div>
 
-      <div class="ip-section">
-        <h4>Kırp</h4>
-        <label>Üst <span data-val="cropTop">0%</span></label>
-        <input type="range" data-crop="top" min="0" max="90" step="1" value="0">
-        <label>Sağ <span data-val="cropRight">0%</span></label>
-        <input type="range" data-crop="right" min="0" max="90" step="1" value="0">
-        <label>Alt <span data-val="cropBottom">0%</span></label>
-        <input type="range" data-crop="bottom" min="0" max="90" step="1" value="0">
-        <label>Sol <span data-val="cropLeft">0%</span></label>
-        <input type="range" data-crop="left" min="0" max="90" step="1" value="0">
-      </div>
-
-      <div class="ip-section">
-        <h4>Dönüşüm</h4>
-        <label>Döndür <span data-val="rotate">0°</span></label>
-        <input type="range" data-xform="rotate" min="-180" max="180" step="1" value="0">
-        <div class="ip-buttons">
-          <button data-xform-btn="flipH">Yatay Çevir</button>
-          <button data-xform-btn="flipV">Dikey Çevir</button>
+      <div class="ip-group">
+        <div class="ip-btn-row">
+          <button id="ipReplace">Değiştir</button>
+          <button id="ipResetAll">Sıfırla</button>
+          <button id="ipDelete" class="ip-danger">Sil</button>
         </div>
-      </div>
-
-      <div class="ip-actions">
-        <button id="ipDelete" class="ip-danger">Resmi Sil</button>
       </div>
     </div>
   </aside>
@@ -341,7 +354,7 @@
       location.reload();
     })();
   </script>
-  <script src="app.js?v=26"></script>
+  <script src="app.js?v=27"></script>
   <script>
     // Always unregister any SW on load — no caching layer
     if ('serviceWorker' in navigator) {
