@@ -1290,14 +1290,18 @@
   }
 
   function selectImage(img) {
+    console.log('[select] selectImage fired', img);
     if (selectedImg) selectedImg.classList.remove('img-selected');
     selectedImg = img;
     img.classList.add('img-selected');
-    $('#imagePanelEmpty').hidden = true;
-    $('#imagePanelBody').hidden = false;
+    const ipe = $('#imagePanelEmpty');
+    const ipb = $('#imagePanelBody');
+    if (ipe) ipe.hidden = true;
+    if (ipb) ipb.hidden = false;
     syncPanelToImage(img);
     positionOverlay();
     updatePanelPreview();
+    console.log('[select] panel body hidden?', ipb && ipb.hidden, 'overlay hidden?', selOverlay.hidden);
   }
 
   function deselectImage() {
@@ -1345,6 +1349,7 @@
   // Image selection — use mousedown without preventDefault so native drag still works
   document.addEventListener('mousedown', (e) => {
     const img = e.target.closest && e.target.closest('#editor img');
+    console.log('[select] mousedown target=', e.target.tagName, 'img?', !!img);
     if (img) {
       selectImage(img);
       return;
@@ -1353,7 +1358,13 @@
     if (!selectedImg) return;
     if (e.target.closest('.image-panel')) return;
     if (e.target.closest('.toolbar')) return;
+    if (e.target.closest('#editorContextMenu')) return;
     deselectImage();
+  }, true);
+  // Right-click image also selects it
+  document.addEventListener('contextmenu', (e) => {
+    const img = e.target.closest && e.target.closest('#editor img');
+    if (img) selectImage(img);
   }, true);
 
   // Also handle click as backup
