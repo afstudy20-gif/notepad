@@ -642,6 +642,11 @@
     const inEditor = e.target === editor || (editor.contains && editor.contains(e.target));
     console.log('[editorCtx] contextmenu target=', e.target, 'inEditor=', inEditor);
     if (!inEditor) return;
+    // If right-click landed on an image, select it so tools/handles appear
+    const img = e.target.closest && e.target.closest('#editor img');
+    if (img && typeof selectImage === 'function') {
+      try { selectImage(img); } catch (err) { console.error('[editorCtx] selectImage failed', err); }
+    }
     e.preventDefault();
     e.stopPropagation();
     saveSelection();
@@ -1364,6 +1369,7 @@
   // Right-click image also selects it
   document.addEventListener('contextmenu', (e) => {
     const img = e.target.closest && e.target.closest('#editor img');
+    console.log('[select] contextmenu-select img?', !!img);
     if (img) selectImage(img);
   }, true);
 
