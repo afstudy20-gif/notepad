@@ -222,6 +222,11 @@
       <p>Düzenlemek için bir resme tıklayın</p>
     </div>
     <div class="image-panel-body" id="imagePanelBody" hidden>
+      <div class="ip-preview">
+        <img id="ipPreview" alt="Seçili resim">
+        <div class="ip-info" id="ipInfo"></div>
+      </div>
+      <div class="ip-hint">Köşe tutamaçlarını sürükleyerek yeniden boyutlandırın. Sürükle-bırak ile taşıyın.</div>
       <div class="ip-actions">
         <button id="ipReplace">Resmi Değiştir</button>
         <button id="ipResetAll">Tümünü Sıfırla</button>
@@ -266,12 +271,6 @@
           <button data-xform-btn="flipH">Yatay Çevir</button>
           <button data-xform-btn="flipV">Dikey Çevir</button>
         </div>
-      </div>
-
-      <div class="ip-section">
-        <h4>Boyut</h4>
-        <label>Genişlik <span data-val="width">100%</span></label>
-        <input type="range" data-size="width" min="10" max="100" step="1" value="100">
       </div>
 
       <div class="ip-actions">
@@ -323,7 +322,7 @@
   <script>
     // One-time force unregister any old SW + purge all caches, then hard reload
     (async () => {
-      const KEY = 'sw_purged_v19';
+      const KEY = 'sw_purged_v20';
       if (!('serviceWorker' in navigator)) return;
       if (localStorage.getItem(KEY)) return;
       try {
@@ -338,7 +337,7 @@
       location.reload();
     })();
   </script>
-  <script src="app.js?v=19"></script>
+  <script src="app.js?v=20"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

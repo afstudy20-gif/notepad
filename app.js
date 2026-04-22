@@ -1064,8 +1064,7 @@
   const defaultImgState = () => ({
     filters: { brightness: 1, contrast: 1, saturate: 1, 'hue-rotate': 0, blur: 0, grayscale: 0, sepia: 0, invert: 0 },
     crop: { top: 0, right: 0, bottom: 0, left: 0 },
-    xform: { rotate: 0, flipH: false, flipV: false },
-    size: { width: 100 }
+    xform: { rotate: 0, flipH: false, flipV: false }
   });
 
   function getImgState(img) {
@@ -1097,10 +1096,79 @@
     const scaleY = x.flipV ? -1 : 1;
     img.style.transform = `rotate(${x.rotate}deg) scale(${scaleX}, ${scaleY})`;
 
-    img.style.width = state.size.width + '%';
+    // Do NOT force width — preserve natural/user-set size
     img.style.maxWidth = '100%';
 
     img.dataset.editState = JSON.stringify(state);
+  }
+
+  // --- Resize overlay ---
+  const selOverlay = document.createElement('div');
+  selOverlay.className = 'img-sel-overlay';
+  selOverlay.hidden = true;
+  selOverlay.innerHTML = ['nw','ne','sw','se'].map(p =>
+    `<div class="img-handle h-${p}" data-handle="${p}"></div>`
+  ).join('');
+  document.body.appendChild(selOverlay);
+
+  function positionOverlay() {
+    if (!selectedImg || !document.contains(selectedImg)) {
+      selOverlay.hidden = true;
+      return;
+    }
+    const r = selectedImg.getBoundingClientRect();
+    selOverlay.hidden = false;
+    selOverlay.style.left = r.left + 'px';
+    selOverlay.style.top = r.top + 'px';
+    selOverlay.style.width = r.width + 'px';
+    selOverlay.style.height = r.height + 'px';
+  }
+
+  window.addEventListener('scroll', positionOverlay, true);
+  window.addEventListener('resize', positionOverlay);
+  // Refresh overlay after drop/drag
+  editor.addEventListener('dragend', () => setTimeout(positionOverlay, 50));
+  editor.addEventListener('drop', () => setTimeout(positionOverlay, 50));
+
+  selOverlay.addEventListener('pointerdown', (e) => {
+    const h = e.target.dataset.handle;
+    if (!h || !selectedImg) return;
+    e.preventDefault(); e.stopPropagation();
+    const startX = e.clientX;
+    const startW = selectedImg.offsetWidth;
+    const startH = selectedImg.offsetHeight;
+    const aspect = startW / Math.max(1, startH);
+    const leftHandle = h.includes('w');
+    const onMove = (ev) => {
+      let dx = ev.clientX - startX;
+      if (leftHandle) dx = -dx;
+      const newW = Math.max(24, startW + dx);
+      selectedImg.style.width = newW + 'px';
+      selectedImg.style.height = (newW / aspect) + 'px';
+      positionOverlay();
+      updatePanelPreview();
+    };
+    const onUp = () => {
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      scheduleSave();
+    };
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+  });
+
+  function updatePanelPreview() {
+    if (!selectedImg) return;
+    const prev = $('#ipPreview');
+    const info = $('#ipInfo');
+    if (prev) prev.src = selectedImg.src;
+    if (info) {
+      const w = selectedImg.offsetWidth | 0;
+      const h = selectedImg.offsetHeight | 0;
+      const nw = selectedImg.naturalWidth | 0;
+      const nh = selectedImg.naturalHeight | 0;
+      info.textContent = `${w}×${h}px (orjinal ${nw}×${nh})`;
+    }
   }
 
   function selectImage(img) {
@@ -1110,6 +1178,8 @@
     $('#imagePanelEmpty').hidden = true;
     $('#imagePanelBody').hidden = false;
     syncPanelToImage(img);
+    positionOverlay();
+    updatePanelPreview();
   }
 
   function deselectImage() {
@@ -1117,6 +1187,7 @@
     selectedImg = null;
     $('#imagePanelEmpty').hidden = false;
     $('#imagePanelBody').hidden = true;
+    selOverlay.hidden = true;
   }
 
   function syncPanelToImage(img) {
@@ -1136,10 +1207,6 @@
       inp.value = state.xform[inp.dataset.xform];
       updateValDisplay(inp);
     });
-    imagePanel.querySelectorAll('input[data-size]').forEach(inp => {
-      inp.value = state.size[inp.dataset.size];
-      updateValDisplay(inp);
-    });
   }
 
   function updateValDisplay(inp) {
@@ -1157,14 +1224,14 @@
 
   function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
-  // Image selection via pointerdown (fires before focus changes). Delegated on document.
-  document.addEventListener('pointerdown', (e) => {
+  // Image selection — use mousedown without preventDefault so native drag still works
+  document.addEventListener('mousedown', (e) => {
     const img = e.target.closest && e.target.closest('#editor img');
     if (img) {
-      e.preventDefault();
       selectImage(img);
       return;
     }
+    if (e.target.closest('.img-sel-overlay')) return;
     if (!selectedImg) return;
     if (e.target.closest('.image-panel')) return;
     if (e.target.closest('.toolbar')) return;
@@ -1188,7 +1255,6 @@
     if (inp.dataset.filter) state.filters[inp.dataset.filter] = parseFloat(inp.value);
     else if (inp.dataset.crop) state.crop[inp.dataset.crop] = parseFloat(inp.value);
     else if (inp.dataset.xform) state.xform[inp.dataset.xform] = parseFloat(inp.value);
-    else if (inp.dataset.size) state.size[inp.dataset.size] = parseFloat(inp.value);
     applyImgState(selectedImg, state);
     updateValDisplay(inp);
     scheduleSave();
