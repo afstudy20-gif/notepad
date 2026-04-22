@@ -1052,11 +1052,13 @@
   });
 
   // --- Init ---
+  // --- Image Editor state (must be declared before loadNotes → loadNote → deselectImage) ---
+  let selectedImg = null;
+
   document.body.classList.add('has-image-panel');
   loadNotes();
 
   // --- Image Editor ---
-  let selectedImg = null;
   const imagePanel = $('#imagePanel');
 
   const defaultImgState = () => ({
