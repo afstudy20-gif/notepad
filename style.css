@@ -425,39 +425,13 @@ body.has-image-panel .editor-area {
 .h-sw { left: -6px; bottom: -6px; cursor: nesw-resize; }
 .h-se { right: -6px; bottom: -6px; cursor: nwse-resize; }
 
-/* Image panel preview */
-.ip-preview {
-  background: #f7f8fc;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 10px;
-  margin-bottom: 10px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-}
-.ip-preview img {
-  max-width: 100%;
-  max-height: 140px;
-  border-radius: 4px;
-  background: #fff;
-  object-fit: contain;
-}
 .ip-info {
   font-size: 11px;
   color: #666;
   text-align: center;
-}
-.ip-hint {
-  font-size: 11px;
-  color: #888;
-  background: #fffbe8;
-  border: 1px solid #fde68a;
-  padding: 6px 8px;
-  border-radius: 6px;
-  margin-bottom: 10px;
-  line-height: 1.4;
+  padding: 4px 0 8px;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 8px;
 }
 
 /* Context Menu */
@@ -514,15 +488,17 @@ body.has-image-panel .editor-area {
 }
 
 .image-panel-empty {
-  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   color: #aaa;
-  padding: 20px;
+  padding: 14px;
   text-align: center;
+  font-size: 12px;
 }
+.image-panel-empty[hidden] { display: none !important; }
+.image-panel-empty svg { width: 32px; height: 32px; }
 
 .image-panel-empty p {
   margin-top: 12px;
@@ -537,7 +513,7 @@ body.has-image-panel .editor-area {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 16px;
+  padding: 8px 12px;
   border-bottom: 1px solid #eee;
 }
 

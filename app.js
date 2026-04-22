@@ -1282,15 +1282,13 @@
 
   function updatePanelPreview() {
     if (!selectedImg) return;
-    const prev = $('#ipPreview');
     const info = $('#ipInfo');
-    if (prev) prev.src = selectedImg.src;
     if (info) {
       const w = selectedImg.offsetWidth | 0;
       const h = selectedImg.offsetHeight | 0;
       const nw = selectedImg.naturalWidth | 0;
       const nh = selectedImg.naturalHeight | 0;
-      info.textContent = `${w}×${h}px (orjinal ${nw}×${nh})`;
+      info.textContent = `${w}×${h}px · orijinal ${nw}×${nh}`;
     }
   }
 
@@ -1384,7 +1382,9 @@
 
   // Slider bindings
   imagePanel.addEventListener('input', (e) => {
-    if (!selectedImg || e.target.tagName !== 'INPUT') return;
+    console.log('[panel] input fired', e.target.dataset);
+    if (!selectedImg) { console.warn('[panel] no selectedImg'); return; }
+    if (e.target.tagName !== 'INPUT') return;
     const inp = e.target;
     const state = getImgState(selectedImg);
     if (inp.dataset.filter) state.filters[inp.dataset.filter] = parseFloat(inp.value);
@@ -1392,6 +1392,7 @@
     else if (inp.dataset.xform) state.xform[inp.dataset.xform] = parseFloat(inp.value);
     applyImgState(selectedImg, state);
     updateValDisplay(inp);
+    positionOverlay();
     scheduleSave();
   });
 
