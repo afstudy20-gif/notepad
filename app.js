@@ -657,6 +657,12 @@
     if (!btn) return;
     const action = btn.dataset.ectx;
     editorCtx.hidden = true;
+    // Trigger file picker BEFORE any await (user activation required)
+    if (action === 'uploadImage') {
+      const inp = $('#imageInput');
+      if (inp) { inp.value = ''; inp.click(); }
+      return;
+    }
     restoreSelection();
     try {
       if (action === 'cut') {

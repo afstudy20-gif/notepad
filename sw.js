@@ -1,5 +1,5 @@
 // Minimal SW: PWA install only, no fetch caching (avoids stale app code).
-const CACHE = 'notepad-v17';
+const CACHE = 'notepad-v18';
 
 self.addEventListener('install', () => {
   self.skipWaiting();
