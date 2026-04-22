@@ -39,6 +39,11 @@
       <input type="file" id="backupInput" accept=".json" style="display:none">
     </div>
     <div class="sidebar-footer" style="border-top:none;padding-top:0">
+      <button id="btnExportSql" title="Export all notes as SQL dump">Export SQL</button>
+      <button id="btnImportSql" title="Import SQL dump">Import SQL</button>
+      <input type="file" id="sqlInput" accept=".sql" style="display:none">
+    </div>
+    <div class="sidebar-footer" style="border-top:none;padding-top:0">
       <select id="ocrEngine" title="OCR Motoru" style="flex:1;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.75);border:1px solid rgba(255,255,255,0.1);border-radius:5px;padding:6px;font-size:11px">
         <option value="paddle">OCR: PaddleOCR (hızlı)</option>
         <option value="tesseract">OCR: Tesseract (TR iyi)</option>
@@ -322,7 +327,7 @@
   <script>
     // One-time force unregister any old SW + purge all caches, then hard reload
     (async () => {
-      const KEY = 'sw_purged_v20';
+      const KEY = 'sw_purged_v21';
       if (!('serviceWorker' in navigator)) return;
       if (localStorage.getItem(KEY)) return;
       try {
@@ -337,7 +342,7 @@
       location.reload();
     })();
   </script>
-  <script src="app.js?v=20"></script>
+  <script src="app.js?v=21"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

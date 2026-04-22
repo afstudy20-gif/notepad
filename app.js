@@ -1044,6 +1044,124 @@
     e.target.value = '';
   });
 
+  // --- SQL Export/Import ---
+  function sqlEscape(v) {
+    if (v === null || v === undefined) return 'NULL';
+    if (typeof v === 'number') return String(v);
+    return "'" + String(v).replace(/'/g, "''") + "'";
+  }
+
+  function buildSqlDump(list) {
+    const lines = [
+      '-- Notepad SQL Dump',
+      '-- Exported: ' + new Date().toISOString(),
+      'DROP TABLE IF EXISTS notes;',
+      'CREATE TABLE notes (',
+      '  id TEXT PRIMARY KEY,',
+      '  title TEXT,',
+      '  content TEXT,',
+      '  page_size TEXT,',
+      '  page_orientation TEXT,',
+      '  updated INTEGER',
+      ');',
+      ''
+    ];
+    for (const n of list) {
+      lines.push(
+        'INSERT INTO notes (id, title, content, page_size, page_orientation, updated) VALUES (' +
+        [sqlEscape(n.id), sqlEscape(n.title || ''), sqlEscape(n.content || ''),
+         sqlEscape(n.pageSize || 'free'), sqlEscape(n.pageOrientation || 'portrait'),
+         Number(n.updated || Date.now())].join(', ') + ');'
+      );
+    }
+    return lines.join('\n');
+  }
+
+  function parseSqlDump(sql) {
+    const rows = [];
+    const re = /INSERT\s+INTO\s+notes\s*\([^)]*\)\s*VALUES\s*\(([\s\S]*?)\)\s*;/gi;
+    let m;
+    while ((m = re.exec(sql)) !== null) {
+      const vals = splitSqlValues(m[1]);
+      if (vals.length < 6) continue;
+      rows.push({
+        id: unquote(vals[0]),
+        title: unquote(vals[1]),
+        content: unquote(vals[2]),
+        pageSize: unquote(vals[3]) || 'free',
+        pageOrientation: unquote(vals[4]) || 'portrait',
+        updated: parseInt(vals[5], 10) || Date.now()
+      });
+    }
+    return rows;
+  }
+
+  function splitSqlValues(s) {
+    const out = [];
+    let buf = '', inStr = false, i = 0;
+    while (i < s.length) {
+      const ch = s[i];
+      if (inStr) {
+        if (ch === "'" && s[i+1] === "'") { buf += "''"; i += 2; continue; }
+        if (ch === "'") { inStr = false; buf += ch; i++; continue; }
+        buf += ch; i++;
+      } else {
+        if (ch === "'") { inStr = true; buf += ch; i++; continue; }
+        if (ch === ',') { out.push(buf.trim()); buf = ''; i++; continue; }
+        buf += ch; i++;
+      }
+    }
+    if (buf.trim()) out.push(buf.trim());
+    return out;
+  }
+
+  function unquote(s) {
+    s = s.trim();
+    if (s === 'NULL') return '';
+    if (s.startsWith("'") && s.endsWith("'")) {
+      return s.slice(1, -1).replace(/''/g, "'");
+    }
+    return s;
+  }
+
+  $('#btnExportSql').addEventListener('click', () => {
+    const sql = buildSqlDump(notes);
+    const blob = new Blob([sql], { type: 'application/sql' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `notepad-${new Date().toISOString().slice(0,10)}.sql`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+  $('#btnImportSql').addEventListener('click', () => $('#sqlInput').click());
+  $('#sqlInput').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const rows = parseSqlDump(ev.target.result);
+        if (!rows.length) throw new Error('No INSERT rows found');
+        if (!confirm(`Import ${rows.length} notes from SQL?`)) return;
+        const existingIds = new Set(notes.map(n => n.id));
+        let added = 0;
+        for (const n of rows) {
+          if (!n.id) n.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+          if (!existingIds.has(n.id)) { notes.push(n); added++; }
+        }
+        notes.sort((a, b) => (b.updated || 0) - (a.updated || 0));
+        saveNotes();
+        renderNoteList();
+        alert(`${added} not içe aktarıldı.`);
+      } catch (err) {
+        alert('SQL içe aktarma başarısız: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+
   // Click outside dialog to close
   $('#findReplaceDialog').addEventListener('click', (e) => {
     if (e.target === $('#findReplaceDialog')) {
