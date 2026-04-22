@@ -1184,11 +1184,13 @@
   // --- Image Editor ---
   const imagePanel = $('#imagePanel');
 
-  const defaultImgState = () => ({
-    filters: { brightness: 1, contrast: 1, saturate: 1, 'hue-rotate': 0, blur: 0, grayscale: 0, sepia: 0, invert: 0 },
-    crop: { top: 0, right: 0, bottom: 0, left: 0 },
-    xform: { rotate: 0, flipH: false, flipV: false }
-  });
+  function defaultImgState() {
+    return {
+      filters: { brightness: 1, contrast: 1, saturate: 1, 'hue-rotate': 0, blur: 0, grayscale: 0, sepia: 0, invert: 0 },
+      crop: { top: 0, right: 0, bottom: 0, left: 0 },
+      xform: { rotate: 0, flipH: false, flipV: false }
+    };
+  }
 
   function getImgState(img) {
     try {
