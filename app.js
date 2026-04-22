@@ -1177,12 +1177,24 @@
   // --- Init ---
   // --- Image Editor state (must be declared before loadNotes → loadNote → deselectImage) ---
   let selectedImg = null;
+  let cropMode = false;
+  let cropDraft = null;
+  let lockAspect = true;
+  const imagePanel = $('#imagePanel');
+  const selOverlay = document.createElement('div');
+  selOverlay.className = 'img-sel-overlay';
+  selOverlay.hidden = true;
+  const HANDLES = ['nw','n','ne','e','se','s','sw','w'];
+  selOverlay.innerHTML =
+    '<div class="img-crop-mask mask-t"></div>' +
+    '<div class="img-crop-mask mask-r"></div>' +
+    '<div class="img-crop-mask mask-b"></div>' +
+    '<div class="img-crop-mask mask-l"></div>' +
+    HANDLES.map(p => `<div class="img-handle h-${p}" data-handle="${p}"></div>`).join('');
+  document.body.appendChild(selOverlay);
 
   document.body.classList.add('has-image-panel');
   loadNotes();
-
-  // --- Image Editor ---
-  const imagePanel = $('#imagePanel');
 
   function defaultImgState() {
     return {
@@ -1228,22 +1240,6 @@
   }
 
   // --- Resize / Crop overlay (Word-style) ---
-  let cropMode = false;
-  let cropDraft = null; // {top,right,bottom,left} in %
-  let lockAspect = true;
-
-  const selOverlay = document.createElement('div');
-  selOverlay.className = 'img-sel-overlay';
-  selOverlay.hidden = true;
-  const HANDLES = ['nw','n','ne','e','se','s','sw','w'];
-  selOverlay.innerHTML =
-    '<div class="img-crop-mask mask-t"></div>' +
-    '<div class="img-crop-mask mask-r"></div>' +
-    '<div class="img-crop-mask mask-b"></div>' +
-    '<div class="img-crop-mask mask-l"></div>' +
-    HANDLES.map(p => `<div class="img-handle h-${p}" data-handle="${p}"></div>`).join('');
-  document.body.appendChild(selOverlay);
-
   function positionOverlay() {
     if (!selectedImg || !document.contains(selectedImg)) {
       selOverlay.hidden = true;
