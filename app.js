@@ -638,15 +638,19 @@
     }
   }
 
-  editor.addEventListener('contextmenu', (e) => {
+  document.addEventListener('contextmenu', (e) => {
+    const inEditor = e.target === editor || (editor.contains && editor.contains(e.target));
+    console.log('[editorCtx] contextmenu target=', e.target, 'inEditor=', inEditor);
+    if (!inEditor) return;
     e.preventDefault();
+    e.stopPropagation();
     saveSelection();
     const vw = window.innerWidth, vh = window.innerHeight;
-    const mw = 220, mh = 180;
+    const mw = 220, mh = 220;
     editorCtx.hidden = false;
     editorCtx.style.left = Math.min(e.clientX, vw - mw) + 'px';
     editorCtx.style.top = Math.min(e.clientY, vh - mh) + 'px';
-  });
+  }, true);
 
   editorCtx.addEventListener('click', async (e) => {
     const btn = e.target.closest('button[data-ectx]');
