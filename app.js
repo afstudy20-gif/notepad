@@ -619,6 +619,89 @@
   });
   window.addEventListener('blur', () => ctxMenu.hidden = true);
 
+  // --- Editor context menu ---
+  const editorCtx = $('#editorContextMenu');
+  let savedRange = null;
+
+  function saveSelection() {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0 && editor.contains(sel.anchorNode)) {
+      savedRange = sel.getRangeAt(0).cloneRange();
+    }
+  }
+  function restoreSelection() {
+    editor.focus();
+    if (savedRange) {
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(savedRange);
+    }
+  }
+
+  editor.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    saveSelection();
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const mw = 220, mh = 180;
+    editorCtx.hidden = false;
+    editorCtx.style.left = Math.min(e.clientX, vw - mw) + 'px';
+    editorCtx.style.top = Math.min(e.clientY, vh - mh) + 'px';
+  });
+
+  editorCtx.addEventListener('click', async (e) => {
+    const btn = e.target.closest('button[data-ectx]');
+    if (!btn) return;
+    const action = btn.dataset.ectx;
+    editorCtx.hidden = true;
+    restoreSelection();
+    try {
+      if (action === 'cut') {
+        document.execCommand('cut');
+      } else if (action === 'copy') {
+        document.execCommand('copy');
+      } else if (action === 'paste') {
+        if (navigator.clipboard && navigator.clipboard.readText) {
+          const txt = await navigator.clipboard.readText();
+          document.execCommand('insertText', false, txt);
+        } else {
+          alert('Tarayıcı pano okumayı desteklemiyor. Ctrl+V kullanın.');
+        }
+      } else if (action === 'pasteImage') {
+        if (!navigator.clipboard || !navigator.clipboard.read) {
+          alert('Tarayıcı pano resim okumayı desteklemiyor. Ctrl+V kullanın.');
+          return;
+        }
+        const items = await navigator.clipboard.read();
+        let found = false;
+        for (const item of items) {
+          const type = item.types.find(t => t.startsWith('image/'));
+          if (!type) continue;
+          const blob = await item.getType(type);
+          const reader = new FileReader();
+          reader.onload = (ev) => { insertImage(ev.target.result); scheduleSave(); };
+          reader.readAsDataURL(blob);
+          found = true;
+          break;
+        }
+        if (!found) alert('Panoda resim bulunamadı.');
+      } else if (action === 'uploadImage') {
+        const inp = $('#imageInput');
+        if (inp) { inp.value = ''; inp.click(); }
+      }
+    } catch (err) {
+      console.error('[editorCtx]', err);
+      alert('İşlem başarısız: ' + err.message);
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('#editorContextMenu')) editorCtx.hidden = true;
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') editorCtx.hidden = true;
+  });
+  window.addEventListener('blur', () => editorCtx.hidden = true);
+
   // Delete note
   $('#btnDelete').addEventListener('click', () => {
     if (confirm('Delete this note?')) {
