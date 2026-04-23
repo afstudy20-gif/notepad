@@ -1014,6 +1014,40 @@
     if (window.innerWidth <= 768) $('#sidebar').classList.remove('open');
   });
 
+  // Email JSON backup — Web Share API with file attachment, fallback to download + mailto
+  $('#btnEmailJson').addEventListener('click', async () => {
+    const backup = { version: 1, exported: new Date().toISOString(), notes };
+    const json = JSON.stringify(backup, null, 2);
+    const fileName = `notepad-backup-${new Date().toISOString().slice(0,10)}.json`;
+    const blob = new Blob([json], { type: 'application/json' });
+    const file = new File([blob], fileName, { type: 'application/json' });
+
+    const to = prompt('Alıcı e-posta (boş bırakabilirsiniz):', '') || '';
+    const subject = `Notepad Yedeği — ${new Date().toLocaleDateString()}`;
+    const body = `${notes.length} not içeren JSON yedeği ekte.\n\nDışa aktarılma: ${new Date().toLocaleString()}`;
+
+    // Try Web Share API Level 2 (supports file attachment on mobile + some desktop)
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: subject, text: body });
+        return;
+      } catch (err) {
+        if (err.name === 'AbortError') return;
+        console.warn('[emailJson] share failed, falling back', err);
+      }
+    }
+
+    // Fallback: download file + open mailto with instructions
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = fileName;
+    a.click();
+    URL.revokeObjectURL(a.href);
+
+    const mailto = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body + '\n\n(JSON dosyası indirildi — lütfen ek olarak manuel iliştirin: ' + fileName + ')')}`;
+    window.location.href = mailto;
+  });
+
   // Export all notes as JSON backup
   $('#btnExportAll').addEventListener('click', () => {
     const backup = { version: 1, exported: new Date().toISOString(), notes };

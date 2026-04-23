@@ -42,6 +42,9 @@
       <input type="file" id="backupInput" accept=".json" style="display:none">
     </div>
     <div class="sidebar-footer" style="border-top:none;padding-top:0">
+      <button id="btnEmailJson" title="JSON yedeği e-posta eki olarak gönder">Email JSON</button>
+    </div>
+    <div class="sidebar-footer" style="border-top:none;padding-top:0">
       <button id="btnExportSql" title="Export all notes as SQL dump">Export SQL</button>
       <button id="btnImportSql" title="Import SQL dump">Import SQL</button>
       <input type="file" id="sqlInput" accept=".sql" style="display:none">
@@ -354,7 +357,7 @@
       location.reload();
     })();
   </script>
-  <script src="app.js?v=29"></script>
+  <script src="app.js?v=30"></script>
   <script>
     // Always unregister any SW on load — no caching layer
     if ('serviceWorker' in navigator) {
