@@ -1,4 +1,6 @@
 (() => {
+  console.log('[init] app.js v28 starting');
+  window.addEventListener('error', (e) => console.error('[GLOBAL ERROR]', e.error || e.message, e.filename, e.lineno));
   const STORAGE_KEY = 'notepad_notes';
   const ACTIVE_KEY = 'notepad_active';
 
@@ -1674,4 +1676,11 @@
     createNote();
     history.replaceState(null, '', location.pathname);
   }
+
+  console.log('[init] app.js v28 fully initialized');
+  window.__npDebug = {
+    get selectedImg() { return selectedImg; },
+    get cropMode() { return cropMode; },
+    selOverlay, imagePanel, positionOverlay, selectImage, enterCropMode, applyCrop
+  };
 })();
