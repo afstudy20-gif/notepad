@@ -431,24 +431,26 @@ body.has-image-panel .editor-area {
 .h-sw { left: -8px; bottom: -8px; cursor: nesw-resize; }
 .h-w  { left: -8px; top: 50%; transform: translateY(-50%); cursor: ew-resize; }
 
-/* Crop mode: handles become L-brackets at corners, edge handles hidden */
+/* Crop mode: Word-style black L/T handles on all 8 positions */
 .img-sel-overlay.crop-mode { border: 1px dashed #fff; outline: 1px solid rgba(0,0,0,0.5); }
-.img-sel-overlay.crop-mode .h-n,
-.img-sel-overlay.crop-mode .h-e,
-.img-sel-overlay.crop-mode .h-s,
-.img-sel-overlay.crop-mode .h-w { display: none; }
 .img-sel-overlay.crop-mode .img-handle {
-  width: 24px; height: 24px;
   background: transparent;
   border: none;
   border-radius: 0;
   box-shadow: none;
+  width: 20px; height: 20px;
 }
 .img-sel-overlay.crop-mode .img-handle:hover { background: transparent; }
-.img-sel-overlay.crop-mode .h-nw { border-top: 4px solid #fff; border-left: 4px solid #fff; left: -2px; top: -2px; cursor: nwse-resize; }
-.img-sel-overlay.crop-mode .h-ne { border-top: 4px solid #fff; border-right: 4px solid #fff; right: -2px; top: -2px; cursor: nesw-resize; }
-.img-sel-overlay.crop-mode .h-sw { border-bottom: 4px solid #fff; border-left: 4px solid #fff; left: -2px; bottom: -2px; cursor: nesw-resize; }
-.img-sel-overlay.crop-mode .h-se { border-bottom: 4px solid #fff; border-right: 4px solid #fff; right: -2px; bottom: -2px; cursor: nwse-resize; }
+/* Corner L-brackets */
+.img-sel-overlay.crop-mode .h-nw { border-top: 4px solid #000; border-left: 4px solid #000; left: -2px; top: -2px; cursor: nwse-resize; }
+.img-sel-overlay.crop-mode .h-ne { border-top: 4px solid #000; border-right: 4px solid #000; right: -2px; top: -2px; cursor: nesw-resize; }
+.img-sel-overlay.crop-mode .h-sw { border-bottom: 4px solid #000; border-left: 4px solid #000; left: -2px; bottom: -2px; cursor: nesw-resize; }
+.img-sel-overlay.crop-mode .h-se { border-bottom: 4px solid #000; border-right: 4px solid #000; right: -2px; bottom: -2px; cursor: nwse-resize; }
+/* Edge T-bars */
+.img-sel-overlay.crop-mode .h-n { border-top: 4px solid #000; width: 20px; height: 4px; top: -2px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+.img-sel-overlay.crop-mode .h-s { border-bottom: 4px solid #000; width: 20px; height: 4px; bottom: -2px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+.img-sel-overlay.crop-mode .h-w { border-left: 4px solid #000; width: 4px; height: 20px; left: -2px; top: 50%; transform: translateY(-50%); cursor: ew-resize; }
+.img-sel-overlay.crop-mode .h-e { border-right: 4px solid #000; width: 4px; height: 20px; right: -2px; top: 50%; transform: translateY(-50%); cursor: ew-resize; }
 
 .img-crop-mask {
   position: absolute;
@@ -537,6 +539,71 @@ body.has-image-panel .editor-area {
   font-weight: 500;
 }
 .ip-toggle:hover { background: #3651d8; }
+
+/* OCR Popup */
+.ocr-popup {
+  position: fixed;
+  top: 80px;
+  right: 320px;
+  width: 420px;
+  max-width: calc(100vw - 40px);
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.18);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+}
+.ocr-popup[hidden] { display: none; }
+.ocr-popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.ocr-popup-header button {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: #888;
+}
+.ocr-popup-status {
+  font-size: 12px;
+  color: #4361ee;
+  margin-bottom: 8px;
+  min-height: 16px;
+}
+.ocr-popup textarea {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid #dcdee4;
+  border-radius: 6px;
+  padding: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  margin-bottom: 8px;
+  box-sizing: border-box;
+}
+.ocr-popup-actions {
+  display: flex;
+  gap: 6px;
+}
+.ocr-popup-actions button {
+  flex: 1;
+  padding: 8px;
+  border: 1px solid #dcdee4;
+  background: #f5f6fa;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.ocr-popup-actions button:hover { background: #e8ebf5; }
+.ocr-popup-actions button:first-child { background: #4361ee; color: #fff; border-color: #4361ee; }
+.ocr-popup-actions button:first-child:hover { background: #3651d8; }
 
 /* Context Menu */
 .context-menu {

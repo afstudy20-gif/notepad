@@ -1236,8 +1236,47 @@
     return {
       filters: { brightness: 1, contrast: 1, saturate: 1, 'hue-rotate': 0, blur: 0, grayscale: 0, sepia: 0, invert: 0 },
       crop: { top: 0, right: 0, bottom: 0, left: 0 },
-      xform: { rotate: 0, flipH: false, flipV: false }
+      xform: { rotate: 0, flipH: false, flipV: false },
+      layout: { wrap: 'inline', align: '' }
     };
+  }
+
+  function applyLayout(img, layout) {
+    if (!layout) return;
+    // Reset layout-affecting styles
+    img.style.float = '';
+    img.style.shapeOutside = '';
+    img.style.position = '';
+    img.style.zIndex = '';
+    img.style.display = '';
+    img.style.clear = '';
+    img.style.marginLeft = '';
+    img.style.marginRight = '';
+    img.classList.remove('wrap-inline','wrap-square','wrap-tight','wrap-topbottom','wrap-behind','wrap-front');
+    img.classList.add('wrap-' + (layout.wrap || 'inline'));
+    const w = layout.wrap;
+    if (w === 'square' || w === 'tight') {
+      img.style.float = layout.align === 'right' ? 'right' : 'left';
+      if (w === 'tight') img.style.shapeOutside = `url(${img.src})`;
+      img.style.marginRight = '10px';
+      img.style.marginLeft = '10px';
+    } else if (w === 'topbottom') {
+      img.style.display = 'block';
+      img.style.clear = 'both';
+      if (layout.align === 'center') { img.style.marginLeft = 'auto'; img.style.marginRight = 'auto'; }
+      else if (layout.align === 'right') { img.style.marginLeft = 'auto'; img.style.marginRight = '0'; }
+    } else if (w === 'behind') {
+      img.style.position = 'absolute';
+      img.style.zIndex = '-1';
+    } else if (w === 'front') {
+      img.style.position = 'absolute';
+      img.style.zIndex = '5';
+    } else {
+      // inline default
+      img.style.display = 'inline-block';
+      if (layout.align === 'center') { img.style.display = 'block'; img.style.marginLeft = 'auto'; img.style.marginRight = 'auto'; }
+      else if (layout.align === 'right') { img.style.display = 'block'; img.style.marginLeft = 'auto'; img.style.marginRight = '0'; }
+    }
   }
 
   function getImgState(img) {
@@ -1271,6 +1310,8 @@
 
     // Do NOT force width — preserve natural/user-set size
     img.style.maxWidth = '100%';
+
+    if (state.layout) applyLayout(img, state.layout);
 
     img.dataset.editState = JSON.stringify(state);
   }
@@ -1562,6 +1603,69 @@
   $('#ipCropToggle').addEventListener('click', enterCropMode);
   $('#ipCropApply').addEventListener('click', applyCrop);
   $('#ipCropCancel').addEventListener('click', exitCropMode);
+
+  // Wrap mode buttons
+  imagePanel.addEventListener('click', (e) => {
+    const wb = e.target.closest('button[data-wrap]');
+    if (wb && selectedImg) {
+      const state = getImgState(selectedImg);
+      state.layout = state.layout || { wrap: 'inline', align: '' };
+      state.layout.wrap = wb.dataset.wrap;
+      applyImgState(selectedImg, state);
+      positionOverlay();
+      scheduleSave();
+      return;
+    }
+    const ab = e.target.closest('button[data-align]');
+    if (ab && selectedImg) {
+      const state = getImgState(selectedImg);
+      state.layout = state.layout || { wrap: 'inline', align: '' };
+      state.layout.align = ab.dataset.align;
+      applyImgState(selectedImg, state);
+      positionOverlay();
+      scheduleSave();
+    }
+  });
+
+  // --- OCR on selected image ---
+  $('#ipOcr').addEventListener('click', async () => {
+    if (!selectedImg) { alert('Önce bir resim seçin.'); return; }
+    const popup = $('#ocrPopup');
+    const status = $('#ocrPopupStatus');
+    const textEl = $('#ocrPopupText');
+    popup.hidden = false;
+    textEl.value = '';
+    status.textContent = 'OCR başlatılıyor...';
+    try {
+      const { text } = await runOcr(selectedImg.src, (p, msg) => {
+        status.textContent = `${msg || 'İşleniyor'} — ${(p*100)|0}%`;
+      });
+      status.textContent = `Tamamlandı (${text.length} karakter)`;
+      textEl.value = text || '(Metin bulunamadı)';
+    } catch (err) {
+      status.textContent = 'Hata: ' + err.message;
+      console.error('[ocr]', err);
+    }
+  });
+
+  $('#ocrInsertText').addEventListener('click', () => {
+    const txt = $('#ocrPopupText').value;
+    if (!txt) return;
+    editor.focus();
+    document.execCommand('insertText', false, '\n' + txt + '\n');
+    $('#ocrPopup').hidden = true;
+    scheduleSave();
+  });
+
+  $('#ocrCopyText').addEventListener('click', async () => {
+    const txt = $('#ocrPopupText').value;
+    if (!txt) return;
+    try { await navigator.clipboard.writeText(txt); $('#ocrPopupStatus').textContent = 'Panoya kopyalandı'; }
+    catch { alert('Kopyalanamadı'); }
+  });
+
+  $('#ocrPopupClose').addEventListener('click', () => $('#ocrPopup').hidden = true);
+  $('#ocrPopupClose2').addEventListener('click', () => $('#ocrPopup').hidden = true);
 
   // Aspect lock
   $('#ipLockAspect').addEventListener('click', () => {
