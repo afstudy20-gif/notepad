@@ -5,10 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Local-only online notepad. All notes stored in your browser. Nothing uploaded.">
   <meta name="theme-color" content="#1a1a2e">
+  <!-- iOS PWA support -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Notepad">
+  <link rel="apple-touch-icon" href="icon-192.png">
   <title>Notepad — Local-Only Text Editor</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
-  <link rel="stylesheet" href="style.css?v=37">
+  <link rel="stylesheet" href="style.css?v=38">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -72,6 +78,12 @@
         <option value="paddle" data-i18n="ocrPaddle">PaddleOCR (hızlı)</option>
         <option value="tesseract" data-i18n="ocrTesseract">Tesseract (TR)</option>
       </select>
+    </div>
+    <div class="sidebar-footer-row" id="installRow" hidden>
+      <button id="btnInstallApp" class="install-btn" title="Uygulama olarak yükle" data-i18n-title="installAppTip">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><polyline points="7 10 12 15 17 10"/><path d="M5 21h14"/></svg>
+        <span data-i18n="installApp">Uygulama Olarak Yükle</span>
+      </button>
     </div>
     <div class="sidebar-footer-row" style="border-top:none;padding-top:0">
       <button id="btnRefreshApp" class="refresh-btn" title="Cache temizle ve güncelle" data-i18n-title="refreshTip">
@@ -371,6 +383,27 @@
   <!-- Hidden file input for image replace -->
   <input type="file" id="imageReplaceInput" accept="image/*" style="display:none">
 
+  <!-- iOS Add-to-Home-Screen Instructions -->
+  <div class="dialog-overlay" id="iosInstallDialog" style="display:none">
+    <div class="dialog">
+      <div class="dialog-header">
+        <h3 data-i18n="installApp">Uygulama Olarak Yükle</h3>
+        <button class="dialog-close" id="iosInstallClose">&times;</button>
+      </div>
+      <div class="dialog-body ios-install-body">
+        <p data-i18n="iosStep1">1. Tarayıcıda aşağıdaki <b>Paylaş</b> simgesine dokunun</p>
+        <div class="ios-share-icon" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+        </div>
+        <p data-i18n="iosStep2">2. Açılan menüden <b>"Ana Ekrana Ekle"</b> seçeneğine dokunun</p>
+        <p data-i18n="iosStep3">3. Sağ üstten <b>Ekle</b> deyin — uygulama ana ekranınızda yer alır</p>
+      </div>
+      <div class="dialog-footer">
+        <button id="iosInstallOk" data-i18n="gotIt">Tamam</button>
+      </div>
+    </div>
+  </div>
+
   <!-- OCR Result Popup -->
   <div class="ocr-popup" id="ocrPopup" hidden>
     <div class="ocr-popup-header">
@@ -423,13 +456,13 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html-docx-js@0.3.1/dist/html-docx.js"></script>
-  <script src="app.js?v=37"></script>
+  <script src="app.js?v=38"></script>
   <script>
     // Register service worker for PWA install + offline shell.
     // SW uses network-first for HTML/JS so updates roll out without manual refresh.
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=37').catch((err) => {
+        navigator.serviceWorker.register('./sw.js?v=38').catch((err) => {
           console.warn('[sw] register failed', err);
         });
       });

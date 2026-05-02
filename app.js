@@ -2100,7 +2100,13 @@
       otherTools: 'Diğer araçlar:',
       moreTools: 'Daha fazla araç → drtr.uk',
       refreshApp: 'Güncelle',
-      refreshTip: 'Bu uygulamanın önbelleğini temizle ve yenile (notlar korunur)'
+      refreshTip: 'Bu uygulamanın önbelleğini temizle ve yenile (notlar korunur)',
+      installApp: 'Uygulama Olarak Yükle',
+      installAppTip: 'Cihaza uygulama olarak ekle (PWA)',
+      iosStep1: '1. Tarayıcıdaki Paylaş simgesine dokunun',
+      iosStep2: '2. Açılan menüden "Ana Ekrana Ekle" seçeneğine dokunun',
+      iosStep3: '3. Sağ üstten Ekle deyin — uygulama ana ekranınızda yer alır',
+      gotIt: 'Tamam'
     },
     en: {
       notes: 'Notes',
@@ -2211,7 +2217,13 @@
       otherTools: 'Other tools:',
       moreTools: 'More tools → drtr.uk',
       refreshApp: 'Refresh',
-      refreshTip: 'Clear this app’s cache and reload (notes are kept)'
+      refreshTip: 'Clear this app’s cache and reload (notes are kept)',
+      installApp: 'Install as App',
+      installAppTip: 'Add to device as an app (PWA)',
+      iosStep1: '1. Tap the Share icon in your browser',
+      iosStep2: '2. Choose "Add to Home Screen" from the menu',
+      iosStep3: '3. Tap Add — the app will appear on your home screen',
+      gotIt: 'Got it'
     }
   };
 
@@ -2253,26 +2265,85 @@
   applyI18n(initialLang);
   updateCounts();
 
-  // ----- PWA install prompt -----
+  // ----- PWA install: Android (beforeinstallprompt) + iOS Safari (manual instructions) -----
   let deferredInstallEvent = null;
-  const btnInstallPwa = $('#btnInstallPwa');
+  const btnInstallPwa = $('#btnInstallPwa');           // toolbar icon (Android only)
+  const btnInstallApp = $('#btnInstallApp');           // sidebar prominent button
+  const installRow    = $('#installRow');
+  const iosInstallDialog = $('#iosInstallDialog');
+
+  function isStandalone() {
+    return window.matchMedia('(display-mode: standalone)').matches ||
+           window.navigator.standalone === true;
+  }
+  function isIOS() {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  }
+  function isAndroid() {
+    return /Android/i.test(navigator.userAgent);
+  }
+
+  function showInstallButtons() {
+    if (isStandalone()) return; // already installed
+    if (installRow) installRow.hidden = false;
+    if (btnInstallPwa) btnInstallPwa.hidden = false;
+  }
+  function hideInstallButtons() {
+    if (installRow) installRow.hidden = true;
+    if (btnInstallPwa) btnInstallPwa.hidden = true;
+  }
+
+  // On iOS Safari there's no beforeinstallprompt — show button immediately so user can tap
+  if (isIOS() && !isStandalone()) {
+    showInstallButtons();
+  }
+
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredInstallEvent = e;
-    if (btnInstallPwa) btnInstallPwa.hidden = false;
+    showInstallButtons();
   });
-  if (btnInstallPwa) {
-    btnInstallPwa.addEventListener('click', async () => {
-      if (!deferredInstallEvent) return;
-      deferredInstallEvent.prompt();
-      try { await deferredInstallEvent.userChoice; } catch {}
+
+  async function triggerInstall() {
+    if (isStandalone()) return;
+    if (deferredInstallEvent) {
+      // Android Chrome / Edge: native prompt
+      try {
+        deferredInstallEvent.prompt();
+        await deferredInstallEvent.userChoice;
+      } catch {}
       deferredInstallEvent = null;
-      btnInstallPwa.hidden = true;
+      hideInstallButtons();
+      return;
+    }
+    if (isIOS()) {
+      // iOS Safari: show manual Add-to-Home-Screen instructions
+      if (iosInstallDialog) iosInstallDialog.style.display = 'flex';
+      return;
+    }
+    // Fallback: show iOS-style instructions for any browser without native prompt
+    if (iosInstallDialog) iosInstallDialog.style.display = 'flex';
+  }
+
+  if (btnInstallPwa) btnInstallPwa.addEventListener('click', triggerInstall);
+  if (btnInstallApp) btnInstallApp.addEventListener('click', triggerInstall);
+
+  if (iosInstallDialog) {
+    const closeIos = () => { iosInstallDialog.style.display = 'none'; };
+    $('#iosInstallClose')?.addEventListener('click', closeIos);
+    $('#iosInstallOk')?.addEventListener('click', closeIos);
+    iosInstallDialog.addEventListener('click', (e) => {
+      if (e.target === iosInstallDialog) closeIos();
     });
   }
+
   window.addEventListener('appinstalled', () => {
-    if (btnInstallPwa) btnInstallPwa.hidden = true;
+    hideInstallButtons();
+    deferredInstallEvent = null;
   });
+
+  // If launched standalone, hide install UI
+  if (isStandalone()) hideInstallButtons();
 
   console.log('[init] app.js v28 fully initialized');
   window.__npDebug = {
