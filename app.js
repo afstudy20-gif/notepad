@@ -1009,14 +1009,35 @@
     });
   });
 
-  // Sidebar toggle (mobile)
-  $('#sidebarToggle').addEventListener('click', () => {
-    $('#sidebar').classList.toggle('open');
+  // Sidebar toggle (mobile) — body class drives backdrop overlay
+  const sidebarEl = $('#sidebar');
+  function setSidebarOpen(open) {
+    sidebarEl.classList.toggle('open', open);
+    document.body.classList.toggle('sidebar-open', open);
+  }
+  $('#sidebarToggle').addEventListener('click', (e) => {
+    e.stopPropagation();
+    setSidebarOpen(!sidebarEl.classList.contains('open'));
   });
 
   // Close sidebar when note clicked on mobile
   noteList.addEventListener('click', () => {
-    if (window.innerWidth <= 768) $('#sidebar').classList.remove('open');
+    if (window.innerWidth <= 768) setSidebarOpen(false);
+  });
+
+  // Tap backdrop or outside to close
+  document.addEventListener('click', (e) => {
+    if (window.innerWidth > 768) return;
+    if (!sidebarEl.classList.contains('open')) return;
+    if (e.target.closest('#sidebar') || e.target.closest('#sidebarToggle')) return;
+    setSidebarOpen(false);
+  });
+
+  // Close on Escape
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && sidebarEl.classList.contains('open')) {
+      setSidebarOpen(false);
+    }
   });
 
   // Email JSON backup — Web Share API with file attachment, fallback to download + mailto
