@@ -217,9 +217,17 @@
     editor.focus();
   }
 
+  function openFilePicker(accept) {
+    const def = fileInput.dataset.defaultAccept || fileInput.getAttribute('accept') || '';
+    if (!fileInput.dataset.defaultAccept) fileInput.dataset.defaultAccept = def;
+    fileInput.setAttribute('accept', accept || fileInput.dataset.defaultAccept);
+    fileInput.value = '';
+    fileInput.click();
+  }
+
   const toolbarActions = {
     new: () => createNote(),
-    open: () => fileInput.click(),
+    open: () => openFilePicker(),
     toggleSaveMenu: () => toggleSaveDropdown(),
     saveTxt: () => { closeSaveDropdown(); downloadNote(); },
     savePdf: () => { closeSaveDropdown(); downloadAsPdf(); },
@@ -963,13 +971,23 @@
     }
   }
 
-  const FILE_INPUT_DEFAULT_ACCEPT = fileInput.getAttribute('accept') || '';
+  // Save default accept once so we can always restore it after picker use
+  fileInput.dataset.defaultAccept = fileInput.getAttribute('accept') || '';
+  function restoreFileInputAccept() {
+    const def = fileInput.dataset.defaultAccept || '';
+    if (def) fileInput.setAttribute('accept', def);
+  }
   fileInput.addEventListener('change', async (e) => {
     const file = e.target.files[0];
     fileInput.value = '';
     if (file) await importFile(file);
-    // restore default accept so toolbar Open shows all formats again
-    if (FILE_INPUT_DEFAULT_ACCEPT) fileInput.setAttribute('accept', FILE_INPUT_DEFAULT_ACCEPT);
+    restoreFileInputAccept();
+  });
+  // Some browsers fire 'cancel' when user dismisses the picker without selecting
+  fileInput.addEventListener('cancel', restoreFileInputAccept);
+  // Fallback: restore on window focus return (mobile browsers without 'cancel' event)
+  window.addEventListener('focus', () => {
+    setTimeout(restoreFileInputAccept, 300);
   });
 
   // Keyboard shortcuts
@@ -1867,9 +1885,8 @@
       const btn = e.target.closest('button[data-import-type]');
       if (!btn) return;
       const type = btn.dataset.importType;
-      fileInput.setAttribute('accept', IMPORT_ACCEPTS[type] || IMPORT_ACCEPTS.any);
       importMenu.classList.remove('open');
-      fileInput.click();
+      openFilePicker(IMPORT_ACCEPTS[type] || IMPORT_ACCEPTS.any);
     });
   }
 

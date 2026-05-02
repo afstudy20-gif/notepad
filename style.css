@@ -1425,11 +1425,21 @@ body.has-image-panel .image-panel {
     padding: 11px 12px;
     font-size: 13px;
   }
-  /* Save & Share dropdowns: reposition to avoid overflow */
+  /* Save & Share dropdowns: pin to viewport so they never overflow */
   .save-dropdown {
-    min-width: 200px;
-    right: 0;
-    left: auto;
+    position: fixed;
+    top: 50px;
+    left: 8px;
+    right: 8px;
+    width: auto;
+    min-width: 0;
+    margin-top: 0;
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+  .save-dropdown button {
+    padding: 12px 14px !important;
+    font-size: 14px;
   }
 }
 
