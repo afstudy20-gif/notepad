@@ -236,6 +236,32 @@ body.has-image-panel .editor-area {
   color: #fff;
 }
 
+/* Refresh / cache-clear button */
+.refresh-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 10px;
+  background: rgba(255,180,80,0.08);
+  color: rgba(255,200,120,0.95);
+  border: 1px solid rgba(255,180,80,0.25);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+.refresh-btn:hover {
+  background: rgba(255,180,80,0.18);
+  color: #ffd9a0;
+}
+.refresh-btn:active { transform: scale(0.97); }
+.refresh-btn.spinning svg {
+  animation: spin 0.8s linear infinite;
+}
+
 /* About panel */
 .sidebar-about {
   border-top: 1px solid rgba(255,255,255,0.08);

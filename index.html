@@ -8,7 +8,7 @@
   <title>Notepad — Local-Only Text Editor</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
-  <link rel="stylesheet" href="style.css?v=35">
+  <link rel="stylesheet" href="style.css?v=36">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -72,6 +72,12 @@
         <option value="paddle" data-i18n="ocrPaddle">PaddleOCR (hızlı)</option>
         <option value="tesseract" data-i18n="ocrTesseract">Tesseract (TR)</option>
       </select>
+    </div>
+    <div class="sidebar-footer-row" style="border-top:none;padding-top:0">
+      <button id="btnRefreshApp" class="refresh-btn" title="Cache temizle ve güncelle" data-i18n-title="refreshTip">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15.5-6.36L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.5 6.36L3 16"/><path d="M3 21v-5h5"/></svg>
+        <span data-i18n="refreshApp">Güncelle</span>
+      </button>
     </div>
     <div class="sidebar-about">
       <button class="about-toggle" id="btnAbout" data-i18n="about">Hakkında</button>
@@ -417,13 +423,13 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html-docx-js@0.3.1/dist/html-docx.js"></script>
-  <script src="app.js?v=35"></script>
+  <script src="app.js?v=36"></script>
   <script>
     // Register service worker for PWA install + offline shell.
     // SW uses network-first for HTML/JS so updates roll out without manual refresh.
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=35').catch((err) => {
+        navigator.serviceWorker.register('./sw.js?v=36').catch((err) => {
           console.warn('[sw] register failed', err);
         });
       });

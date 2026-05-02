@@ -1911,6 +1911,39 @@
     });
   }
 
+  // Refresh app: clear ONLY this app's cached files (origin-scoped) + reload
+  // Notes (localStorage) and other sites' data are NOT touched.
+  // Browser-managed HTTP cache is bypassed via cache-bust query param.
+  const btnRefreshApp = $('#btnRefreshApp');
+  if (btnRefreshApp) {
+    btnRefreshApp.addEventListener('click', async () => {
+      const msg = (CURRENT_LANG === 'en')
+        ? 'Refresh this app and clear its cached files? Your notes are kept. Other websites are not affected.'
+        : 'Bu uygulamanın önbelleğe alınmış dosyaları temizlensin ve yenilensin mi? Notlarınız korunacak. Diğer siteler etkilenmez.';
+      if (!confirm(msg)) return;
+      btnRefreshApp.classList.add('spinning');
+      btnRefreshApp.disabled = true;
+      try {
+        // Service Worker registrations are origin-scoped — only this app's SW affected
+        if ('serviceWorker' in navigator) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map(r => r.unregister().catch(() => null)));
+        }
+        // Cache Storage API is origin-scoped — only this app's caches affected
+        if (window.caches) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map(k => caches.delete(k).catch(() => null)));
+        }
+      } catch (err) {
+        console.warn('[refresh]', err);
+      }
+      // Hard reload with cache-bust query — bypasses HTTP cache for this URL only
+      const url = new URL(location.href);
+      url.searchParams.set('_r', Date.now().toString(36));
+      location.replace(url.toString());
+    });
+  }
+
   // Direct binding for Insert Image (delegation backup)
   const btnInsertImage = document.querySelector('button[data-action="insertImage"]');
   if (btnInsertImage) {
@@ -2048,7 +2081,9 @@
       about: 'Hakkında',
       rights: 'Tüm hakları saklıdır',
       otherTools: 'Diğer araçlar:',
-      moreTools: 'Daha fazla araç → drtr.uk'
+      moreTools: 'Daha fazla araç → drtr.uk',
+      refreshApp: 'Güncelle',
+      refreshTip: 'Bu uygulamanın önbelleğini temizle ve yenile (notlar korunur)'
     },
     en: {
       notes: 'Notes',
@@ -2157,7 +2192,9 @@
       about: 'About',
       rights: 'All rights reserved',
       otherTools: 'Other tools:',
-      moreTools: 'More tools → drtr.uk'
+      moreTools: 'More tools → drtr.uk',
+      refreshApp: 'Refresh',
+      refreshTip: 'Clear this app’s cache and reload (notes are kept)'
     }
   };
 
