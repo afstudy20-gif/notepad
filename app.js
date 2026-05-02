@@ -142,11 +142,11 @@
 
     saveNotes();
     renderNoteList();
-    saveStatusEl.textContent = 'Saved';
+    saveStatusEl.textContent = (typeof tr === 'function') ? tr('saved') : 'Saved';
   }
 
   function scheduleSave() {
-    saveStatusEl.textContent = 'Saving...';
+    saveStatusEl.textContent = (typeof tr === 'function') ? tr('saving') : 'Saving...';
     clearTimeout(saveTimeout);
     saveTimeout = setTimeout(autoSave, 500);
   }
@@ -205,8 +205,10 @@
     const text = editor.innerText || '';
     const words = text.trim() ? text.trim().split(/\s+/).length : 0;
     const chars = text.length;
-    wordCountEl.textContent = `Words: ${words}`;
-    charCountEl.textContent = `Characters: ${chars}`;
+    const wLabel = (typeof tr === 'function') ? tr('words') : 'Words';
+    const cLabel = (typeof tr === 'function') ? tr('chars') : 'Characters';
+    wordCountEl.textContent = `${wLabel}: ${words}`;
+    charCountEl.textContent = `${cLabel}: ${chars}`;
   }
 
   // --- Toolbar Actions ---
@@ -961,10 +963,13 @@
     }
   }
 
+  const FILE_INPUT_DEFAULT_ACCEPT = fileInput.getAttribute('accept') || '';
   fileInput.addEventListener('change', async (e) => {
     const file = e.target.files[0];
     fileInput.value = '';
     if (file) await importFile(file);
+    // restore default accept so toolbar Open shows all formats again
+    if (FILE_INPUT_DEFAULT_ACCEPT) fileInput.setAttribute('accept', FILE_INPUT_DEFAULT_ACCEPT);
   });
 
   // Keyboard shortcuts
@@ -1229,7 +1234,15 @@
     HANDLES.map(p => `<div class="img-handle h-${p}" data-handle="${p}"></div>`).join('');
   document.body.appendChild(selOverlay);
 
-  document.body.classList.add('has-image-panel');
+  // i18n stubs (real table assigned later in init); avoids TDZ during loadNotes()
+  var I18N_TABLE = null;
+  var CURRENT_LANG = 'tr';
+  function tr(key) {
+    if (!I18N_TABLE) return key;
+    const t = I18N_TABLE[CURRENT_LANG] || I18N_TABLE.tr || {};
+    return t[key] != null ? t[key] : key;
+  }
+
   loadNotes();
 
   function defaultImgState() {
@@ -1355,35 +1368,50 @@
   editor.addEventListener('drop', () => setTimeout(positionOverlay, 50));
 
   selOverlay.addEventListener('pointerdown', (e) => {
-    const h = e.target.dataset.handle;
-    if (!h || !selectedImg) return;
+    const handle = e.target.closest('.img-handle');
+    if (!handle || !selectedImg) return;
+    const h = handle.dataset.handle;
+    if (!h) return;
     e.preventDefault(); e.stopPropagation();
 
     if (cropMode) {
-      startCropDrag(e, h);
+      startCropDrag(e, h, handle);
     } else {
-      startResizeDrag(e, h);
+      startResizeDrag(e, h, handle);
     }
   });
 
-  function startResizeDrag(e, h) {
+  function startResizeDrag(e, h, handle) {
+    try { handle.setPointerCapture(e.pointerId); } catch {}
+    document.body.style.userSelect = 'none';
     const startX = e.clientX, startY = e.clientY;
     const startW = selectedImg.offsetWidth;
     const startH = selectedImg.offsetHeight;
     const aspect = startW / Math.max(1, startH);
     const west = h.includes('w'), east = h.includes('e');
     const north = h.includes('n'), south = h.includes('s');
+    const isCorner = (east || west) && (north || south);
+
     const onMove = (ev) => {
       let dx = ev.clientX - startX;
       let dy = ev.clientY - startY;
       if (west) dx = -dx;
       if (north) dy = -dy;
+
       let newW = startW, newH = startH;
       if (east || west) newW = Math.max(24, startW + dx);
       if (north || south) newH = Math.max(24, startH + dy);
+
       if (lockAspect) {
-        if ((east || west) && (north || south)) {
-          newH = newW / aspect;
+        if (isCorner) {
+          // Pick whichever axis user moved more — feels more natural
+          const wDelta = Math.abs(newW - startW);
+          const hDeltaAsW = Math.abs(newH * aspect - startW);
+          if (wDelta >= hDeltaAsW) {
+            newH = newW / aspect;
+          } else {
+            newW = newH * aspect;
+          }
         } else if (east || west) {
           newH = newW / aspect;
         } else {
@@ -1397,35 +1425,47 @@
       syncSizeInputs();
     };
     const onUp = () => {
-      document.removeEventListener('pointermove', onMove);
-      document.removeEventListener('pointerup', onUp);
+      handle.removeEventListener('pointermove', onMove);
+      handle.removeEventListener('pointerup', onUp);
+      handle.removeEventListener('pointercancel', onUp);
+      try { handle.releasePointerCapture(e.pointerId); } catch {}
+      document.body.style.userSelect = '';
       scheduleSave();
     };
-    document.addEventListener('pointermove', onMove);
-    document.addEventListener('pointerup', onUp);
+    handle.addEventListener('pointermove', onMove);
+    handle.addEventListener('pointerup', onUp);
+    handle.addEventListener('pointercancel', onUp);
   }
 
-  function startCropDrag(e, h) {
+  function startCropDrag(e, h, handle) {
+    try { handle.setPointerCapture(e.pointerId); } catch {}
+    document.body.style.userSelect = 'none';
     const rect = selectedImg.getBoundingClientRect();
     const startX = e.clientX, startY = e.clientY;
     const start = { ...cropDraft };
+    const MIN_GAP = 5; // min visible window between opposing edges in %
+
     const onMove = (ev) => {
-      const dxP = ((ev.clientX - startX) / rect.width) * 100;
-      const dyP = ((ev.clientY - startY) / rect.height) * 100;
+      const dxP = ((ev.clientX - startX) / Math.max(1, rect.width)) * 100;
+      const dyP = ((ev.clientY - startY) / Math.max(1, rect.height)) * 100;
       const c = { ...start };
-      if (h.includes('n')) c.top = Math.max(0, Math.min(100 - c.bottom - 5, start.top + dyP));
-      if (h.includes('s')) c.bottom = Math.max(0, Math.min(100 - c.top - 5, start.bottom - dyP));
-      if (h.includes('w')) c.left = Math.max(0, Math.min(100 - c.right - 5, start.left + dxP));
-      if (h.includes('e')) c.right = Math.max(0, Math.min(100 - c.left - 5, start.right - dxP));
+      if (h.includes('n')) c.top = Math.max(0, Math.min(100 - c.bottom - MIN_GAP, start.top + dyP));
+      if (h.includes('s')) c.bottom = Math.max(0, Math.min(100 - c.top - MIN_GAP, start.bottom - dyP));
+      if (h.includes('w')) c.left = Math.max(0, Math.min(100 - c.right - MIN_GAP, start.left + dxP));
+      if (h.includes('e')) c.right = Math.max(0, Math.min(100 - c.left - MIN_GAP, start.right - dxP));
       cropDraft = c;
       updateCropMask();
     };
     const onUp = () => {
-      document.removeEventListener('pointermove', onMove);
-      document.removeEventListener('pointerup', onUp);
+      handle.removeEventListener('pointermove', onMove);
+      handle.removeEventListener('pointerup', onUp);
+      handle.removeEventListener('pointercancel', onUp);
+      try { handle.releasePointerCapture(e.pointerId); } catch {}
+      document.body.style.userSelect = '';
     };
-    document.addEventListener('pointermove', onMove);
-    document.addEventListener('pointerup', onUp);
+    handle.addEventListener('pointermove', onMove);
+    handle.addEventListener('pointerup', onUp);
+    handle.addEventListener('pointercancel', onUp);
   }
 
   function enterCropMode() {
@@ -1481,6 +1521,7 @@
     if (selectedImg) selectedImg.classList.remove('img-selected');
     selectedImg = img;
     img.classList.add('img-selected');
+    document.body.classList.add('has-image-panel');
     const ipe = $('#imagePanelEmpty');
     const ipb = $('#imagePanelBody');
     if (ipe) ipe.hidden = true;
@@ -1494,8 +1535,11 @@
   function deselectImage() {
     if (selectedImg) selectedImg.classList.remove('img-selected');
     selectedImg = null;
-    $('#imagePanelEmpty').hidden = false;
-    $('#imagePanelBody').hidden = true;
+    document.body.classList.remove('has-image-panel');
+    const ipe = $('#imagePanelEmpty');
+    const ipb = $('#imagePanelBody');
+    if (ipe) ipe.hidden = true;
+    if (ipb) ipb.hidden = true;
     selOverlay.hidden = true;
   }
 
@@ -1781,10 +1825,69 @@
     e.target.value = '';
   });
 
-  // Sidebar "Dosya İçe Aktar" triggers main file picker
-  const btnImportFile = $('#btnImportFile');
-  if (btnImportFile) {
-    btnImportFile.addEventListener('click', () => fileInput.click());
+  // Import dropup: each option sets accept attribute then triggers picker
+  const IMPORT_ACCEPTS = {
+    any:   '.txt,.md,.html,.docx,.xlsx,.xls,.csv,.pdf,.jpg,.jpeg,.png,.gif,.bmp,.webp',
+    txt:   '.txt,.md',
+    word:  '.docx',
+    excel: '.xlsx,.xls,.csv',
+    pdf:   '.pdf',
+    image: 'image/*'
+  };
+  const importMenu = $('#importMenu');
+  const btnImportToggle = $('#btnImportToggle');
+  if (btnImportToggle && importMenu) {
+    btnImportToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      importMenu.classList.toggle('open');
+      $('#backupMenu')?.classList.remove('open');
+    });
+    importMenu.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-import-type]');
+      if (!btn) return;
+      const type = btn.dataset.importType;
+      fileInput.setAttribute('accept', IMPORT_ACCEPTS[type] || IMPORT_ACCEPTS.any);
+      importMenu.classList.remove('open');
+      fileInput.click();
+    });
+  }
+
+  // Backup dropup toggle
+  const backupMenu = $('#backupMenu');
+  const btnBackupToggle = $('#btnBackupToggle');
+  if (btnBackupToggle && backupMenu) {
+    btnBackupToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      backupMenu.classList.toggle('open');
+      importMenu?.classList.remove('open');
+    });
+    backupMenu.addEventListener('click', () => {
+      // close after any item click (handlers are attached by id elsewhere)
+      setTimeout(() => backupMenu.classList.remove('open'), 0);
+    });
+  }
+
+  // Close dropups when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.dropup-wrap')) {
+      importMenu?.classList.remove('open');
+      backupMenu?.classList.remove('open');
+    }
+  });
+
+  // Image panel close button
+  const ipClose = $('#ipClose');
+  if (ipClose) {
+    ipClose.addEventListener('click', () => deselectImage());
+  }
+
+  // About panel toggle
+  const btnAbout = $('#btnAbout');
+  const aboutPanel = $('#aboutPanel');
+  if (btnAbout && aboutPanel) {
+    btnAbout.addEventListener('click', () => {
+      aboutPanel.hidden = !aboutPanel.hidden;
+    });
   }
 
   // Direct binding for Insert Image (delegation backup)
@@ -1814,6 +1917,287 @@
     createNote();
     history.replaceState(null, '', location.pathname);
   }
+
+  // ----- i18n table (assigned to early-declared I18N_TABLE) -----
+  I18N_TABLE = {
+    tr: {
+      notes: 'Notlar',
+      privacy: 'Yerel — sunucuya yüklenmez',
+      privacyTooltip: 'Tüm notlar tarayıcınızda yerel olarak saklanır. Hiçbir şey yüklenmez.',
+      newNote: 'Yeni Not',
+      searchNotes: 'Notlarda ara...',
+      untitled: 'İsimsiz Not',
+      import: 'İçe Aktar',
+      backup: 'Yedek',
+      importAll: 'Tüm Dosyalar',
+      importTxt: 'TXT / Markdown',
+      importWord: 'Word (.docx)',
+      importExcel: 'Excel / CSV',
+      importPdf: 'PDF',
+      importImage: 'Resim (OCR)',
+      exportJson: 'JSON Dışa Aktar',
+      importJson: 'JSON İçe Aktar',
+      emailJsonBtn: 'JSON E-postala',
+      exportSql: 'SQL Dışa Aktar',
+      importSql: 'SQL İçe Aktar',
+      ocrPaddle: 'PaddleOCR (hızlı)',
+      ocrTesseract: 'Tesseract (TR)',
+      imageTools: 'Resim Araçları',
+      selectImageHint: 'Düzenlemek için bir resme tıklayın',
+      close: 'Kapat',
+      size: 'Boyut',
+      crop: 'Kırp',
+      cropMode: '✂ Kırp Modu',
+      apply: '✓ Uygula',
+      cancel: '✕ İptal',
+      lockAspect: 'Oranı kilitle',
+      wrapText: 'Metin Kaydırma',
+      wrapInline: 'Satır içi',
+      wrapSquare: 'Kare',
+      wrapTight: 'Sıkı',
+      wrapTopBottom: 'Üst/Alt',
+      wrapBehind: 'Arka',
+      wrapFront: 'Ön',
+      position: 'Konum',
+      alignLeft: 'Sola',
+      alignCenter: 'Ortala',
+      alignRight: 'Sağa',
+      transform: 'Dönüşüm',
+      rotateCCW: 'Sola 90°',
+      rotateCW: 'Sağa 90°',
+      flipH: 'Yatay çevir',
+      flipV: 'Dikey çevir',
+      rotate: 'Döndür',
+      adjustments: 'Düzeltmeler',
+      brightness: 'Parlaklık',
+      contrast: 'Kontrast',
+      saturate: 'Doygunluk',
+      hue: 'Ton',
+      blur: 'Bulanıklık',
+      artisticFx: 'Sanatsal Efektler',
+      grayscale: 'Gri Ton',
+      sepia: 'Sepya',
+      invert: 'İnvert',
+      ocrButton: '🔍 Resimden Metin Çıkar',
+      ocrResult: 'OCR Sonucu',
+      ocrPlaceholder: 'OCR sonucu burada görünecek...',
+      insertText: 'Metni Ekle',
+      replace: 'Değiştir',
+      reset: 'Sıfırla',
+      delete: 'Sil',
+      rename: 'Adını Değiştir',
+      duplicate: 'Kopyala',
+      cut: 'Kes',
+      copy: 'Kopyala',
+      paste: 'Yapıştır',
+      pasteImage: 'Panodan Resim Yapıştır',
+      uploadImage: 'Resim Yükle (Diskten)',
+      findReplace: 'Bul ve Değiştir',
+      find: 'Bul:',
+      replaceWith: 'Şununla değiştir:',
+      findNext: 'Sonrakini Bul',
+      replaceOne: 'Değiştir',
+      replaceAll: 'Tümünü Değiştir',
+      saveTxt: '.txt olarak kaydet',
+      savePdf: 'PDF olarak kaydet',
+      saveWord: 'Word olarak kaydet',
+      shareDevice: 'Cihazdan Paylaş (dosya)',
+      shareWA: 'WhatsApp (metin)',
+      shareEmail: 'E-posta (metin)',
+      shareEmailPdf: 'E-posta + PDF indir',
+      shareWAPdf: 'WhatsApp + PDF indir',
+      pageSize: 'Sayfa Boyutu',
+      pageFree: 'Serbest',
+      orientation: 'Sayfa Yönü',
+      newNoteTip: 'Yeni Not (Ctrl+Alt+N)',
+      openTip: 'Aç (Ctrl+O)',
+      saveTip: 'Kaydet (Ctrl+S)',
+      printTip: 'Yazdır (Ctrl+P)',
+      installPwa: 'Uygulamayı Yükle',
+      findReplaceTip: 'Bul ve Değiştir (Ctrl+H)',
+      insertImage: 'Resim Ekle',
+      insertDateTime: 'Tarih/Saat Ekle',
+      fullscreen: 'Tam Ekran',
+      share: 'Paylaş',
+      deleteNote: 'Notu Sil',
+      words: 'Kelime',
+      chars: 'Karakter',
+      saved: 'Kaydedildi',
+      saving: 'Kaydediliyor...',
+      about: 'Hakkında',
+      rights: 'Tüm hakları saklıdır',
+      otherTools: 'Diğer araçlar:',
+      moreTools: 'Daha fazla araç → drtr.uk'
+    },
+    en: {
+      notes: 'Notes',
+      privacy: 'Local only — no server',
+      privacyTooltip: 'All notes are stored locally in your browser. Nothing is uploaded.',
+      newNote: 'New Note',
+      searchNotes: 'Search notes...',
+      untitled: 'Untitled Note',
+      import: 'Import',
+      backup: 'Backup',
+      importAll: 'All Files',
+      importTxt: 'TXT / Markdown',
+      importWord: 'Word (.docx)',
+      importExcel: 'Excel / CSV',
+      importPdf: 'PDF',
+      importImage: 'Image (OCR)',
+      exportJson: 'Export JSON',
+      importJson: 'Import JSON',
+      emailJsonBtn: 'Email JSON',
+      exportSql: 'Export SQL',
+      importSql: 'Import SQL',
+      ocrPaddle: 'PaddleOCR (fast)',
+      ocrTesseract: 'Tesseract (TR)',
+      imageTools: 'Image Tools',
+      selectImageHint: 'Click an image to edit',
+      close: 'Close',
+      size: 'Size',
+      crop: 'Crop',
+      cropMode: '✂ Crop Mode',
+      apply: '✓ Apply',
+      cancel: '✕ Cancel',
+      lockAspect: 'Lock aspect ratio',
+      wrapText: 'Text Wrap',
+      wrapInline: 'Inline',
+      wrapSquare: 'Square',
+      wrapTight: 'Tight',
+      wrapTopBottom: 'Top/Bottom',
+      wrapBehind: 'Behind text',
+      wrapFront: 'In front',
+      position: 'Position',
+      alignLeft: 'Left',
+      alignCenter: 'Center',
+      alignRight: 'Right',
+      transform: 'Transform',
+      rotateCCW: 'Rotate left 90°',
+      rotateCW: 'Rotate right 90°',
+      flipH: 'Flip horizontal',
+      flipV: 'Flip vertical',
+      rotate: 'Rotate',
+      adjustments: 'Adjustments',
+      brightness: 'Brightness',
+      contrast: 'Contrast',
+      saturate: 'Saturation',
+      hue: 'Hue',
+      blur: 'Blur',
+      artisticFx: 'Artistic FX',
+      grayscale: 'Grayscale',
+      sepia: 'Sepia',
+      invert: 'Invert',
+      ocrButton: '🔍 Extract Text (OCR)',
+      ocrResult: 'OCR Result',
+      ocrPlaceholder: 'OCR result will appear here...',
+      insertText: 'Insert Text',
+      replace: 'Replace',
+      reset: 'Reset',
+      delete: 'Delete',
+      rename: 'Rename',
+      duplicate: 'Duplicate',
+      cut: 'Cut',
+      copy: 'Copy',
+      paste: 'Paste',
+      pasteImage: 'Paste Image from Clipboard',
+      uploadImage: 'Upload Image (from disk)',
+      findReplace: 'Find & Replace',
+      find: 'Find:',
+      replaceWith: 'Replace with:',
+      findNext: 'Find Next',
+      replaceOne: 'Replace',
+      replaceAll: 'Replace All',
+      saveTxt: 'Save as .txt',
+      savePdf: 'Save as PDF',
+      saveWord: 'Save as Word',
+      shareDevice: 'Share via device',
+      shareWA: 'WhatsApp (text)',
+      shareEmail: 'Email (text)',
+      shareEmailPdf: 'Email + Download PDF',
+      shareWAPdf: 'WhatsApp + Download PDF',
+      pageSize: 'Page Size',
+      pageFree: 'Free',
+      orientation: 'Page Orientation',
+      newNoteTip: 'New Note (Ctrl+Alt+N)',
+      openTip: 'Open (Ctrl+O)',
+      saveTip: 'Save (Ctrl+S)',
+      printTip: 'Print (Ctrl+P)',
+      installPwa: 'Install App',
+      findReplaceTip: 'Find & Replace (Ctrl+H)',
+      insertImage: 'Insert Image',
+      insertDateTime: 'Insert Date/Time',
+      fullscreen: 'Fullscreen',
+      share: 'Share',
+      deleteNote: 'Delete Note',
+      words: 'Words',
+      chars: 'Characters',
+      saved: 'Saved',
+      saving: 'Saving...',
+      about: 'About',
+      rights: 'All rights reserved',
+      otherTools: 'Other tools:',
+      moreTools: 'More tools → drtr.uk'
+    }
+  };
+
+  function applyI18n(lang) {
+    CURRENT_LANG = (I18N_TABLE[lang] ? lang : 'tr');
+    const t = I18N_TABLE[CURRENT_LANG];
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const key = el.dataset.i18n;
+      if (t[key] != null) el.textContent = t[key];
+    });
+    document.querySelectorAll('[data-i18n-title]').forEach(el => {
+      const key = el.dataset.i18nTitle;
+      if (t[key] != null) el.title = t[key];
+    });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+      const key = el.dataset.i18nPlaceholder;
+      if (t[key] != null) el.placeholder = t[key];
+    });
+    document.documentElement.lang = CURRENT_LANG;
+    // Refresh dynamic strings
+    updateCounts();
+    if (saveStatusEl && (saveStatusEl.textContent === 'Saved' || saveStatusEl.textContent === 'Kaydedildi' || saveStatusEl.textContent === 'Saving...' || saveStatusEl.textContent === 'Kaydediliyor...')) {
+      saveStatusEl.textContent = t.saved;
+    }
+  }
+
+  // Detect default language: saved → browser locale → tr
+  const savedLang = localStorage.getItem('np_lang');
+  const browserPrefersTr = (navigator.language || '').toLowerCase().startsWith('tr');
+  const initialLang = savedLang || (browserPrefersTr ? 'tr' : 'en');
+  const langSelect = $('#langSelect');
+  if (langSelect) {
+    langSelect.value = (I18N_TABLE[initialLang] ? initialLang : 'tr');
+    langSelect.addEventListener('change', (e) => {
+      localStorage.setItem('np_lang', e.target.value);
+      applyI18n(e.target.value);
+    });
+  }
+  applyI18n(initialLang);
+  updateCounts();
+
+  // ----- PWA install prompt -----
+  let deferredInstallEvent = null;
+  const btnInstallPwa = $('#btnInstallPwa');
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredInstallEvent = e;
+    if (btnInstallPwa) btnInstallPwa.hidden = false;
+  });
+  if (btnInstallPwa) {
+    btnInstallPwa.addEventListener('click', async () => {
+      if (!deferredInstallEvent) return;
+      deferredInstallEvent.prompt();
+      try { await deferredInstallEvent.userChoice; } catch {}
+      deferredInstallEvent = null;
+      btnInstallPwa.hidden = true;
+    });
+  }
+  window.addEventListener('appinstalled', () => {
+    if (btnInstallPwa) btnInstallPwa.hidden = true;
+  });
 
   console.log('[init] app.js v28 fully initialized');
   window.__npDebug = {

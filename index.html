@@ -8,7 +8,7 @@
   <title>Notepad — Local-Only Text Editor</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
-  <link rel="stylesheet" href="style.css?v=32">
+  <link rel="stylesheet" href="style.css?v=34">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -22,38 +22,69 @@
   <!-- Sidebar -->
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
-      <h2>Notes</h2>
-      <p class="privacy-note" title="All notes stored locally in your browser. Nothing uploaded.">
+      <div class="sidebar-header-top">
+        <h2 data-i18n="notes">Notlar</h2>
+        <select id="langSelect" class="lang-select" title="Language / Dil" aria-label="Language">
+          <option value="tr">TR</option>
+          <option value="en">EN</option>
+        </select>
+      </div>
+      <p class="privacy-note" data-i18n-title="privacyTooltip" title="Tüm notlar tarayıcınızda yerel olarak saklanır. Hiçbir şey yüklenmez.">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-        Local only — no server storage
+        <span data-i18n="privacy">Yerel — sunucuya yüklenmez</span>
       </p>
     </div>
-    <button class="btn-create" id="btnCreate">+ Create New</button>
+    <button class="btn-create" id="btnCreate">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      <span data-i18n="newNote">Yeni Not</span>
+    </button>
     <div class="search-box">
-      <input type="text" id="searchInput" placeholder="Search notes...">
+      <input type="text" id="searchInput" data-i18n-placeholder="searchNotes" placeholder="Notlarda ara...">
     </div>
     <div class="note-list" id="noteList"></div>
-    <div class="sidebar-footer">
-      <button id="btnImportFile" title="Dosya içe aktar (TXT/Word/Excel/PDF/Resim + OCR)">Dosya İçe Aktar</button>
-    </div>
-    <div class="sidebar-footer" style="border-top:none;padding-top:0">
-      <button id="btnExportAll" title="Export all notes as JSON backup">Export Backup</button>
-      <button id="btnImportAll" title="Import JSON backup">Import Backup</button>
+    <div class="sidebar-footer-row">
+      <div class="dropup-wrap">
+        <button id="btnImportToggle" data-i18n="import">İçe Aktar</button>
+        <div class="dropup-menu" id="importMenu">
+          <button data-import-type="any" data-i18n="importAll">Tüm Dosyalar</button>
+          <button data-import-type="txt" data-i18n="importTxt">TXT / Markdown</button>
+          <button data-import-type="word" data-i18n="importWord">Word (.docx)</button>
+          <button data-import-type="excel" data-i18n="importExcel">Excel / CSV</button>
+          <button data-import-type="pdf" data-i18n="importPdf">PDF</button>
+          <button data-import-type="image" data-i18n="importImage">Resim (OCR)</button>
+        </div>
+      </div>
+      <div class="dropup-wrap">
+        <button id="btnBackupToggle" data-i18n="backup">Yedek</button>
+        <div class="dropup-menu" id="backupMenu">
+          <button id="btnExportAll" data-i18n="exportJson">JSON Dışa Aktar</button>
+          <button id="btnImportAll" data-i18n="importJson">JSON İçe Aktar</button>
+          <button id="btnEmailJson" data-i18n="emailJsonBtn">JSON E-postala</button>
+          <button id="btnExportSql" data-i18n="exportSql">SQL Dışa Aktar</button>
+          <button id="btnImportSql" data-i18n="importSql">SQL İçe Aktar</button>
+        </div>
+      </div>
       <input type="file" id="backupInput" accept=".json" style="display:none">
-    </div>
-    <div class="sidebar-footer" style="border-top:none;padding-top:0">
-      <button id="btnEmailJson" title="JSON yedeği e-posta eki olarak gönder">Email JSON</button>
-    </div>
-    <div class="sidebar-footer" style="border-top:none;padding-top:0">
-      <button id="btnExportSql" title="Export all notes as SQL dump">Export SQL</button>
-      <button id="btnImportSql" title="Import SQL dump">Import SQL</button>
       <input type="file" id="sqlInput" accept=".sql" style="display:none">
     </div>
-    <div class="sidebar-footer" style="border-top:none;padding-top:0">
-      <select id="ocrEngine" title="OCR Motoru" style="flex:1;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.75);border:1px solid rgba(255,255,255,0.1);border-radius:5px;padding:6px;font-size:11px">
-        <option value="paddle">OCR: PaddleOCR (hızlı)</option>
-        <option value="tesseract">OCR: Tesseract (TR iyi)</option>
+    <div class="sidebar-footer-row" style="border-top:none;padding-top:0">
+      <select id="ocrEngine" title="OCR">
+        <option value="paddle" data-i18n="ocrPaddle">PaddleOCR (hızlı)</option>
+        <option value="tesseract" data-i18n="ocrTesseract">Tesseract (TR)</option>
       </select>
+    </div>
+    <div class="sidebar-about">
+      <button class="about-toggle" id="btnAbout" data-i18n="about">Hakkında</button>
+      <div class="about-panel" id="aboutPanel" hidden>
+        <p class="about-author">© <span data-i18n="rights">Tüm hakları saklıdır</span> · Dr. Yusuf Hoşoğlu</p>
+        <p class="about-links-title" data-i18n="otherTools">Diğer araçlar:</p>
+        <ul class="about-links">
+          <li><a href="https://ustat.drtr.uk/" target="_blank" rel="noopener">Biostatistics · uStat</a></li>
+          <li><a href="https://flow.drtr.uk/" target="_blank" rel="noopener">Academic Flow Designer</a></li>
+          <li><a href="https://neodw.drtr.uk/" target="_blank" rel="noopener">DICOM Viewer · NeoDW</a></li>
+          <li><a href="https://drtr.uk" target="_blank" rel="noopener" class="about-hub" data-i18n="moreTools">Daha fazla araç → drtr.uk</a></li>
+        </ul>
+      </div>
     </div>
   </aside>
 
@@ -62,38 +93,41 @@
     <!-- Toolbar -->
     <div class="toolbar" id="toolbar">
       <div class="toolbar-group">
-        <button title="Yeni Not (Ctrl+Alt+N)" data-action="new">
+        <button title="Yeni Not (Ctrl+Alt+N)" data-i18n-title="newNoteTip" data-action="new">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
         </button>
-        <button title="Open (Ctrl+O)" data-action="open">
+        <button title="Aç (Ctrl+O)" data-i18n-title="openTip" data-action="open">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
         </button>
         <div class="save-dropdown-wrap">
-          <button title="Save (Ctrl+S)" data-action="toggleSaveMenu">
+          <button title="Kaydet (Ctrl+S)" data-i18n-title="saveTip" data-action="toggleSaveMenu">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
             <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="margin-left:2px"><path d="M7 10l5 5 5-5z"/></svg>
           </button>
           <div class="save-dropdown" id="saveDropdown">
-            <button data-action="saveTxt">Save as .txt</button>
-            <button data-action="savePdf">Save as PDF</button>
-            <button data-action="saveWord">Save as Word (.docx)</button>
+            <button data-action="saveTxt" data-i18n="saveTxt">.txt olarak kaydet</button>
+            <button data-action="savePdf" data-i18n="savePdf">PDF olarak kaydet</button>
+            <button data-action="saveWord" data-i18n="saveWord">Word olarak kaydet</button>
           </div>
         </div>
         <div class="save-dropdown-wrap">
-          <button title="Paylaş" data-action="toggleShareMenu">
+          <button title="Paylaş" data-i18n-title="share" data-action="toggleShareMenu">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
             <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="margin-left:2px"><path d="M7 10l5 5 5-5z"/></svg>
           </button>
           <div class="save-dropdown" id="shareDropdown">
-            <button data-action="shareDevice">Cihazdan Paylaş (dosya)</button>
-            <button data-action="shareWhatsApp">WhatsApp (metin)</button>
-            <button data-action="shareEmail">E-posta (metin)</button>
-            <button data-action="shareEmailPdf">E-posta + PDF indir</button>
-            <button data-action="shareWhatsAppPdf">WhatsApp + PDF indir</button>
+            <button data-action="shareDevice" data-i18n="shareDevice">Cihazdan Paylaş (dosya)</button>
+            <button data-action="shareWhatsApp" data-i18n="shareWA">WhatsApp (metin)</button>
+            <button data-action="shareEmail" data-i18n="shareEmail">E-posta (metin)</button>
+            <button data-action="shareEmailPdf" data-i18n="shareEmailPdf">E-posta + PDF indir</button>
+            <button data-action="shareWhatsAppPdf" data-i18n="shareWAPdf">WhatsApp + PDF indir</button>
           </div>
         </div>
-        <button title="Print (Ctrl+P)" data-action="print">
+        <button title="Yazdır (Ctrl+P)" data-i18n-title="printTip" data-action="print">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        </button>
+        <button id="btnInstallPwa" title="Uygulamayı Yükle" data-i18n-title="installPwa" data-action="installPwa" hidden>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12"/><polyline points="7 10 12 15 17 10"/><path d="M5 21h14"/></svg>
         </button>
       </div>
       <div class="toolbar-divider"></div>
@@ -157,30 +191,30 @@
       </div>
       <div class="toolbar-divider"></div>
       <div class="toolbar-group">
-        <select id="pageSize" title="Sayfa Boyutu">
-          <option value="free">Serbest</option>
+        <select id="pageSize" title="Sayfa Boyutu" data-i18n-title="pageSize">
+          <option value="free" data-i18n="pageFree">Serbest</option>
           <option value="a4">A4</option>
           <option value="a5">A5</option>
           <option value="a3">A3</option>
           <option value="letter">Letter</option>
           <option value="legal">Legal</option>
         </select>
-        <button id="btnOrientation" title="Sayfa Yönü" data-action="toggleOrientation">
+        <button id="btnOrientation" title="Sayfa Yönü" data-i18n-title="orientation" data-action="toggleOrientation">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="3" width="12" height="18" rx="1"/></svg>
         </button>
       </div>
       <div class="toolbar-divider"></div>
       <div class="toolbar-group">
-        <button title="Find & Replace (Ctrl+H)" data-action="findReplace">
+        <button title="Bul ve Değiştir (Ctrl+H)" data-i18n-title="findReplaceTip" data-action="findReplace">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         </button>
-        <button title="Insert Image" data-action="insertImage">
+        <button title="Resim Ekle" data-i18n-title="insertImage" data-action="insertImage">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
         </button>
-        <button title="Insert Date/Time" data-action="insertDateTime">
+        <button title="Tarih/Saat Ekle" data-i18n-title="insertDateTime" data-action="insertDateTime">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         </button>
-        <button title="Fullscreen" data-action="fullscreen">
+        <button title="Tam Ekran" data-i18n-title="fullscreen" data-action="fullscreen">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
         </button>
       </div>
@@ -188,8 +222,8 @@
 
     <!-- Note Title -->
     <div class="note-title-bar">
-      <input type="text" id="noteTitle" placeholder="Untitled Note" spellcheck="true">
-      <button class="btn-delete" id="btnDelete" title="Delete Note">
+      <input type="text" id="noteTitle" placeholder="İsimsiz Not" data-i18n-placeholder="untitled" spellcheck="true">
+      <button class="btn-delete" id="btnDelete" title="Notu sil" data-i18n-title="deleteNote">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
       </button>
     </div>
@@ -201,127 +235,128 @@
 
     <!-- Status Bar -->
     <div class="status-bar">
-      <span id="wordCount">Words: 0</span>
-      <span id="charCount">Characters: 0</span>
-      <span id="saveStatus">Saved</span>
+      <span id="wordCount">Kelime: 0</span>
+      <span id="charCount">Karakter: 0</span>
+      <span id="saveStatus" data-i18n="saved">Kaydedildi</span>
     </div>
   </main>
 
   <!-- Note Context Menu -->
   <div class="context-menu" id="noteContextMenu" hidden>
-    <button data-ctx="rename">Adını Değiştir</button>
-    <button data-ctx="duplicate">Kopyala</button>
-    <button data-ctx="delete" class="ctx-danger">Sil</button>
+    <button data-ctx="rename" data-i18n="rename">Adını Değiştir</button>
+    <button data-ctx="duplicate" data-i18n="duplicate">Kopyala</button>
+    <button data-ctx="delete" class="ctx-danger" data-i18n="delete">Sil</button>
   </div>
 
   <!-- Editor Context Menu -->
   <div class="context-menu" id="editorContextMenu" hidden>
-    <button data-ectx="cut">Kes</button>
-    <button data-ectx="copy">Kopyala</button>
-    <button data-ectx="paste">Yapıştır</button>
-    <button data-ectx="pasteImage">Panodan Resim Yapıştır</button>
-    <button data-ectx="uploadImage">Resim Yükle (Diskten)</button>
+    <button data-ectx="cut" data-i18n="cut">Kes</button>
+    <button data-ectx="copy" data-i18n="copy">Kopyala</button>
+    <button data-ectx="paste" data-i18n="paste">Yapıştır</button>
+    <button data-ectx="pasteImage" data-i18n="pasteImage">Panodan Resim Yapıştır</button>
+    <button data-ectx="uploadImage" data-i18n="uploadImage">Resim Yükle (Diskten)</button>
   </div>
 
   <!-- Image Edit Panel (always visible) -->
   <aside class="image-panel" id="imagePanel">
     <div class="image-panel-header">
-      <h3>Resim Araçları</h3>
+      <h3 data-i18n="imageTools">Resim Araçları</h3>
+      <button id="ipClose" class="ip-close" title="Kapat" data-i18n-title="close">✕</button>
     </div>
-    <div class="image-panel-empty" id="imagePanelEmpty">
+    <div class="image-panel-empty" id="imagePanelEmpty" hidden>
       <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-      <p>Düzenlemek için bir resme tıklayın</p>
+      <p data-i18n="selectImageHint">Düzenlemek için bir resme tıklayın</p>
     </div>
     <div class="image-panel-body" id="imagePanelBody" hidden>
       <div class="ip-info" id="ipInfo"></div>
 
       <div class="ip-group">
-        <div class="ip-group-title">Boyut</div>
+        <div class="ip-group-title" data-i18n="size">Boyut</div>
         <div class="ip-size-row">
           <label>G<input type="number" id="ipWidth" min="10" step="1"></label>
           <label>Y<input type="number" id="ipHeight" min="10" step="1"></label>
-          <button id="ipLockAspect" class="ip-lock" title="Oranı kilitle" aria-pressed="true">🔒</button>
+          <button id="ipLockAspect" class="ip-lock" title="Oranı kilitle" data-i18n-title="lockAspect" aria-pressed="true">🔒</button>
         </div>
       </div>
 
       <div class="ip-group">
-        <div class="ip-group-title">Kırp</div>
+        <div class="ip-group-title" data-i18n="crop">Kırp</div>
         <div class="ip-btn-row">
-          <button id="ipCropToggle" class="ip-toggle">✂ Kırp Modu</button>
-          <button id="ipCropApply" hidden>✓ Uygula</button>
-          <button id="ipCropCancel" hidden>✕ İptal</button>
+          <button id="ipCropToggle" class="ip-toggle"><span data-i18n="cropMode">✂ Kırp Modu</span></button>
+          <button id="ipCropApply" hidden data-i18n="apply">✓ Uygula</button>
+          <button id="ipCropCancel" hidden data-i18n="cancel">✕ İptal</button>
         </div>
       </div>
 
       <div class="ip-group">
-        <div class="ip-group-title">Metin Kaydırma</div>
+        <div class="ip-group-title" data-i18n="wrapText">Metin Kaydırma</div>
         <div class="ip-btn-row">
-          <button data-wrap="inline" title="Metinle Hizalı">▭ Inline</button>
-          <button data-wrap="square" title="Kare">⬛ Kare</button>
-          <button data-wrap="tight" title="Sıkı">◧ Sıkı</button>
-          <button data-wrap="topbottom" title="Üst ve Alt">═ Üst/Alt</button>
-          <button data-wrap="behind" title="Metnin Arkasında">⬜ Arka</button>
-          <button data-wrap="front" title="Metnin Önünde">▦ Ön</button>
+          <button data-wrap="inline" title="Inline" data-i18n-title="wrapInline">▭</button>
+          <button data-wrap="square" title="Kare" data-i18n-title="wrapSquare">⬛</button>
+          <button data-wrap="tight" title="Sıkı" data-i18n-title="wrapTight">◧</button>
+          <button data-wrap="topbottom" title="Üst/Alt" data-i18n-title="wrapTopBottom">═</button>
+          <button data-wrap="behind" title="Arka" data-i18n-title="wrapBehind">⬜</button>
+          <button data-wrap="front" title="Ön" data-i18n-title="wrapFront">▦</button>
         </div>
       </div>
 
       <div class="ip-group">
-        <div class="ip-group-title">Konum</div>
+        <div class="ip-group-title" data-i18n="position">Konum</div>
         <div class="ip-btn-row">
-          <button data-align="left" title="Sola">⟸</button>
-          <button data-align="center" title="Ortala">⟺</button>
-          <button data-align="right" title="Sağa">⟹</button>
+          <button data-align="left" title="Sola" data-i18n-title="alignLeft">⟸</button>
+          <button data-align="center" title="Ortala" data-i18n-title="alignCenter">⟺</button>
+          <button data-align="right" title="Sağa" data-i18n-title="alignRight">⟹</button>
         </div>
       </div>
 
       <div class="ip-group">
-        <div class="ip-group-title">Dönüşüm</div>
+        <div class="ip-group-title" data-i18n="transform">Dönüşüm</div>
         <div class="ip-btn-row">
-          <button data-xform-btn="rotCCW" title="Sola 90°">↺ 90°</button>
-          <button data-xform-btn="rotCW" title="Sağa 90°">↻ 90°</button>
-          <button data-xform-btn="flipH" title="Yatay çevir">⇋</button>
-          <button data-xform-btn="flipV" title="Dikey çevir">⇵</button>
+          <button data-xform-btn="rotCCW" title="Sola 90°" data-i18n-title="rotateCCW">↺ 90°</button>
+          <button data-xform-btn="rotCW" title="Sağa 90°" data-i18n-title="rotateCW">↻ 90°</button>
+          <button data-xform-btn="flipH" title="Yatay çevir" data-i18n-title="flipH">⇋</button>
+          <button data-xform-btn="flipV" title="Dikey çevir" data-i18n-title="flipV">⇵</button>
         </div>
-        <label>Döndür <span data-val="rotate">0°</span></label>
+        <label><span data-i18n="rotate">Döndür</span> <span data-val="rotate">0°</span></label>
         <input type="range" data-xform="rotate" min="-180" max="180" step="1" value="0">
       </div>
 
       <div class="ip-group">
-        <div class="ip-group-title">Düzeltmeler</div>
-        <label>Parlaklık <span data-val="brightness">1.00</span></label>
+        <div class="ip-group-title" data-i18n="adjustments">Düzeltmeler</div>
+        <label><span data-i18n="brightness">Parlaklık</span> <span data-val="brightness">1.00</span></label>
         <input type="range" data-filter="brightness" min="0" max="3" step="0.01" value="1">
-        <label>Kontrast <span data-val="contrast">1.00</span></label>
+        <label><span data-i18n="contrast">Kontrast</span> <span data-val="contrast">1.00</span></label>
         <input type="range" data-filter="contrast" min="0" max="3" step="0.01" value="1">
-        <label>Doygunluk <span data-val="saturate">1.00</span></label>
+        <label><span data-i18n="saturate">Doygunluk</span> <span data-val="saturate">1.00</span></label>
         <input type="range" data-filter="saturate" min="0" max="3" step="0.01" value="1">
-        <label>Ton <span data-val="hue-rotate">0°</span></label>
+        <label><span data-i18n="hue">Ton</span> <span data-val="hue-rotate">0°</span></label>
         <input type="range" data-filter="hue-rotate" min="0" max="360" step="1" value="0">
-        <label>Bulanıklık <span data-val="blur">0px</span></label>
+        <label><span data-i18n="blur">Bulanıklık</span> <span data-val="blur">0px</span></label>
         <input type="range" data-filter="blur" min="0" max="20" step="0.1" value="0">
       </div>
 
       <div class="ip-group">
-        <div class="ip-group-title">Sanatsal Efektler</div>
-        <label>Gri Ton <span data-val="grayscale">0.00</span></label>
+        <div class="ip-group-title" data-i18n="artisticFx">Sanatsal Efektler</div>
+        <label><span data-i18n="grayscale">Gri Ton</span> <span data-val="grayscale">0.00</span></label>
         <input type="range" data-filter="grayscale" min="0" max="1" step="0.01" value="0">
-        <label>Sepya <span data-val="sepia">0.00</span></label>
+        <label><span data-i18n="sepia">Sepya</span> <span data-val="sepia">0.00</span></label>
         <input type="range" data-filter="sepia" min="0" max="1" step="0.01" value="0">
-        <label>İnvert <span data-val="invert">0.00</span></label>
+        <label><span data-i18n="invert">İnvert</span> <span data-val="invert">0.00</span></label>
         <input type="range" data-filter="invert" min="0" max="1" step="0.01" value="0">
       </div>
 
       <div class="ip-group">
         <div class="ip-group-title">OCR</div>
         <div class="ip-btn-row">
-          <button id="ipOcr" class="ip-toggle">🔍 Resimden Metin Çıkar</button>
+          <button id="ipOcr" class="ip-toggle" data-i18n="ocrButton">🔍 Resimden Metin Çıkar</button>
         </div>
       </div>
 
       <div class="ip-group">
         <div class="ip-btn-row">
-          <button id="ipReplace">Değiştir</button>
-          <button id="ipResetAll">Sıfırla</button>
-          <button id="ipDelete" class="ip-danger">Sil</button>
+          <button id="ipReplace" data-i18n="replace">Değiştir</button>
+          <button id="ipResetAll" data-i18n="reset">Sıfırla</button>
+          <button id="ipDelete" class="ip-danger" data-i18n="delete">Sil</button>
         </div>
       </div>
     </div>
@@ -333,15 +368,15 @@
   <!-- OCR Result Popup -->
   <div class="ocr-popup" id="ocrPopup" hidden>
     <div class="ocr-popup-header">
-      <span id="ocrPopupTitle">OCR Sonucu</span>
-      <button id="ocrPopupClose" title="Kapat">✕</button>
+      <span id="ocrPopupTitle" data-i18n="ocrResult">OCR Sonucu</span>
+      <button id="ocrPopupClose" title="Kapat" data-i18n-title="close">✕</button>
     </div>
     <div class="ocr-popup-status" id="ocrPopupStatus"></div>
-    <textarea id="ocrPopupText" placeholder="OCR sonucu burada görünecek..." rows="10"></textarea>
+    <textarea id="ocrPopupText" placeholder="OCR sonucu burada görünecek..." data-i18n-placeholder="ocrPlaceholder" rows="10"></textarea>
     <div class="ocr-popup-actions">
-      <button id="ocrInsertText">Metni Ekle</button>
-      <button id="ocrCopyText">Kopyala</button>
-      <button id="ocrPopupClose2">Kapat</button>
+      <button id="ocrInsertText" data-i18n="insertText">Metni Ekle</button>
+      <button id="ocrCopyText" data-i18n="copy">Kopyala</button>
+      <button id="ocrPopupClose2" data-i18n="close">Kapat</button>
     </div>
   </div>
 
@@ -349,19 +384,19 @@
   <div class="dialog-overlay" id="findReplaceDialog" style="display:none">
     <div class="dialog">
       <div class="dialog-header">
-        <h3>Find & Replace</h3>
+        <h3 data-i18n="findReplace">Bul ve Değiştir</h3>
         <button class="dialog-close" id="closeFindReplace">&times;</button>
       </div>
       <div class="dialog-body">
-        <label>Find:</label>
+        <label data-i18n="find">Bul:</label>
         <input type="text" id="findInput">
-        <label>Replace with:</label>
+        <label data-i18n="replaceWith">Şununla değiştir:</label>
         <input type="text" id="replaceInput">
       </div>
       <div class="dialog-footer">
-        <button id="btnFindNext">Find Next</button>
-        <button id="btnReplace">Replace</button>
-        <button id="btnReplaceAll">Replace All</button>
+        <button id="btnFindNext" data-i18n="findNext">Sonrakini Bul</button>
+        <button id="btnReplace" data-i18n="replaceOne">Değiştir</button>
+        <button id="btnReplaceAll" data-i18n="replaceAll">Tümünü Değiştir</button>
       </div>
     </div>
   </div>
@@ -382,30 +417,16 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html-docx-js@0.3.1/dist/html-docx.js"></script>
+  <script src="app.js?v=34"></script>
   <script>
-    // One-time force unregister any old SW + purge all caches, then hard reload
-    (async () => {
-      const KEY = 'sw_purged_v25';
-      if (!('serviceWorker' in navigator)) return;
-      if (localStorage.getItem(KEY)) return;
-      try {
-        const regs = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(regs.map(r => r.unregister()));
-        if (window.caches) {
-          const keys = await caches.keys();
-          await Promise.all(keys.map(k => caches.delete(k)));
-        }
-      } catch {}
-      localStorage.setItem(KEY, '1');
-      location.reload();
-    })();
-  </script>
-  <script src="app.js?v=32"></script>
-  <script>
-    // Always unregister any SW on load — no caching layer
+    // Register service worker for PWA install + offline shell.
+    // SW uses network-first for HTML/JS so updates roll out without manual refresh.
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister())).catch(() => {});
-      if (window.caches) caches.keys().then(ks => ks.forEach(k => caches.delete(k))).catch(() => {});
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js?v=34').catch((err) => {
+          console.warn('[sw] register failed', err);
+        });
+      });
     }
   </script>
 </body>
