@@ -351,7 +351,14 @@
   editor.addEventListener('paste', (e) => {
     const cd = e.clipboardData || window.clipboardData;
     if (!cd) return;
-    // Check for images in clipboard
+    // Prefer text if available (Excel/Sheets put both text and image in clipboard)
+    const text = cd.getData('text/plain');
+    if (text && text.length > 0) {
+      e.preventDefault();
+      document.execCommand('insertText', false, text);
+      return;
+    }
+    // No text — check for images in clipboard
     for (const item of cd.items || []) {
       if (item.type && item.type.startsWith('image/')) {
         e.preventDefault();
@@ -366,10 +373,6 @@
         return;
       }
     }
-    // Fallback: plain text paste
-    e.preventDefault();
-    const text = cd.getData('text/plain');
-    document.execCommand('insertText', false, text);
   });
 
   function insertImage(src) {
