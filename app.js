@@ -662,6 +662,8 @@
     if (img && typeof selectImage === 'function') {
       try { selectImage(img); } catch (err) { console.error('[editorCtx] selectImage failed', err); }
     }
+    // Toggle image-only buttons
+    editorCtx.querySelectorAll('.ectx-img-only').forEach(b => { b.hidden = !img; });
     e.preventDefault();
     e.stopPropagation();
     saveSelection();
@@ -717,6 +719,13 @@
       } else if (action === 'uploadImage') {
         const inp = $('#imageInput');
         if (inp) { inp.value = ''; inp.click(); }
+      } else if (action === 'deleteImage') {
+        if (selectedImg && selectedImg.parentNode) {
+          const img = selectedImg;
+          if (typeof deselectImage === 'function') deselectImage();
+          img.remove();
+          scheduleSave();
+        }
       }
     } catch (err) {
       console.error('[editorCtx]', err);
@@ -1572,6 +1581,12 @@
     positionOverlay();
     updatePanelPreview();
     syncSizeInputs();
+    // On mobile, scroll image into view so panel doesn't cover it
+    if (window.innerWidth <= 900) {
+      requestAnimationFrame(() => {
+        try { img.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {}
+      });
+    }
   }
 
   function deselectImage() {

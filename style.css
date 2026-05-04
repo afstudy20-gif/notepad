@@ -1328,8 +1328,8 @@ body.has-image-panel .image-panel {
   }
   .image-panel {
     width: 100%;
-    height: 55vh;
-    max-height: 480px;
+    height: 38vh;
+    max-height: 320px;
     top: auto;
     bottom: 0;
     border-left: none;
@@ -1337,8 +1337,45 @@ body.has-image-panel .image-panel {
     box-shadow: 0 -6px 20px rgba(0,0,0,0.15);
     z-index: 80;
   }
+  /* Editor scrollable above panel so image not covered */
+  body.has-image-panel .editor-area {
+    padding-bottom: 38vh;
+  }
+  .image-panel-header {
+    padding: 6px 10px;
+  }
+  .image-panel-header h3 {
+    font-size: 12px;
+  }
   .image-panel-body {
-    padding: 8px 12px 16px;
+    padding: 6px 10px 10px;
+  }
+  /* Compact sections on mobile */
+  .image-panel .ip-section {
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+  }
+  .image-panel .ip-section h4 {
+    font-size: 10px;
+    margin-bottom: 4px;
+  }
+  .image-panel .ip-section label {
+    font-size: 11px;
+    margin: 4px 0 2px;
+  }
+  .image-panel .ip-buttons,
+  .image-panel .ip-actions {
+    margin-top: 4px;
+    margin-bottom: 6px;
+    gap: 4px;
+  }
+  .image-panel .ip-buttons button,
+  .image-panel .ip-actions button {
+    padding: 6px 6px;
+    font-size: 11px;
+  }
+  .image-panel .ip-section input[type="range"] {
+    height: 22px;
   }
   /* OCR popup: full-width sheet near top */
   .ocr-popup {
@@ -1503,15 +1540,18 @@ body.has-image-panel .image-panel {
   .toolbar select { font-size: 11px; padding: 2px 4px; max-width: 90px; }
   .toolbar-divider { display: none; }
   .image-panel {
-    height: 65vh;
+    height: 42vh;
     max-height: none;
   }
+  body.has-image-panel .editor-area {
+    padding-bottom: 42vh;
+  }
   .ip-btn-row button {
-    padding: 8px 6px;
-    font-size: 12px;
+    padding: 6px 5px;
+    font-size: 11px;
   }
   .image-panel-body {
-    font-size: 12px;
+    font-size: 11px;
   }
   .ip-section input[type="range"],
   .image-panel-body input[type="range"] {
