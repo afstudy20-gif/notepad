@@ -95,6 +95,8 @@
     if (typeof deselectImage === 'function') deselectImage();
     applyPageLayout(note);
     syncPageControls(note);
+    if (typeof window.__npApplyBg === 'function') window.__npApplyBg();
+    if (typeof window.__npApplyRulersGrid === 'function') window.__npApplyRulersGrid();
   }
 
   function applyPageLayout(note) {
@@ -133,7 +135,13 @@
     const note = getActiveNote();
     if (!note) return;
     note.title = noteTitle.value;
-    note.content = editor.innerHTML;
+    // Strip find-highlight marks before saving
+    const tmp = editor.cloneNode(true);
+    tmp.querySelectorAll('mark.find-hit').forEach(m => {
+      const txt = document.createTextNode(m.textContent);
+      m.replaceWith(txt);
+    });
+    note.content = tmp.innerHTML;
     note.updated = Date.now();
 
     // Move to top
@@ -271,6 +279,18 @@
     },
     insertTextBox: () => {
       insertTextBox();
+    },
+    insertShape: () => {
+      openShapeGallery();
+    },
+    insertTable: () => {
+      openTableGridPopup();
+    },
+    insertLink: () => {
+      openLinkDialog();
+    },
+    toggleRulers: () => {
+      toggleRulersAndGrid();
     },
     fullscreen: () => {
       if (!document.fullscreenElement) {
@@ -559,6 +579,425 @@
     deselectTextBox();
   });
 
+  // ===== Shape & Icon Gallery =====
+  const SHAPE_CATALOG = {
+    shapes: { label: 'Şekiller', items: [
+      { n: 'Kare', s: '<rect x="2" y="2" width="20" height="20"/>' },
+      { n: 'Yuvarlak Kare', s: '<rect x="2" y="2" width="20" height="20" rx="4"/>' },
+      { n: 'Daire', s: '<circle cx="12" cy="12" r="10"/>' },
+      { n: 'Elips', s: '<ellipse cx="12" cy="12" rx="11" ry="7"/>' },
+      { n: 'Üçgen', s: '<polygon points="12,2 22,22 2,22"/>' },
+      { n: 'Sağ Üçgen', s: '<polygon points="2,2 22,22 2,22"/>' },
+      { n: 'Eşkenar Dörtgen', s: '<polygon points="12,2 22,12 12,22 2,12"/>' },
+      { n: 'Beşgen', s: '<polygon points="12,2 22,9 18,22 6,22 2,9"/>' },
+      { n: 'Altıgen', s: '<polygon points="6,2 18,2 22,12 18,22 6,22 2,12"/>' },
+      { n: 'Sekizgen', s: '<polygon points="8,2 16,2 22,8 22,16 16,22 8,22 2,16 2,8"/>' },
+      { n: 'Yıldız 5', s: '<polygon points="12,2 14.5,9 22,9 16,14 18.5,21 12,17 5.5,21 8,14 2,9 9.5,9"/>' },
+      { n: 'Yıldız 4', s: '<polygon points="12,2 14,10 22,12 14,14 12,22 10,14 2,12 10,10"/>' },
+      { n: 'Yıldız 6', s: '<polygon points="12,2 14,8 20,8 16,12 20,18 14,16 12,22 10,16 4,18 8,12 4,8 10,8"/>' },
+      { n: 'Kalp', s: '<path d="M12 21s-8-5-8-11a5 5 0 0 1 8-4 5 5 0 0 1 8 4c0 6-8 11-8 11z"/>' },
+      { n: 'Bulut', s: '<path d="M6 18h12a4 4 0 0 0 0-8 6 6 0 0 0-11.5-1A4 4 0 0 0 6 18z"/>' },
+      { n: 'Paralelkenar', s: '<polygon points="6,4 22,4 18,20 2,20"/>' },
+      { n: 'Yamuk', s: '<polygon points="6,4 18,4 22,20 2,20"/>' },
+      { n: 'Artı Şekli', s: '<polygon points="9,2 15,2 15,9 22,9 22,15 15,15 15,22 9,22 9,15 2,15 2,9 9,9"/>' },
+      { n: 'Konuşma', s: '<path d="M21 12a8 8 0 0 1-11.3 7.3L4 21l1.7-5.7A8 8 0 1 1 21 12z"/>' },
+      { n: 'Düşünce', s: '<path d="M19 8a5 5 0 0 0-9-3 5 5 0 0 0-7 7 5 5 0 0 0 7 4 5 5 0 0 0 9-1 5 5 0 0 0 0-7zM5 19a1.5 1.5 0 1 0 3 0 1.5 1.5 0 0 0-3 0zM2 22a1 1 0 1 0 2 0 1 1 0 0 0-2 0z"/>' },
+    ]},
+    arrows: { label: 'Oklar', items: [
+      { n: 'Sağ Ok', s: '<path d="M4 12h14M14 6l6 6-6 6"/>' },
+      { n: 'Sol Ok', s: '<path d="M20 12H6M10 6l-6 6 6 6"/>' },
+      { n: 'Yukarı Ok', s: '<path d="M12 20V6M6 10l6-6 6 6"/>' },
+      { n: 'Aşağı Ok', s: '<path d="M12 4v14M6 14l6 6 6-6"/>' },
+      { n: 'Sağ Üst', s: '<path d="M5 19L19 5M9 5h10v10"/>' },
+      { n: 'Sol Üst', s: '<path d="M19 19L5 5M15 5H5v10"/>' },
+      { n: 'Sağ Alt', s: '<path d="M5 5l14 14M19 9v10H9"/>' },
+      { n: 'Sol Alt', s: '<path d="M19 5L5 19M5 9v10h10"/>' },
+      { n: 'Çift Yatay', s: '<path d="M2 12h20M6 8l-4 4 4 4M18 8l4 4-4 4"/>' },
+      { n: 'Çift Dikey', s: '<path d="M12 2v20M8 6l4-4 4 4M8 18l4 4 4-4"/>' },
+      { n: 'Geri Dön', s: '<path d="M3 12a9 9 0 1 0 3-6.7M3 4v6h6"/>' },
+      { n: 'Yenile', s: '<path d="M21 12a9 9 0 1 1-3-6.7M21 4v6h-6"/>' },
+      { n: 'Değiş', s: '<path d="M7 4l-4 4 4 4M3 8h14M17 14l4 4-4 4M21 18H7"/>' },
+      { n: 'Karışık', s: '<path d="M16 3l4 4-4 4M4 7h16M16 13l4 4-4 4M4 17h10"/>' },
+      { n: 'Eğri Sol', s: '<path d="M3 12c0-5 4-9 9-9s9 4 9 9M21 12l-4 4M21 12l-4-4"/>' },
+      { n: 'Eğri Sağ', s: '<path d="M21 12c0-5-4-9-9-9s-9 4-9 9M3 12l4 4M3 12l4-4"/>' },
+      { n: 'Şeritli Sağ', s: '<polygon points="2,9 14,9 14,4 22,12 14,20 14,15 2,15"/>' },
+      { n: 'Şeritli Sol', s: '<polygon points="22,9 10,9 10,4 2,12 10,20 10,15 22,15"/>' },
+      { n: 'Şeritli Yukarı', s: '<polygon points="9,22 9,10 4,10 12,2 20,10 15,10 15,22"/>' },
+      { n: 'Şeritli Aşağı', s: '<polygon points="9,2 9,14 4,14 12,22 20,14 15,14 15,2"/>' },
+    ]},
+    basic: { label: 'Temel', items: [
+      { n: 'Artı', s: '<path d="M12 4v16M4 12h16"/>' },
+      { n: 'Eksi', s: '<path d="M4 12h16"/>' },
+      { n: 'Çarpı', s: '<path d="M5 5l14 14M19 5L5 19"/>' },
+      { n: 'Eşittir', s: '<path d="M5 9h14M5 15h14"/>' },
+      { n: 'Tik', s: '<path d="M5 12l5 5L20 7"/>' },
+      { n: 'X Daire', s: '<circle cx="12" cy="12" r="10"/><path d="M8 8l8 8M16 8l-8 8"/>' },
+      { n: 'Tik Daire', s: '<circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-6"/>' },
+      { n: 'Bilgi', s: '<circle cx="12" cy="12" r="10"/><path d="M12 8v.01M11 12h1v5h1"/>' },
+      { n: 'Uyarı', s: '<path d="M12 2L2 22h20L12 2zM12 10v5M12 18v.01"/>' },
+      { n: 'Soru', s: '<circle cx="12" cy="12" r="10"/><path d="M9 9a3 3 0 0 1 6 0c0 2-3 3-3 5M12 17v.01"/>' },
+      { n: 'Yıldırım', s: '<path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z"/>' },
+      { n: 'Güneş', s: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>' },
+      { n: 'Ay', s: '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>' },
+      { n: 'Ateş', s: '<path d="M12 2s4 4 4 8a4 4 0 1 1-8 0c0-2 2-3 2-3s-1-3 2-5zM12 22a6 6 0 0 0 6-6c0-3-3-4-3-4s-1 2-3 2-3-2-3-2-3 1-3 4a6 6 0 0 0 6 6z"/>' },
+      { n: 'Damla', s: '<path d="M12 2s7 8 7 13a7 7 0 0 1-14 0c0-5 7-13 7-13z"/>' },
+    ]},
+    office: { label: 'Ofis', items: [
+      { n: 'Dosya', s: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>' },
+      { n: 'Klasör', s: '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>' },
+      { n: 'Mektup', s: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 6L12 13 2 6"/>' },
+      { n: 'Telefon', s: '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2z"/>' },
+      { n: 'Takvim', s: '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>' },
+      { n: 'Saat', s: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>' },
+      { n: 'Kullanıcı', s: '<circle cx="12" cy="8" r="4"/><path d="M4 21v-2a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v2"/>' },
+      { n: 'Grup', s: '<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2M15 21v-1a3 3 0 0 1 3-3h2a3 3 0 0 1 3 3v1"/>' },
+      { n: 'Yazıcı', s: '<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>' },
+      { n: 'Kaydet', s: '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>' },
+      { n: 'Çöp', s: '<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>' },
+      { n: 'Bağlantı', s: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>' },
+      { n: 'Kalem', s: '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>' },
+      { n: 'Sepet', s: '<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>' },
+      { n: 'Etiket', s: '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>' },
+    ]},
+    tech: { label: 'Teknoloji', items: [
+      { n: 'WiFi', s: '<path d="M5 13a10 10 0 0 1 14 0M8.5 16.5a5 5 0 0 1 7 0M12 20h.01M2 8.82a15 15 0 0 1 20 0"/>' },
+      { n: 'Pil', s: '<rect x="2" y="7" width="18" height="10" rx="2"/><line x1="22" y1="11" x2="22" y2="13"/><line x1="6" y1="11" x2="6" y2="13"/><line x1="10" y1="11" x2="10" y2="13"/>' },
+      { n: 'Şarj', s: '<path d="M14 2L4 14h7l-1 8 10-12h-7z"/>' },
+      { n: 'Kilit', s: '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>' },
+      { n: 'Anahtar', s: '<path d="M21 2l-9.6 9.6a5.5 5.5 0 1 1-2 2L19 2zM15.5 7.5l1 1"/>' },
+      { n: 'Göz', s: '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>' },
+      { n: 'Arama', s: '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>' },
+      { n: 'Ayar', s: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>' },
+      { n: 'Yıldız', s: '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>' },
+      { n: 'İndir', s: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>' },
+      { n: 'Yükle', s: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>' },
+      { n: 'Bilgisayar', s: '<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>' },
+      { n: 'Telefon Mob', s: '<rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/>' },
+      { n: 'Bulut Tek', s: '<path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>' },
+      { n: 'Veri', s: '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5M3 12a9 3 0 0 0 18 0"/>' },
+    ]},
+  };
+
+  const shapeOverlay = $('#shapeGalleryOverlay');
+  const shapeTabs = $('#shapeGalleryTabs');
+  const shapeGrid = $('#shapeGalleryGrid');
+  const shapeSearch = $('#shapeSearch');
+  const shapeColor = $('#shapeColor');
+  const shapeFill = $('#shapeFill');
+  let shapeActiveTab = 'shapes';
+
+  function buildShapeSvg(item, opts = {}) {
+    const color = opts.color || '#222222';
+    const fill = opts.fill ? color : 'none';
+    const stroke = color;
+    const sw = opts.fill ? 0 : 2;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="120" height="120" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">${item.s}</svg>`;
+  }
+
+  function svgDataUrl(svgStr) {
+    return 'data:image/svg+xml;utf8,' + encodeURIComponent(svgStr);
+  }
+
+  function renderShapeTabs() {
+    shapeTabs.innerHTML = '';
+    Object.entries(SHAPE_CATALOG).forEach(([key, cat]) => {
+      const btn = document.createElement('button');
+      btn.textContent = cat.label;
+      btn.dataset.tab = key;
+      if (key === shapeActiveTab) btn.classList.add('active');
+      btn.addEventListener('click', () => {
+        shapeActiveTab = key;
+        shapeSearch.value = '';
+        renderShapeTabs();
+        renderShapeGrid();
+      });
+      shapeTabs.appendChild(btn);
+    });
+  }
+
+  function renderShapeGrid() {
+    shapeGrid.innerHTML = '';
+    const q = (shapeSearch.value || '').trim().toLowerCase();
+    let items;
+    if (q) {
+      items = [];
+      for (const [, cat] of Object.entries(SHAPE_CATALOG)) {
+        for (const item of cat.items) {
+          if (item.n.toLowerCase().includes(q)) items.push(item);
+        }
+      }
+    } else {
+      items = SHAPE_CATALOG[shapeActiveTab].items;
+    }
+    if (!items.length) {
+      const empty = document.createElement('div');
+      empty.className = 'shape-gallery-empty';
+      empty.textContent = 'Sonuç yok';
+      shapeGrid.appendChild(empty);
+      return;
+    }
+    const opts = { color: shapeColor.value, fill: shapeFill.checked };
+    items.forEach(item => {
+      const tile = document.createElement('button');
+      tile.type = 'button';
+      tile.className = 'shape-tile';
+      tile.title = item.n;
+      tile.innerHTML = buildShapeSvg(item, opts);
+      tile.addEventListener('click', () => insertShapeFromItem(item));
+      shapeGrid.appendChild(tile);
+    });
+  }
+
+  function insertShapeFromItem(item) {
+    const opts = { color: shapeColor.value, fill: shapeFill.checked };
+    const svg = buildShapeSvg(item, opts);
+    closeShapeGallery();
+    insertImage(svgDataUrl(svg));
+    scheduleSave();
+  }
+
+  function openShapeGallery() {
+    shapeOverlay.hidden = false;
+    shapeOverlay.style.display = '';
+    renderShapeTabs();
+    renderShapeGrid();
+    setTimeout(() => shapeSearch.focus(), 50);
+  }
+
+  function closeShapeGallery() {
+    shapeOverlay.hidden = true;
+    shapeOverlay.style.display = 'none';
+  }
+
+  $('#shapeGalleryClose').addEventListener('click', closeShapeGallery);
+  shapeOverlay.addEventListener('click', (e) => {
+    if (e.target === shapeOverlay) closeShapeGallery();
+  });
+  shapeSearch.addEventListener('input', renderShapeGrid);
+  shapeColor.addEventListener('input', renderShapeGrid);
+  shapeFill.addEventListener('change', renderShapeGrid);
+
+  // ===== Table Grid Popup =====
+  const tableGridPopup = $('#tableGridPopup');
+  const tgGrid = $('#tgGrid');
+  const tgInfoText = $('#tgInfoText');
+  const TG_ROWS = 8, TG_COLS = 10;
+  let tgSelected = { r: 0, c: 0 };
+
+  function buildTgGrid() {
+    tgGrid.innerHTML = '';
+    for (let r = 0; r < TG_ROWS; r++) {
+      for (let c = 0; c < TG_COLS; c++) {
+        const cell = document.createElement('div');
+        cell.className = 'tg-cell';
+        cell.dataset.r = r;
+        cell.dataset.c = c;
+        cell.addEventListener('mouseenter', () => highlightTgCells(r + 1, c + 1));
+        cell.addEventListener('click', () => {
+          insertTable(r + 1, c + 1);
+          closeTableGridPopup();
+        });
+        tgGrid.appendChild(cell);
+      }
+    }
+  }
+
+  function highlightTgCells(rows, cols) {
+    tgSelected = { r: rows, c: cols };
+    tgInfoText.textContent = `${rows} × ${cols}`;
+    [...tgGrid.children].forEach(cell => {
+      const cr = +cell.dataset.r;
+      const cc = +cell.dataset.c;
+      cell.classList.toggle('tg-on', cr < rows && cc < cols);
+    });
+  }
+
+  function openTableGridPopup() {
+    if (!tgGrid.children.length) buildTgGrid();
+    highlightTgCells(0, 0);
+    const btn = document.querySelector('button[data-action="insertTable"]');
+    const r = btn ? btn.getBoundingClientRect() : { left: 100, bottom: 80 };
+    tableGridPopup.style.left = Math.min(r.left, window.innerWidth - 240) + 'px';
+    tableGridPopup.style.top = (r.bottom + 4) + 'px';
+    tableGridPopup.hidden = false;
+    saveSelection();
+  }
+  function closeTableGridPopup() {
+    tableGridPopup.hidden = true;
+  }
+
+  function insertTable(rows, cols) {
+    restoreSelection();
+    editor.focus();
+    let html = '<table class="editor-table">';
+    for (let r = 0; r < rows; r++) {
+      html += '<tr>';
+      for (let c = 0; c < cols; c++) html += '<td>&nbsp;</td>';
+      html += '</tr>';
+    }
+    html += '</table><p><br></p>';
+    document.execCommand('insertHTML', false, html);
+    scheduleSave();
+  }
+
+  document.addEventListener('click', (e) => {
+    if (!tableGridPopup.hidden &&
+        !tableGridPopup.contains(e.target) &&
+        !e.target.closest('button[data-action="insertTable"]')) {
+      closeTableGridPopup();
+    }
+  });
+
+  // ===== Link Dialog & Hover Preview =====
+  const linkDialog = $('#linkDialog');
+  const linkUrlInput = $('#linkUrlInput');
+  const linkTextInput = $('#linkTextInput');
+  const linkDescInput = $('#linkDescInput');
+  const linkPreview = $('#linkPreview');
+
+  function openLinkDialog() {
+    saveSelection();
+    const sel = window.getSelection();
+    const selText = sel && sel.toString ? sel.toString() : '';
+    linkUrlInput.value = '';
+    linkTextInput.value = selText;
+    linkDescInput.value = '';
+    linkDialog.hidden = false;
+    setTimeout(() => linkUrlInput.focus(), 50);
+  }
+  function closeLinkDialog() {
+    linkDialog.hidden = true;
+  }
+
+  $('#linkDialogClose').addEventListener('click', closeLinkDialog);
+  linkDialog.addEventListener('click', (e) => { if (e.target === linkDialog) closeLinkDialog(); });
+
+  $('#linkInsertBtn').addEventListener('click', () => {
+    let url = linkUrlInput.value.trim();
+    const text = (linkTextInput.value || url).trim();
+    const desc = linkDescInput.value.trim();
+    if (!url) { linkUrlInput.focus(); return; }
+    if (!/^[a-z]+:/i.test(url)) url = 'https://' + url;
+    restoreSelection();
+    editor.focus();
+    const a = document.createElement('a');
+    a.href = url;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.textContent = text;
+    if (desc) a.dataset.linkDesc = desc;
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount) {
+      const range = sel.getRangeAt(0);
+      range.deleteContents();
+      range.insertNode(a);
+      const space = document.createTextNode(' ');
+      a.after(space);
+      const newRange = document.createRange();
+      newRange.setStartAfter(space);
+      newRange.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(newRange);
+    } else {
+      editor.appendChild(a);
+    }
+    closeLinkDialog();
+    scheduleSave();
+  });
+
+  // Hover preview for links with description
+  let lpHideTimer = null;
+  editor.addEventListener('mouseover', (e) => {
+    const a = e.target.closest && e.target.closest('a[data-link-desc], a[href]');
+    if (!a || !editor.contains(a)) return;
+    if (lpHideTimer) { clearTimeout(lpHideTimer); lpHideTimer = null; }
+    $('#lpUrl').textContent = a.getAttribute('href') || '';
+    $('#lpDesc').textContent = a.dataset.linkDesc || '';
+    const r = a.getBoundingClientRect();
+    const vw = window.innerWidth;
+    let left = r.left;
+    let top = r.bottom + 6;
+    if (left + 320 > vw) left = vw - 330;
+    linkPreview.style.left = Math.max(8, left) + 'px';
+    linkPreview.style.top = top + 'px';
+    linkPreview.hidden = false;
+  });
+  editor.addEventListener('mouseout', (e) => {
+    const a = e.target.closest && e.target.closest('a');
+    if (!a) return;
+    lpHideTimer = setTimeout(() => { linkPreview.hidden = true; }, 200);
+  });
+  linkPreview.addEventListener('mouseenter', () => {
+    if (lpHideTimer) { clearTimeout(lpHideTimer); lpHideTimer = null; }
+  });
+  linkPreview.addEventListener('mouseleave', () => {
+    linkPreview.hidden = true;
+  });
+
+  // ===== Rulers + Grid Toggle =====
+  const editorWrapper = document.querySelector('.editor-wrapper');
+  function applyRulersGridFromNote() {
+    const note = getActiveNote();
+    if (!note || !editorWrapper) return;
+    editorWrapper.classList.toggle('show-rulers', !!note.showRulers);
+    editorWrapper.classList.toggle('show-grid', !!note.showGrid);
+  }
+  function toggleRulersAndGrid() {
+    const note = getActiveNote();
+    if (!note) return;
+    const on = !(note.showRulers || note.showGrid);
+    note.showRulers = on;
+    note.showGrid = on;
+    applyRulersGridFromNote();
+    scheduleSave();
+  }
+
+  // ===== Background Image =====
+  function setEditorBgFromNote() {
+    const note = getActiveNote();
+    if (!note || !editor) return;
+    if (note.bgImage) {
+      editor.style.backgroundImage = `url('${note.bgImage}')`;
+      editor.classList.add('has-bg');
+      editor.classList.toggle('bg-cover', note.bgImageMode === 'cover');
+      editor.style.setProperty('--editor-bg-image', `url('${note.bgImage}')`);
+    } else {
+      editor.style.backgroundImage = '';
+      editor.classList.remove('has-bg', 'bg-cover');
+      editor.style.removeProperty('--editor-bg-image');
+    }
+  }
+  function setBackgroundFromImage(img) {
+    const note = getActiveNote();
+    if (!note || !img) return;
+    note.bgImage = img.src;
+    note.bgImageMode = note.bgImageMode || 'fit';
+    if (typeof deselectImage === 'function') deselectImage();
+    img.remove();
+    setEditorBgFromNote();
+    scheduleSave();
+  }
+  function clearBackground() {
+    const note = getActiveNote();
+    if (!note) return;
+    note.bgImage = '';
+    setEditorBgFromNote();
+    scheduleSave();
+  }
+  function toggleBackgroundMode() {
+    const note = getActiveNote();
+    if (!note || !note.bgImage) return;
+    note.bgImageMode = note.bgImageMode === 'cover' ? 'fit' : 'cover';
+    setEditorBgFromNote();
+    scheduleSave();
+  }
+  // Expose for image panel
+  window.__npSetBgFromImage = setBackgroundFromImage;
+  window.__npClearBg = clearBackground;
+  window.__npToggleBgMode = toggleBackgroundMode;
+  window.__npApplyBg = setEditorBgFromNote;
+  window.__npApplyRulersGrid = applyRulersGridFromNote;
+
   // Drag & drop image files into editor
   editor.addEventListener('dragover', (e) => {
     if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) {
@@ -631,33 +1070,127 @@
   }
 
   // --- Find & Replace ---
+  let findIdx = -1;
   function toggleFindReplace() {
     const dialog = $('#findReplaceDialog');
-    dialog.style.display = dialog.style.display === 'none' ? 'flex' : 'none';
-    if (dialog.style.display === 'flex') {
+    const opening = dialog.style.display === 'none';
+    dialog.style.display = opening ? 'flex' : 'none';
+    if (opening) {
       $('#findInput').focus();
+    } else {
+      clearFindMarks();
+      $('#findCount').textContent = '';
     }
+  }
+
+  function clearFindMarks() {
+    editor.querySelectorAll('mark.find-hit').forEach(m => {
+      const txt = document.createTextNode(m.textContent);
+      m.replaceWith(txt);
+    });
+    editor.normalize();
+    findIdx = -1;
+  }
+
+  function highlightAllMatches(needle) {
+    clearFindMarks();
+    if (!needle) return 0;
+    const lcNeedle = needle.toLowerCase();
+    const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, {
+      acceptNode: (n) => {
+        if (!n.nodeValue) return NodeFilter.FILTER_REJECT;
+        if (n.parentNode && n.parentNode.tagName === 'SCRIPT') return NodeFilter.FILTER_REJECT;
+        return n.nodeValue.toLowerCase().includes(lcNeedle) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+      }
+    });
+    const nodes = [];
+    let n;
+    while ((n = walker.nextNode())) nodes.push(n);
+    let count = 0;
+    for (const node of nodes) {
+      const text = node.nodeValue;
+      const lower = text.toLowerCase();
+      const frag = document.createDocumentFragment();
+      let i = 0;
+      while (i < text.length) {
+        const idx = lower.indexOf(lcNeedle, i);
+        if (idx === -1) {
+          frag.appendChild(document.createTextNode(text.slice(i)));
+          break;
+        }
+        if (idx > i) frag.appendChild(document.createTextNode(text.slice(i, idx)));
+        const mark = document.createElement('mark');
+        mark.className = 'find-hit';
+        mark.textContent = text.slice(idx, idx + needle.length);
+        frag.appendChild(mark);
+        count++;
+        i = idx + needle.length;
+      }
+      node.replaceWith(frag);
+    }
+    return count;
+  }
+
+  function findAll() {
+    const text = $('#findInput').value;
+    if (!text) { clearFindMarks(); $('#findCount').textContent = ''; return 0; }
+    const count = highlightAllMatches(text);
+    $('#findCount').textContent = count + ' eşleşme';
+    findIdx = -1;
+    if (count > 0) focusNextMark();
+    return count;
+  }
+
+  function focusNextMark() {
+    const marks = editor.querySelectorAll('mark.find-hit');
+    if (!marks.length) return;
+    marks.forEach(m => m.classList.remove('find-current'));
+    findIdx = (findIdx + 1) % marks.length;
+    const cur = marks[findIdx];
+    cur.classList.add('find-current');
+    cur.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }
 
   function findNext() {
     const text = $('#findInput').value;
     if (!text) return;
-    window.find(text, false, false, true);
+    let marks = editor.querySelectorAll('mark.find-hit');
+    if (!marks.length) {
+      const c = highlightAllMatches(text);
+      $('#findCount').textContent = c + ' eşleşme';
+      marks = editor.querySelectorAll('mark.find-hit');
+      findIdx = -1;
+    }
+    if (!marks.length) {
+      $('#findCount').textContent = '0 eşleşme';
+      return;
+    }
+    focusNextMark();
   }
 
   function replaceText() {
     const findText = $('#findInput').value;
     const replaceWith = $('#replaceInput').value;
     if (!findText) return;
-    if (window.find(findText)) {
-      document.execCommand('insertText', false, replaceWith);
-    }
+    const marks = editor.querySelectorAll('mark.find-hit');
+    if (!marks.length) { findNext(); return; }
+    const cur = marks[Math.max(0, findIdx)] || marks[0];
+    const tn = document.createTextNode(replaceWith);
+    cur.replaceWith(tn);
+    editor.normalize();
+    scheduleSave();
+    // Re-highlight remaining and focus next
+    const remaining = highlightAllMatches(findText);
+    $('#findCount').textContent = remaining + ' eşleşme';
+    findIdx = -1;
+    if (remaining > 0) focusNextMark();
   }
 
   function replaceAll() {
     const findText = $('#findInput').value;
     const replaceWith = $('#replaceInput').value;
     if (!findText) return;
+    clearFindMarks();
     const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, null);
     const nodes = [];
     let node;
@@ -681,6 +1214,7 @@
       }
       n.nodeValue = out;
     }
+    $('#findCount').textContent = count + ' değiştirildi';
     if (count > 0) scheduleSave();
   }
 
@@ -816,6 +1350,9 @@
     }
     // Toggle image-only buttons
     editorCtx.querySelectorAll('.ectx-img-only').forEach(b => { b.hidden = !img; });
+    // Toggle bg-only buttons (only when editor has background image)
+    const hasBg = editor.classList.contains('has-bg');
+    editorCtx.querySelectorAll('.ectx-bg-only').forEach(b => { b.hidden = !hasBg; });
     e.preventDefault();
     e.stopPropagation();
     saveSelection();
@@ -878,6 +1415,10 @@
           img.remove();
           scheduleSave();
         }
+      } else if (action === 'bgToggleMode') {
+        if (typeof window.__npToggleBgMode === 'function') window.__npToggleBgMode();
+      } else if (action === 'bgClear') {
+        if (typeof window.__npClearBg === 'function') window.__npClearBg();
       }
     } catch (err) {
       console.error('[editorCtx]', err);
@@ -902,6 +1443,7 @@
 
   // Find & Replace
   $('#closeFindReplace').addEventListener('click', toggleFindReplace);
+  $('#btnFindAll').addEventListener('click', findAll);
   $('#btnFindNext').addEventListener('click', findNext);
   $('#btnReplace').addEventListener('click', replaceText);
   $('#btnReplaceAll').addEventListener('click', replaceAll);
@@ -1189,6 +1731,15 @@
         findNext();
       }
     });
+  });
+
+  // Live re-highlight when find term changes
+  $('#findInput').addEventListener('input', () => {
+    const v = $('#findInput').value;
+    if (!v) { clearFindMarks(); $('#findCount').textContent = ''; return; }
+    const c = highlightAllMatches(v);
+    $('#findCount').textContent = c + ' eşleşme';
+    findIdx = -1;
   });
 
   // Sidebar toggle (mobile) — body class drives backdrop overlay
@@ -1976,6 +2527,13 @@
     $('#imageReplaceInput').click();
   });
 
+  $('#ipSetBg').addEventListener('click', () => {
+    if (!selectedImg) return;
+    if (typeof window.__npSetBgFromImage === 'function') {
+      window.__npSetBgFromImage(selectedImg);
+    }
+  });
+
   $('#imageReplaceInput').addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (!file || !selectedImg) return;
@@ -2237,6 +2795,7 @@
       find: 'Bul:',
       replaceWith: 'Şununla değiştir:',
       findNext: 'Sonrakini Bul',
+      findAll: 'Tümünü Bul',
       replaceOne: 'Değiştir',
       replaceAll: 'Tümünü Değiştir',
       saveTxt: '.txt olarak kaydet',
@@ -2258,6 +2817,20 @@
       findReplaceTip: 'Bul ve Değiştir (Ctrl+H)',
       insertImage: 'Resim Ekle',
       insertTextBox: 'Metin Kutusu Ekle',
+      insertShape: 'Şekil & İkon Ekle',
+      insertLink: 'Bağlantı Ekle',
+      insertTable: 'Tablo Ekle',
+      bgImageSet: 'Arka Plan Yap',
+      bgImageClear: 'Arka Planı Kaldır',
+      bgImageFit: 'Sığdır',
+      bgImageCover: 'Kapla',
+      linkUrl: 'URL',
+      linkText: 'Görünen Metin',
+      linkDesc: 'Açıklama',
+      tableRows: 'Satır',
+      tableCols: 'Sütun',
+      color: 'Renk',
+      fill: 'Dolu',
       borderColor: 'Çerçeve',
       bgColor: 'Arka plan',
       radius: 'Köşe',
@@ -2358,6 +2931,7 @@
       find: 'Find:',
       replaceWith: 'Replace with:',
       findNext: 'Find Next',
+      findAll: 'Find All',
       replaceOne: 'Replace',
       replaceAll: 'Replace All',
       saveTxt: 'Save as .txt',
@@ -2379,6 +2953,20 @@
       findReplaceTip: 'Find & Replace (Ctrl+H)',
       insertImage: 'Insert Image',
       insertTextBox: 'Insert Text Box',
+      insertShape: 'Insert Shape & Icon',
+      insertLink: 'Insert Link',
+      insertTable: 'Insert Table',
+      bgImageSet: 'Set as Background',
+      bgImageClear: 'Clear Background',
+      bgImageFit: 'Fit',
+      bgImageCover: 'Cover',
+      linkUrl: 'URL',
+      linkText: 'Display Text',
+      linkDesc: 'Description',
+      tableRows: 'Rows',
+      tableCols: 'Cols',
+      color: 'Color',
+      fill: 'Fill',
       borderColor: 'Border',
       bgColor: 'Background',
       radius: 'Radius',
