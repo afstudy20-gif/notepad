@@ -229,6 +229,9 @@
         <button title="Resim Ekle" data-i18n-title="insertImage" data-action="insertImage">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
         </button>
+        <button title="Metin Kutusu Ekle" data-i18n-title="insertTextBox" data-action="insertTextBox">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="12" rx="1"/><line x1="7" y1="12" x2="17" y2="12"/></svg>
+        </button>
         <button title="Tarih/Saat Ekle" data-i18n-title="insertDateTime" data-action="insertDateTime">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         </button>
@@ -264,6 +267,33 @@
     <button data-ctx="rename" data-i18n="rename">Adını Değiştir</button>
     <button data-ctx="duplicate" data-i18n="duplicate">Kopyala</button>
     <button data-ctx="delete" class="ctx-danger" data-i18n="delete">Sil</button>
+  </div>
+
+  <!-- Text Box Edit Popup -->
+  <div class="textbox-popup" id="textBoxPopup" hidden>
+    <div class="tbp-row">
+      <label data-i18n="borderColor">Çerçeve</label>
+      <input type="color" id="tbpBorderColor" value="#999999">
+      <input type="number" id="tbpBorderWidth" min="0" max="20" value="1" title="px">
+      <select id="tbpBorderStyle">
+        <option value="solid">solid</option>
+        <option value="dashed">dashed</option>
+        <option value="dotted">dotted</option>
+        <option value="double">double</option>
+        <option value="none">none</option>
+      </select>
+    </div>
+    <div class="tbp-row">
+      <label data-i18n="bgColor">Arka plan</label>
+      <input type="color" id="tbpBgColor" value="#ffffff">
+      <button id="tbpBgClear" title="Şeffaf">∅</button>
+      <label data-i18n="radius">Köşe</label>
+      <input type="number" id="tbpRadius" min="0" max="60" value="4" title="px">
+    </div>
+    <div class="tbp-row">
+      <button id="tbpDelete" class="tbp-danger" data-i18n="delete">Sil</button>
+      <button id="tbpClose">✕</button>
+    </div>
   </div>
 
   <!-- Editor Context Menu -->

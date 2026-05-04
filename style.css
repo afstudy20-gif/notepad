@@ -671,6 +671,107 @@ body.has-image-panel .editor-area {
   outline-offset: 1px;
 }
 
+/* Text Box: inline-block bordered editable container */
+#editor .text-box {
+  display: inline-block;
+  min-width: 100px;
+  min-height: 28px;
+  padding: 8px 12px;
+  margin: 4px 2px;
+  border: 1px solid #999;
+  border-radius: 4px;
+  background: #fff;
+  vertical-align: top;
+  box-sizing: border-box;
+  cursor: text;
+}
+#editor .text-box:focus {
+  outline: none;
+}
+#editor .text-box.tb-selected {
+  box-shadow: 0 0 0 2px #4361ee, 0 0 0 4px rgba(67,97,238,0.18);
+}
+
+/* Text Box Edit Popup */
+.textbox-popup {
+  position: fixed;
+  z-index: 90;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+  padding: 10px 12px;
+  min-width: 280px;
+  font-size: 12px;
+}
+.textbox-popup[hidden] { display: none; }
+.textbox-popup .tbp-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.textbox-popup .tbp-row:last-child { margin-bottom: 0; }
+.textbox-popup label {
+  color: #555;
+  font-weight: 500;
+  min-width: 56px;
+}
+.textbox-popup input[type="color"] {
+  width: 32px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  background: transparent;
+}
+.textbox-popup input[type="number"] {
+  width: 56px;
+  padding: 4px 6px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 12px;
+}
+.textbox-popup select {
+  padding: 4px 6px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 12px;
+  background: #fff;
+}
+.textbox-popup button {
+  padding: 5px 10px;
+  border: 1px solid #ddd;
+  background: #f8f9fa;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #333;
+}
+.textbox-popup button:hover {
+  background: #4361ee;
+  color: #fff;
+  border-color: #4361ee;
+}
+.textbox-popup .tbp-danger {
+  background: #fee2e2;
+  color: #dc2626;
+  border-color: #fecaca;
+}
+.textbox-popup .tbp-danger:hover {
+  background: #dc2626;
+  color: #fff;
+  border-color: #dc2626;
+}
+@media (max-width: 480px) {
+  .textbox-popup {
+    left: 8px !important;
+    right: 8px !important;
+    min-width: 0;
+  }
+}
+
 /* Resize / Crop overlay (Word-style) */
 .img-sel-overlay {
   position: fixed;

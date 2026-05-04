@@ -269,6 +269,9 @@
       const dt = new Date().toLocaleString();
       execCmd('insertText', dt);
     },
+    insertTextBox: () => {
+      insertTextBox();
+    },
     fullscreen: () => {
       if (!document.fullscreenElement) {
         document.documentElement.requestFullscreen();
@@ -406,6 +409,155 @@
     }
     img.scrollIntoView({ block: 'nearest' });
   }
+
+  // ===== Text Box =====
+  let selectedTextBox = null;
+  const tbPopup = $('#textBoxPopup');
+
+  function insertTextBox() {
+    editor.focus();
+    const tb = document.createElement('div');
+    tb.className = 'text-box';
+    tb.contentEditable = 'true';
+    tb.textContent = 'Metin';
+    const sel = window.getSelection();
+    let inserted = false;
+    try {
+      if (sel && sel.rangeCount > 0 && editor.contains(sel.anchorNode)) {
+        const range = sel.getRangeAt(0);
+        range.deleteContents();
+        range.insertNode(tb);
+        const space = document.createTextNode(' ');
+        tb.after(space);
+        const newRange = document.createRange();
+        newRange.setStartAfter(space);
+        newRange.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(newRange);
+        inserted = true;
+      }
+    } catch (err) { inserted = false; }
+    if (!inserted) {
+      editor.appendChild(tb);
+      editor.appendChild(document.createTextNode(' '));
+    }
+    selectTextBox(tb);
+    scheduleSave();
+  }
+
+  function selectTextBox(tb) {
+    if (selectedTextBox && selectedTextBox !== tb) {
+      selectedTextBox.classList.remove('tb-selected');
+    }
+    selectedTextBox = tb;
+    tb.classList.add('tb-selected');
+    syncTbPopup(tb);
+    positionTbPopup(tb);
+    tbPopup.hidden = false;
+  }
+
+  function deselectTextBox() {
+    if (selectedTextBox) selectedTextBox.classList.remove('tb-selected');
+    selectedTextBox = null;
+    if (tbPopup) tbPopup.hidden = true;
+  }
+
+  function syncTbPopup(tb) {
+    const cs = window.getComputedStyle(tb);
+    const bw = parseInt(cs.borderTopWidth, 10) || 0;
+    const bs = cs.borderTopStyle || 'solid';
+    const bc = rgbToHex(cs.borderTopColor) || '#999999';
+    const bg = rgbToHex(cs.backgroundColor) || '#ffffff';
+    const radius = parseInt(cs.borderTopLeftRadius, 10) || 0;
+    $('#tbpBorderColor').value = bc;
+    $('#tbpBorderWidth').value = bw;
+    $('#tbpBorderStyle').value = ['solid','dashed','dotted','double','none'].includes(bs) ? bs : 'solid';
+    $('#tbpBgColor').value = bg;
+    $('#tbpRadius').value = radius;
+  }
+
+  function rgbToHex(rgb) {
+    if (!rgb) return null;
+    if (rgb.startsWith('#')) return rgb;
+    const m = rgb.match(/\d+/g);
+    if (!m || m.length < 3) return null;
+    const a = m.length >= 4 ? parseFloat(m[3]) : 1;
+    if (a === 0) return '#ffffff';
+    const toHex = (n) => parseInt(n, 10).toString(16).padStart(2, '0');
+    return '#' + toHex(m[0]) + toHex(m[1]) + toHex(m[2]);
+  }
+
+  function positionTbPopup(tb) {
+    const r = tb.getBoundingClientRect();
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const pw = 320, ph = 130;
+    let top = r.bottom + 6;
+    let left = r.left;
+    if (top + ph > vh) top = Math.max(8, r.top - ph - 6);
+    if (left + pw > vw) left = Math.max(8, vw - pw - 8);
+    tbPopup.style.top = top + 'px';
+    tbPopup.style.left = left + 'px';
+  }
+
+  function applyTbStyle() {
+    if (!selectedTextBox) return;
+    const tb = selectedTextBox;
+    const bc = $('#tbpBorderColor').value;
+    const bw = parseInt($('#tbpBorderWidth').value, 10) || 0;
+    const bs = $('#tbpBorderStyle').value;
+    const bg = $('#tbpBgColor').value;
+    const radius = parseInt($('#tbpRadius').value, 10) || 0;
+    tb.style.borderColor = bc;
+    tb.style.borderWidth = bw + 'px';
+    tb.style.borderStyle = bs;
+    tb.style.background = bg;
+    tb.style.borderRadius = radius + 'px';
+    scheduleSave();
+  }
+
+  // Click on textbox → select
+  editor.addEventListener('click', (e) => {
+    const tb = e.target.closest && e.target.closest('.text-box');
+    if (tb) {
+      selectTextBox(tb);
+    } else if (selectedTextBox && !tbPopup.contains(e.target)) {
+      deselectTextBox();
+    }
+  });
+
+  // Reposition popup on scroll/resize
+  ['scroll', 'resize'].forEach(ev => window.addEventListener(ev, () => {
+    if (selectedTextBox && !tbPopup.hidden) positionTbPopup(selectedTextBox);
+  }, true));
+
+  // Wire popup controls
+  ['#tbpBorderColor', '#tbpBorderWidth', '#tbpBorderStyle', '#tbpBgColor', '#tbpRadius'].forEach(sel => {
+    const el = $(sel);
+    if (el) el.addEventListener('input', applyTbStyle);
+    if (el) el.addEventListener('change', applyTbStyle);
+  });
+  $('#tbpBgClear').addEventListener('click', () => {
+    if (!selectedTextBox) return;
+    selectedTextBox.style.background = 'transparent';
+    scheduleSave();
+  });
+  $('#tbpDelete').addEventListener('click', () => {
+    if (!selectedTextBox) return;
+    const tb = selectedTextBox;
+    deselectTextBox();
+    tb.remove();
+    scheduleSave();
+  });
+  $('#tbpClose').addEventListener('click', () => deselectTextBox());
+
+  // Hide popup when clicking outside editor + popup
+  document.addEventListener('click', (e) => {
+    if (!selectedTextBox) return;
+    if (tbPopup.contains(e.target)) return;
+    if (selectedTextBox.contains(e.target)) return;
+    if (e.target.closest && e.target.closest('.text-box')) return;
+    deselectTextBox();
+  });
 
   // Drag & drop image files into editor
   editor.addEventListener('dragover', (e) => {
@@ -2105,6 +2257,10 @@
       installPwa: 'Uygulamayı Yükle',
       findReplaceTip: 'Bul ve Değiştir (Ctrl+H)',
       insertImage: 'Resim Ekle',
+      insertTextBox: 'Metin Kutusu Ekle',
+      borderColor: 'Çerçeve',
+      bgColor: 'Arka plan',
+      radius: 'Köşe',
       insertDateTime: 'Tarih/Saat Ekle',
       fullscreen: 'Tam Ekran',
       share: 'Paylaş',
@@ -2222,6 +2378,10 @@
       installPwa: 'Install App',
       findReplaceTip: 'Find & Replace (Ctrl+H)',
       insertImage: 'Insert Image',
+      insertTextBox: 'Insert Text Box',
+      borderColor: 'Border',
+      bgColor: 'Background',
+      radius: 'Radius',
       insertDateTime: 'Insert Date/Time',
       fullscreen: 'Fullscreen',
       share: 'Share',
