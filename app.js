@@ -863,10 +863,12 @@
     linkTextInput.value = selText;
     linkDescInput.value = '';
     linkDialog.hidden = false;
+    linkDialog.style.display = '';
     setTimeout(() => linkUrlInput.focus(), 50);
   }
   function closeLinkDialog() {
     linkDialog.hidden = true;
+    linkDialog.style.display = 'none';
   }
 
   $('#linkDialogClose').addEventListener('click', closeLinkDialog);
