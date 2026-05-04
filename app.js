@@ -99,6 +99,7 @@
     if (typeof window.__npApplyRulersGrid === 'function') window.__npApplyRulersGrid();
     // Re-apply draggable on existing text boxes
     editor.querySelectorAll('.text-box').forEach(tb => { tb.draggable = true; });
+    if (typeof window.__npRecalcSheets === 'function') window.__npRecalcSheets();
   }
 
   function applyPageLayout(note) {
@@ -293,6 +294,12 @@
     },
     toggleRulers: () => {
       toggleRulersAndGrid();
+    },
+    toggleCalc: () => {
+      toggleCalculator();
+    },
+    insertSheet: () => {
+      insertMiniSheet();
     },
     fullscreen: () => {
       if (!document.fullscreenElement) {
@@ -1056,6 +1063,323 @@
   window.__npToggleBgMode = toggleBackgroundMode;
   window.__npApplyBg = setEditorBgFromNote;
   window.__npApplyRulersGrid = applyRulersGridFromNote;
+
+  // ===== Calculator =====
+  const calcPanel = $('#calcPanel');
+  const calcDisp = $('#calcDisp');
+  let calcExpr = '';
+
+  function openCalc() {
+    calcPanel.hidden = false;
+    calcPanel.style.display = '';
+    calcDisp.value = calcExpr || '0';
+  }
+  function closeCalc() {
+    calcPanel.hidden = true;
+    calcPanel.style.display = 'none';
+  }
+  function toggleCalculator() {
+    if (calcPanel.hidden) openCalc(); else closeCalc();
+  }
+  function calcUpdate() {
+    calcDisp.value = calcExpr || '0';
+  }
+  function calcEval() {
+    if (!calcExpr) return;
+    let s = calcExpr.replace(/×/g, '*').replace(/÷/g, '/').replace(/π/g, 'Math.PI').replace(/√\(/g, 'Math.sqrt(').replace(/\^/g, '**');
+    if (!/^[\d+\-*/().% \^MathPIsqrte]*$/.test(s)) { calcDisp.value = 'ERR'; return; }
+    try {
+      const result = Function('"use strict"; return (' + s + ')')();
+      if (typeof result !== 'number' || !isFinite(result)) { calcDisp.value = 'ERR'; return; }
+      calcExpr = String(Math.round(result * 1e10) / 1e10);
+      calcUpdate();
+    } catch (_) {
+      calcDisp.value = 'ERR';
+    }
+  }
+  $('#calcClose').addEventListener('click', closeCalc);
+  calcPanel.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-calc]');
+    if (!btn) return;
+    const k = btn.dataset.calc;
+    if (k === 'clear') { calcExpr = ''; calcUpdate(); return; }
+    if (k === 'back') { calcExpr = calcExpr.slice(0, -1); calcUpdate(); return; }
+    if (k === 'eq') { calcEval(); return; }
+    if (k === 'neg') {
+      if (!calcExpr) { calcExpr = '-'; calcUpdate(); return; }
+      const m = calcExpr.match(/(-?\d+\.?\d*)$/);
+      if (m) {
+        const num = m[1];
+        const negd = num.startsWith('-') ? num.slice(1) : '-' + num;
+        calcExpr = calcExpr.slice(0, -num.length) + negd;
+      }
+      calcUpdate();
+      return;
+    }
+    if (k === 'sqrt') { calcExpr += '√('; calcUpdate(); return; }
+    if (k === 'pi') { calcExpr += 'π'; calcUpdate(); return; }
+    calcExpr += k;
+    calcUpdate();
+  });
+  // Keyboard input when calc focused
+  document.addEventListener('keydown', (e) => {
+    if (calcPanel.hidden) return;
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) return;
+    if (/^[0-9.+\-*/()%]$/.test(e.key)) { calcExpr += e.key; calcUpdate(); e.preventDefault(); }
+    else if (e.key === 'Enter' || e.key === '=') { calcEval(); e.preventDefault(); }
+    else if (e.key === 'Backspace') { calcExpr = calcExpr.slice(0, -1); calcUpdate(); e.preventDefault(); }
+    else if (e.key === 'Escape') { closeCalc(); }
+  });
+  // Draggable header
+  (() => {
+    const header = calcPanel.querySelector('.calc-header');
+    if (!header) return;
+    let dragging = false, dx = 0, dy = 0;
+    header.addEventListener('mousedown', (e) => {
+      if (e.target.closest('.calc-close')) return;
+      dragging = true;
+      const r = calcPanel.getBoundingClientRect();
+      dx = e.clientX - r.left; dy = e.clientY - r.top;
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove', (e) => {
+      if (!dragging) return;
+      calcPanel.style.left = (e.clientX - dx) + 'px';
+      calcPanel.style.top = (e.clientY - dy) + 'px';
+      calcPanel.style.right = 'auto';
+    });
+    document.addEventListener('mouseup', () => { dragging = false; });
+  })();
+
+  // ===== Mini Sheet (formula-enabled) =====
+  function colLetter(i) {
+    let s = '';
+    while (i >= 0) { s = String.fromCharCode(65 + (i % 26)) + s; i = Math.floor(i / 26) - 1; }
+    return s;
+  }
+
+  function insertMiniSheet(rows = 5, cols = 4) {
+    editor.focus();
+    const wrap = document.createElement('div');
+    wrap.className = 'mini-sheet';
+    wrap.contentEditable = 'false';
+    wrap.dataset.rows = rows;
+    wrap.dataset.cols = cols;
+    wrap.innerHTML = buildSheetHtml(rows, cols);
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount && editor.contains(sel.anchorNode)) {
+      const range = sel.getRangeAt(0);
+      range.deleteContents();
+      range.insertNode(wrap);
+      const after = document.createElement('p');
+      after.innerHTML = '<br>';
+      wrap.after(after);
+      const r = document.createRange();
+      r.setStart(after, 0);
+      r.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(r);
+    } else {
+      editor.appendChild(wrap);
+    }
+    scheduleSave();
+  }
+
+  function buildSheetHtml(rows, cols) {
+    let h = '<div class="ms-toolbar">';
+    h += '<button data-msact="addRow">+ Satır</button>';
+    h += '<button data-msact="addCol">+ Sütun</button>';
+    h += '<button data-msact="delRow">- Satır</button>';
+    h += '<button data-msact="delCol">- Sütun</button>';
+    h += '<button data-msact="del" class="ms-danger">Sil</button>';
+    h += '</div>';
+    h += '<table><thead><tr><th></th>';
+    for (let c = 0; c < cols; c++) h += `<th>${colLetter(c)}</th>`;
+    h += '</tr></thead><tbody>';
+    for (let r = 0; r < rows; r++) {
+      h += `<tr><th>${r + 1}</th>`;
+      for (let c = 0; c < cols; c++) {
+        h += `<td contenteditable="true" data-r="${r}" data-c="${c}"></td>`;
+      }
+      h += '</tr>';
+    }
+    h += '</tbody></table>';
+    return h;
+  }
+
+  function getSheetData(sheet) {
+    const tbody = sheet.querySelector('tbody');
+    const rows = tbody ? tbody.querySelectorAll('tr') : [];
+    const data = [];
+    rows.forEach(tr => {
+      const cells = tr.querySelectorAll('td');
+      const row = [];
+      cells.forEach(td => {
+        const f = td.dataset.formula;
+        if (f) row.push(f);
+        else row.push(td.textContent.trim());
+      });
+      data.push(row);
+    });
+    return data;
+  }
+
+  function cellRefValue(data, ref) {
+    const m = ref.match(/^([A-Z]+)(\d+)$/);
+    if (!m) return 0;
+    const col = m[1].split('').reduce((acc, ch) => acc * 26 + (ch.charCodeAt(0) - 64), 0) - 1;
+    const row = parseInt(m[2], 10) - 1;
+    if (row < 0 || row >= data.length) return 0;
+    if (col < 0 || col >= data[row].length) return 0;
+    const v = data[row][col];
+    if (typeof v === 'string' && v.startsWith('=')) {
+      return evalFormula(data, v.slice(1)) || 0;
+    }
+    const n = parseFloat(v);
+    return isFinite(n) ? n : 0;
+  }
+
+  function expandRange(data, range) {
+    const m = range.match(/^([A-Z]+)(\d+):([A-Z]+)(\d+)$/);
+    if (!m) return [];
+    const c1 = m[1].split('').reduce((a, ch) => a * 26 + (ch.charCodeAt(0) - 64), 0) - 1;
+    const r1 = parseInt(m[2], 10) - 1;
+    const c2 = m[3].split('').reduce((a, ch) => a * 26 + (ch.charCodeAt(0) - 64), 0) - 1;
+    const r2 = parseInt(m[4], 10) - 1;
+    const out = [];
+    for (let r = Math.min(r1, r2); r <= Math.max(r1, r2); r++) {
+      for (let c = Math.min(c1, c2); c <= Math.max(c1, c2); c++) {
+        out.push(cellRefValue(data, colLetter(c) + (r + 1)));
+      }
+    }
+    return out;
+  }
+
+  function evalFormula(data, expr) {
+    try {
+      // Resolve functions: SUM, AVG/AVERAGE, MIN, MAX, COUNT
+      let s = expr;
+      s = s.replace(/(SUM|AVG|AVERAGE|MIN|MAX|COUNT)\s*\(([^)]+)\)/gi, (m, fn, args) => {
+        const fnUp = fn.toUpperCase();
+        const parts = args.split(',').map(p => p.trim());
+        const vals = [];
+        parts.forEach(p => {
+          if (/^[A-Z]+\d+:[A-Z]+\d+$/.test(p)) vals.push(...expandRange(data, p));
+          else if (/^[A-Z]+\d+$/.test(p)) vals.push(cellRefValue(data, p));
+          else { const n = parseFloat(p); if (isFinite(n)) vals.push(n); }
+        });
+        if (fnUp === 'SUM') return vals.reduce((a, b) => a + b, 0);
+        if (fnUp === 'AVG' || fnUp === 'AVERAGE') return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+        if (fnUp === 'MIN') return vals.length ? Math.min(...vals) : 0;
+        if (fnUp === 'MAX') return vals.length ? Math.max(...vals) : 0;
+        if (fnUp === 'COUNT') return vals.length;
+        return 0;
+      });
+      // Resolve cell refs
+      s = s.replace(/[A-Z]+\d+/g, (ref) => cellRefValue(data, ref));
+      // Sanitize: only digits, ops, parens, decimal, spaces
+      if (!/^[\d+\-*/().\s]*$/.test(s)) return '#ERR';
+      const v = Function('"use strict"; return (' + s + ')')();
+      if (typeof v !== 'number' || !isFinite(v)) return '#ERR';
+      return Math.round(v * 1e10) / 1e10;
+    } catch (_) {
+      return '#ERR';
+    }
+  }
+
+  function recalcSheet(sheet) {
+    const data = getSheetData(sheet);
+    sheet.querySelectorAll('td').forEach(td => {
+      const f = td.dataset.formula;
+      if (f) {
+        const v = evalFormula(data, f);
+        td.classList.add('ms-formula');
+        td.classList.toggle('ms-error', v === '#ERR');
+        td.textContent = v;
+      } else {
+        td.classList.remove('ms-formula', 'ms-error');
+      }
+    });
+  }
+
+  // Sheet event handling — delegate via editor
+  editor.addEventListener('focusin', (e) => {
+    const td = e.target.closest && e.target.closest('.mini-sheet td');
+    if (!td) return;
+    if (td.dataset.formula) td.textContent = '=' + td.dataset.formula;
+  });
+  editor.addEventListener('focusout', (e) => {
+    const td = e.target.closest && e.target.closest('.mini-sheet td');
+    if (!td) return;
+    const sheet = td.closest('.mini-sheet');
+    const txt = td.textContent.trim();
+    if (txt.startsWith('=')) td.dataset.formula = txt.slice(1);
+    else delete td.dataset.formula;
+    recalcSheet(sheet);
+    scheduleSave();
+  });
+  editor.addEventListener('keydown', (e) => {
+    const td = e.target.closest && e.target.closest('.mini-sheet td');
+    if (!td) return;
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      td.blur();
+      const next = td.parentNode.nextElementSibling?.children[[...td.parentNode.children].indexOf(td)];
+      if (next) next.focus();
+    } else if (e.key === 'Tab') {
+      e.preventDefault();
+      td.blur();
+      const idx = [...td.parentNode.children].indexOf(td);
+      const next = e.shiftKey ? td.parentNode.children[idx - 1] : td.parentNode.children[idx + 1];
+      if (next && next.tagName === 'TD') next.focus();
+    }
+  });
+  // Sheet toolbar actions
+  editor.addEventListener('click', (e) => {
+    const btn = e.target.closest && e.target.closest('.mini-sheet .ms-toolbar button[data-msact]');
+    if (!btn) return;
+    const sheet = btn.closest('.mini-sheet');
+    const action = btn.dataset.msact;
+    e.preventDefault();
+    e.stopPropagation();
+    if (action === 'del') {
+      sheet.remove();
+      scheduleSave();
+      return;
+    }
+    const tbody = sheet.querySelector('tbody');
+    const headRow = sheet.querySelector('thead tr');
+    const rows = tbody.querySelectorAll('tr');
+    const cols = rows[0] ? rows[0].querySelectorAll('td').length : 0;
+    if (action === 'addRow') {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<th>${rows.length + 1}</th>` + '<td contenteditable="true"></td>'.repeat(cols);
+      tbody.appendChild(tr);
+    } else if (action === 'addCol') {
+      const newLetter = colLetter(cols);
+      headRow.appendChild(Object.assign(document.createElement('th'), { textContent: newLetter }));
+      rows.forEach(r => {
+        const td = document.createElement('td');
+        td.contentEditable = 'true';
+        r.appendChild(td);
+      });
+    } else if (action === 'delRow') {
+      if (rows.length > 1) rows[rows.length - 1].remove();
+    } else if (action === 'delCol') {
+      if (cols > 1) {
+        headRow.lastElementChild?.remove();
+        rows.forEach(r => r.lastElementChild?.remove());
+      }
+    }
+    recalcSheet(sheet);
+    scheduleSave();
+  });
+
+  // Recalc all sheets on note load (after innerHTML sets, formulas need re-eval)
+  function recalcAllSheets() {
+    editor.querySelectorAll('.mini-sheet').forEach(s => recalcSheet(s));
+  }
+  window.__npRecalcSheets = recalcAllSheets;
 
   // Drag & drop: internal element move + external image files
   let __internalDragNode = null;
@@ -2952,6 +3276,8 @@
       insertShape: 'Şekil & İkon Ekle',
       insertLink: 'Bağlantı Ekle',
       insertTable: 'Tablo Ekle',
+      calculator: 'Hesap Makinesi',
+      insertSheet: 'Mini Tablo (Formüllü)',
       bgImageSet: 'Arka Plan Yap',
       bgImageClear: 'Arka Planı Kaldır',
       bgImageFit: 'Sığdır',
@@ -3088,6 +3414,8 @@
       insertShape: 'Insert Shape & Icon',
       insertLink: 'Insert Link',
       insertTable: 'Insert Table',
+      calculator: 'Calculator',
+      insertSheet: 'Mini Sheet (Formulas)',
       bgImageSet: 'Set as Background',
       bgImageClear: 'Clear Background',
       bgImageFit: 'Fit',
