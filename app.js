@@ -1257,10 +1257,10 @@
 
   function evalFormula(data, expr) {
     try {
+      // Normalize to uppercase so refs like a1, b2:c3, sum(...) all work
+      let s = String(expr).toUpperCase();
       // Resolve functions: SUM, AVG/AVERAGE, MIN, MAX, COUNT
-      let s = expr;
-      s = s.replace(/(SUM|AVG|AVERAGE|MIN|MAX|COUNT)\s*\(([^)]+)\)/gi, (m, fn, args) => {
-        const fnUp = fn.toUpperCase();
+      s = s.replace(/(SUM|AVG|AVERAGE|MIN|MAX|COUNT)\s*\(([^)]+)\)/g, (m, fn, args) => {
         const parts = args.split(',').map(p => p.trim());
         const vals = [];
         parts.forEach(p => {
@@ -1268,11 +1268,11 @@
           else if (/^[A-Z]+\d+$/.test(p)) vals.push(cellRefValue(data, p));
           else { const n = parseFloat(p); if (isFinite(n)) vals.push(n); }
         });
-        if (fnUp === 'SUM') return vals.reduce((a, b) => a + b, 0);
-        if (fnUp === 'AVG' || fnUp === 'AVERAGE') return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
-        if (fnUp === 'MIN') return vals.length ? Math.min(...vals) : 0;
-        if (fnUp === 'MAX') return vals.length ? Math.max(...vals) : 0;
-        if (fnUp === 'COUNT') return vals.length;
+        if (fn === 'SUM') return vals.reduce((a, b) => a + b, 0);
+        if (fn === 'AVG' || fn === 'AVERAGE') return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+        if (fn === 'MIN') return vals.length ? Math.min(...vals) : 0;
+        if (fn === 'MAX') return vals.length ? Math.max(...vals) : 0;
+        if (fn === 'COUNT') return vals.length;
         return 0;
       });
       // Resolve cell refs
