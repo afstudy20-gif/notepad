@@ -1554,6 +1554,9 @@ body.has-image-panel .image-panel {
   justify-content: center;
   z-index: 1000;
 }
+.dialog-overlay[hidden] {
+  display: none !important;
+}
 
 .dialog {
   background: #fff;
