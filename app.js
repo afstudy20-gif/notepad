@@ -97,6 +97,8 @@
     syncPageControls(note);
     if (typeof window.__npApplyBg === 'function') window.__npApplyBg();
     if (typeof window.__npApplyRulersGrid === 'function') window.__npApplyRulersGrid();
+    // Re-apply draggable on existing text boxes
+    editor.querySelectorAll('.text-box').forEach(tb => { tb.draggable = true; });
   }
 
   function applyPageLayout(note) {
@@ -439,6 +441,7 @@
     const tb = document.createElement('div');
     tb.className = 'text-box';
     tb.contentEditable = 'true';
+    tb.draggable = true;
     tb.textContent = 'Metin';
     const sel = window.getSelection();
     let inserted = false;
@@ -1000,13 +1003,80 @@
   window.__npApplyBg = setEditorBgFromNote;
   window.__npApplyRulersGrid = applyRulersGridFromNote;
 
-  // Drag & drop image files into editor
+  // Drag & drop: internal element move + external image files
+  let __internalDragNode = null;
+
+  editor.addEventListener('dragstart', (e) => {
+    const tgt = e.target;
+    if (!tgt || !editor.contains(tgt)) return;
+    let node = null;
+    if (tgt.tagName === 'IMG') node = tgt;
+    else if (tgt.classList && tgt.classList.contains('text-box')) node = tgt;
+    if (!node) return;
+    __internalDragNode = node;
+    try {
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', 'np-internal');
+    } catch (_) {}
+    node.classList.add('np-dragging');
+  });
+
+  editor.addEventListener('dragend', () => {
+    if (__internalDragNode) {
+      __internalDragNode.classList.remove('np-dragging');
+      __internalDragNode = null;
+    }
+  });
+
   editor.addEventListener('dragover', (e) => {
+    if (__internalDragNode) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      return;
+    }
     if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) {
       e.preventDefault();
     }
   });
+
+  function getDropRange(x, y) {
+    if (document.caretRangeFromPoint) {
+      return document.caretRangeFromPoint(x, y);
+    }
+    if (document.caretPositionFromPoint) {
+      const pos = document.caretPositionFromPoint(x, y);
+      if (pos) {
+        const r = document.createRange();
+        r.setStart(pos.offsetNode, pos.offset);
+        r.collapse(true);
+        return r;
+      }
+    }
+    return null;
+  }
+
   editor.addEventListener('drop', (e) => {
+    if (__internalDragNode) {
+      e.preventDefault();
+      const node = __internalDragNode;
+      const range = getDropRange(e.clientX, e.clientY);
+      if (range && editor.contains(range.startContainer)) {
+        // Skip if dropping into the dragged node itself
+        if (!node.contains(range.startContainer)) {
+          range.insertNode(node);
+          const after = document.createRange();
+          after.setStartAfter(node);
+          after.collapse(true);
+          const sel = window.getSelection();
+          sel.removeAllRanges();
+          sel.addRange(after);
+        }
+      }
+      node.classList.remove('np-dragging');
+      __internalDragNode = null;
+      scheduleSave();
+      return;
+    }
     const files = e.dataTransfer && e.dataTransfer.files;
     if (!files || !files.length) return;
     const imgs = [...files].filter(f => f.type.startsWith('image/'));

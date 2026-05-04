@@ -691,6 +691,12 @@ body.has-image-panel .editor-area {
 #editor .text-box.tb-selected {
   box-shadow: 0 0 0 2px #4361ee, 0 0 0 4px rgba(67,97,238,0.18);
 }
+#editor .text-box[draggable="true"] {
+  cursor: grab;
+}
+#editor .np-dragging {
+  opacity: 0.4;
+}
 
 /* Shape & Icon Gallery */
 .shape-gallery {
