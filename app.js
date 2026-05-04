@@ -885,58 +885,62 @@
     if (!/^[a-z]+:/i.test(url)) url = 'https://' + url;
     restoreSelection();
     editor.focus();
+    const wrap = document.createElement('span');
+    wrap.className = 'link-block';
     const a = document.createElement('a');
     a.href = url;
     a.target = '_blank';
     a.rel = 'noopener noreferrer';
     a.textContent = text;
-    if (desc) a.dataset.linkDesc = desc;
+    a.className = 'link-text';
+    wrap.appendChild(a);
+    wrap.appendChild(document.createElement('br'));
+    const card = document.createElement('span');
+    card.className = 'link-card-inline';
+    card.contentEditable = 'false';
+    card.dataset.linkHref = url;
+    card.innerHTML = `
+      <span class="lc-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8v.01"/></svg></span>
+      <span class="lc-body">
+        <span class="lc-url"></span>
+        <span class="lc-desc"></span>
+      </span>`;
+    card.querySelector('.lc-url').textContent = url;
+    card.querySelector('.lc-desc').textContent = desc || '';
+    if (!desc) card.querySelector('.lc-desc').remove();
+    wrap.appendChild(card);
     const sel = window.getSelection();
     if (sel && sel.rangeCount) {
       const range = sel.getRangeAt(0);
       range.deleteContents();
-      range.insertNode(a);
-      const space = document.createTextNode(' ');
-      a.after(space);
+      range.insertNode(wrap);
+      const trail = document.createTextNode(' ');
+      wrap.after(trail);
       const newRange = document.createRange();
-      newRange.setStartAfter(space);
+      newRange.setStartAfter(trail);
       newRange.collapse(true);
       sel.removeAllRanges();
       sel.addRange(newRange);
     } else {
-      editor.appendChild(a);
+      editor.appendChild(wrap);
     }
     closeLinkDialog();
     scheduleSave();
   });
 
-  // Hover preview for links with description
-  let lpHideTimer = null;
-  editor.addEventListener('mouseover', (e) => {
-    const a = e.target.closest && e.target.closest('a[data-link-desc], a[href]');
-    if (!a || !editor.contains(a)) return;
-    if (lpHideTimer) { clearTimeout(lpHideTimer); lpHideTimer = null; }
-    $('#lpUrl').textContent = a.getAttribute('href') || '';
-    $('#lpDesc').textContent = a.dataset.linkDesc || '';
-    const r = a.getBoundingClientRect();
-    const vw = window.innerWidth;
-    let left = r.left;
-    let top = r.bottom + 6;
-    if (left + 320 > vw) left = vw - 330;
-    linkPreview.style.left = Math.max(8, left) + 'px';
-    linkPreview.style.top = top + 'px';
-    linkPreview.hidden = false;
-  });
-  editor.addEventListener('mouseout', (e) => {
-    const a = e.target.closest && e.target.closest('a');
-    if (!a) return;
-    lpHideTimer = setTimeout(() => { linkPreview.hidden = true; }, 200);
-  });
-  linkPreview.addEventListener('mouseenter', () => {
-    if (lpHideTimer) { clearTimeout(lpHideTimer); lpHideTimer = null; }
-  });
-  linkPreview.addEventListener('mouseleave', () => {
-    linkPreview.hidden = true;
+  // Click on link or link-card → open URL in new tab
+  editor.addEventListener('click', (e) => {
+    const card = e.target.closest && e.target.closest('.link-card-inline');
+    if (card && editor.contains(card)) {
+      const url = card.dataset.linkHref;
+      if (url) { e.preventDefault(); window.open(url, '_blank', 'noopener,noreferrer'); }
+      return;
+    }
+    const a = e.target.closest && e.target.closest('a[href]');
+    if (a && editor.contains(a)) {
+      e.preventDefault();
+      window.open(a.href, '_blank', 'noopener,noreferrer');
+    }
   });
 
   // ===== Rulers + Grid Toggle =====

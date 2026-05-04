@@ -3,7 +3,7 @@
 //   - HTML/JS/CSS (app shell): network-first, fall back to cache when offline
 //   - Static icons: cache-first
 //   - Cross-origin (CDN libs): bypass — let browser handle
-const VERSION = 'v40';
+const VERSION = 'v41';
 const CACHE = `notepad-${VERSION}`;
 const SHELL = [
   './',

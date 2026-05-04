@@ -896,61 +896,71 @@ body.has-image-panel .editor-area {
   border-color: #4361ee;
 }
 
-/* Link preview tooltip */
-.link-preview {
-  position: fixed;
-  z-index: 95;
-  background: #fff;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  box-shadow: 0 4px 14px rgba(0,0,0,0.15);
-  padding: 10px 12px;
-  max-width: 320px;
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  font-size: 12px;
+/* Hidden — replaced by inline card */
+.link-preview { display: none !important; }
+
+/* Inline link block: link text + always-visible card below (WhatsApp-style) */
+#editor .link-block {
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: top;
+  margin: 2px 0;
 }
-.link-preview[hidden] { display: none; }
-.lp-icon {
+#editor a.link-text {
+  color: #2563eb;
+  text-decoration: underline;
+  cursor: pointer;
+  word-break: break-all;
+}
+#editor .link-card-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  margin-top: 4px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-left: 3px solid #2563eb;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  max-width: 100%;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  font-size: 12px;
+  line-height: 1.4;
+  transition: background 0.12s;
+}
+#editor .link-card-inline:hover {
+  background: #f8faff;
+}
+#editor .link-card-inline .lc-icon {
   flex-shrink: 0;
-  width: 24px;
-  height: 24px;
-  background: #4361ee;
-  color: #fff;
+  width: 28px;
+  height: 28px;
+  background: #2563eb;
   border-radius: 50%;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
 }
-.lp-body { min-width: 0; }
-.lp-url {
+#editor .link-card-inline .lc-body {
+  display: inline-flex;
+  flex-direction: column;
+  min-width: 0;
+  max-width: 320px;
+}
+#editor .link-card-inline .lc-url {
   font-weight: 600;
-  color: #4361ee;
+  color: #2563eb;
   word-break: break-all;
-  margin-bottom: 4px;
+  display: block;
 }
-.lp-desc {
-  color: #555;
-  line-height: 1.4;
-}
-.lp-desc:empty { display: none; }
-
-/* Linked text in editor with description */
-#editor a[data-link-desc] {
-  position: relative;
-}
-#editor a[data-link-desc]::after {
-  content: '';
-  display: inline-block;
-  width: 12px;
-  height: 12px;
-  margin-left: 3px;
-  background: #4361ee;
-  -webkit-mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8v.01"/></svg>') center/contain no-repeat;
-          mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8v.01"/></svg>') center/contain no-repeat;
-  vertical-align: middle;
-  cursor: help;
+#editor .link-card-inline .lc-desc {
+  color: #4b5563;
+  display: block;
+  margin-top: 2px;
+  white-space: normal;
 }
 
 /* Dialog body inputs */
