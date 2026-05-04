@@ -781,6 +781,56 @@
   shapeFill.addEventListener('change', renderShapeGrid);
 
   // ===== Table Grid Popup =====
+  let __ctxTableCell = null;
+
+  function handleTableAction(action) {
+    const td = __ctxTableCell;
+    if (!td) return;
+    const tr = td.parentNode;
+    const table = td.closest('table');
+    if (!tr || !table) return;
+    const colIdx = [...tr.children].indexOf(td);
+    if (action === 'tableDelete') {
+      table.remove();
+    } else if (action === 'tableDeleteRow') {
+      if (table.querySelectorAll('tr').length <= 1) {
+        table.remove();
+      } else {
+        tr.remove();
+      }
+    } else if (action === 'tableDeleteCol') {
+      const rows = table.querySelectorAll('tr');
+      const cols = rows[0] ? rows[0].children.length : 0;
+      if (cols <= 1) {
+        table.remove();
+      } else {
+        rows.forEach(r => { if (r.children[colIdx]) r.children[colIdx].remove(); });
+      }
+    } else if (action === 'tableAddRowAbove' || action === 'tableAddRowBelow') {
+      const cols = tr.children.length;
+      const newTr = document.createElement('tr');
+      for (let i = 0; i < cols; i++) {
+        const newTd = document.createElement('td');
+        newTd.innerHTML = '&nbsp;';
+        newTr.appendChild(newTd);
+      }
+      if (action === 'tableAddRowAbove') tr.parentNode.insertBefore(newTr, tr);
+      else tr.parentNode.insertBefore(newTr, tr.nextSibling);
+    } else if (action === 'tableAddColLeft' || action === 'tableAddColRight') {
+      const rows = table.querySelectorAll('tr');
+      rows.forEach(r => {
+        const newTd = document.createElement('td');
+        newTd.innerHTML = '&nbsp;';
+        const ref = r.children[colIdx];
+        if (!ref) { r.appendChild(newTd); return; }
+        if (action === 'tableAddColLeft') r.insertBefore(newTd, ref);
+        else r.insertBefore(newTd, ref.nextSibling);
+      });
+    }
+    __ctxTableCell = null;
+    scheduleSave();
+  }
+
   const tableGridPopup = $('#tableGridPopup');
   const tgGrid = $('#tgGrid');
   const tgInfoText = $('#tgInfoText');
@@ -1429,6 +1479,10 @@
     // Toggle bg-only buttons (only when editor has background image)
     const hasBg = editor.classList.contains('has-bg');
     editorCtx.querySelectorAll('.ectx-bg-only').forEach(b => { b.hidden = !hasBg; });
+    // Toggle table-only buttons (right-click inside table cell)
+    const td = e.target.closest && e.target.closest('#editor table.editor-table td');
+    __ctxTableCell = td || null;
+    editorCtx.querySelectorAll('.ectx-table-only').forEach(b => { b.hidden = !td; });
     e.preventDefault();
     e.stopPropagation();
     saveSelection();
@@ -1495,6 +1549,8 @@
         if (typeof window.__npToggleBgMode === 'function') window.__npToggleBgMode();
       } else if (action === 'bgClear') {
         if (typeof window.__npClearBg === 'function') window.__npClearBg();
+      } else if (action.startsWith('table')) {
+        handleTableAction(action);
       }
     } catch (err) {
       console.error('[editorCtx]', err);

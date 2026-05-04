@@ -14,7 +14,7 @@
   <title>Notepad — Local-Only Text Editor</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
-  <link rel="stylesheet" href="style.css?v=41">
+  <link rel="stylesheet" href="style.css?v=42">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -318,6 +318,13 @@
     <button data-ectx="deleteImage" class="ctx-danger ectx-img-only" data-i18n="delete" hidden>Sil</button>
     <button data-ectx="bgToggleMode" class="ectx-bg-only" data-i18n="bgImageCover" hidden>Kapla / Sığdır</button>
     <button data-ectx="bgClear" class="ctx-danger ectx-bg-only" data-i18n="bgImageClear" hidden>Arka Planı Kaldır</button>
+    <button data-ectx="tableAddRowAbove" class="ectx-table-only" hidden>Üste Satır Ekle</button>
+    <button data-ectx="tableAddRowBelow" class="ectx-table-only" hidden>Alta Satır Ekle</button>
+    <button data-ectx="tableAddColLeft" class="ectx-table-only" hidden>Sola Sütun Ekle</button>
+    <button data-ectx="tableAddColRight" class="ectx-table-only" hidden>Sağa Sütun Ekle</button>
+    <button data-ectx="tableDeleteRow" class="ctx-danger ectx-table-only" hidden>Satırı Sil</button>
+    <button data-ectx="tableDeleteCol" class="ctx-danger ectx-table-only" hidden>Sütunu Sil</button>
+    <button data-ectx="tableDelete" class="ctx-danger ectx-table-only" hidden>Tabloyu Sil</button>
   </div>
 
   <!-- Image Edit Panel (always visible) -->
@@ -570,13 +577,13 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html-docx-js@0.3.1/dist/html-docx.js"></script>
-  <script src="app.js?v=41"></script>
+  <script src="app.js?v=42"></script>
   <script>
     // Register service worker for PWA install + offline shell.
     // SW uses network-first for HTML/JS so updates roll out without manual refresh.
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=41').catch((err) => {
+        navigator.serviceWorker.register('./sw.js?v=42').catch((err) => {
           console.warn('[sw] register failed', err);
         });
       });
