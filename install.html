@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Notepad — Android Uygulamasını Yükle</title>
+  <link rel="icon" href="icon.svg">
+  <meta name="theme-color" content="#1a1a2e">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      color: #fff;
+      min-height: 100vh;
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .wrap {
+      max-width: 520px;
+      width: 100%;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      padding: 32px 28px;
+      backdrop-filter: blur(10px);
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 72px;
+      height: 72px;
+      background: linear-gradient(135deg, #4361ee, #7048e8);
+      border-radius: 16px;
+      margin: 0 auto 20px;
+      box-shadow: 0 8px 24px rgba(67,97,238,0.4);
+    }
+    h1 {
+      font-size: 22px;
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      text-align: center;
+      color: rgba(255,255,255,0.65);
+      font-size: 14px;
+      margin-bottom: 24px;
+    }
+    .download-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      padding: 14px 18px;
+      background: linear-gradient(135deg, #34d399, #047857);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      box-shadow: 0 6px 18px rgba(5,150,105,0.4);
+      transition: transform 0.1s;
+    }
+    .download-btn:hover { transform: translateY(-1px); }
+    .download-btn:active { transform: translateY(0); }
+    .download-btn svg { width: 22px; height: 22px; }
+    .filesize {
+      text-align: center;
+      font-size: 12px;
+      color: rgba(255,255,255,0.45);
+      margin-top: 8px;
+      margin-bottom: 24px;
+    }
+    .steps {
+      background: rgba(0,0,0,0.2);
+      border-radius: 10px;
+      padding: 18px 20px;
+      margin-bottom: 18px;
+    }
+    .steps h2 {
+      font-size: 14px;
+      color: rgba(255,255,255,0.85);
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .step {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 8px 0;
+      font-size: 13px;
+      color: rgba(255,255,255,0.8);
+      line-height: 1.5;
+    }
+    .step-num {
+      flex-shrink: 0;
+      width: 22px;
+      height: 22px;
+      background: #4361ee;
+      color: #fff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .warn {
+      background: rgba(251,146,60,0.1);
+      border: 1px solid rgba(251,146,60,0.3);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 12px;
+      color: #fdba74;
+      margin-bottom: 16px;
+    }
+    .alt-link {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 13px;
+    }
+    .alt-link a {
+      color: #93c5fd;
+      text-decoration: none;
+    }
+    .alt-link a:hover { text-decoration: underline; }
+    .pwa-section {
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      text-align: center;
+    }
+    .pwa-section a {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      background: rgba(67,97,238,0.2);
+      border: 1px solid rgba(67,97,238,0.5);
+      border-radius: 8px;
+      color: #93c5fd;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .pwa-section a:hover { background: rgba(67,97,238,0.3); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="logo">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+    </div>
+    <h1>Notepad — Android</h1>
+    <p class="subtitle">Yerel notlar, tek tıkla yükle.</p>
+
+    <a class="download-btn" href="./notepad.apk" download>
+      <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      APK İndir
+    </a>
+    <div class="filesize">Yaklaşık 4 MB · Android 7.0+</div>
+
+    <div class="steps">
+      <h2>Kurulum Adımları</h2>
+      <div class="step"><div class="step-num">1</div><div>APK İndir butonuna dokun</div></div>
+      <div class="step"><div class="step-num">2</div><div>İndirilen dosyaya dokun (Bildirimler veya İndirilenler klasörü)</div></div>
+      <div class="step"><div class="step-num">3</div><div>İlk kurulum: "Bilinmeyen kaynaklara izin ver" → Tarayıcı için aç</div></div>
+      <div class="step"><div class="step-num">4</div><div>"Yükle" → "Aç" — bitti</div></div>
+    </div>
+
+    <div class="warn">
+      <strong>Güvenlik:</strong> APK <code>not.drtr.uk</code> domaininden indirilir. Sadece bu bağlantıyı kullan.
+    </div>
+
+    <div class="pwa-section">
+      <p style="margin-bottom: 12px; color: rgba(255,255,255,0.65); font-size: 13px;">Veya tarayıcıdan kullan:</p>
+      <a href="./index.html">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        Web Sürümüne Git
+      </a>
+    </div>
+  </div>
+</body>
+</html>
