@@ -6,7 +6,9 @@
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "display_override": ["window-controls-overlay", "standalone"],
+  "display_override": ["window-controls-overlay", "tabbed", "standalone"],
+  "prefer_related_applications": false,
+  "related_applications": [],
   "background_color": "#f0f2f5",
   "theme_color": "#1a1a2e",
   "orientation": "any",
@@ -58,5 +60,41 @@
   },
   "edge_side_panel": {
     "preferred_width": 480
-  }
+  },
+  "protocol_handlers": [
+    { "protocol": "web+notepad", "url": "./index.html?note=%s" }
+  ],
+  "screenshots": [
+    {
+      "src": "screenshots/desktop-wide.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Notepad masaüstü görünümü"
+    },
+    {
+      "src": "screenshots/mobile-narrow.png",
+      "sizes": "640x1280",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Mobil görünüm"
+    }
+  ],
+  "widgets": [
+    {
+      "name": "Yeni Not",
+      "short_name": "Yeni Not",
+      "description": "Hızlı yeni not oluştur",
+      "tag": "new-note",
+      "ms_ac_template": "widgets/new-note-card.json",
+      "data": "widgets/new-note-data.json",
+      "type": "application/json",
+      "screenshots": [
+        { "src": "screenshots/mobile-narrow.png", "sizes": "640x1280", "label": "Yeni Not widget" }
+      ],
+      "icons": [
+        { "src": "icon-192.png", "sizes": "192x192" }
+      ]
+    }
+  ]
 }

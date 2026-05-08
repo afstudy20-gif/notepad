@@ -3,18 +3,20 @@
 //   - HTML/JS/CSS (app shell): network-first, fall back to cache when offline
 //   - Static icons: cache-first
 //   - Cross-origin (CDN libs): bypass — let browser handle
-const VERSION = 'v47';
+const VERSION = 'v48';
 const CACHE = `notepad-${VERSION}`;
 const SHELL = [
   './',
   './index.html',
   './install.html',
-  './style.css?v=47',
-  './app.js?v=47',
+  './style.css?v=48',
+  './app.js?v=48',
   './manifest.webmanifest',
   './icon.svg',
   './icon-192.png',
-  './icon-512.png'
+  './icon-512.png',
+  './widgets/new-note-card.json',
+  './widgets/new-note-data.json'
 ];
 
 self.addEventListener('install', (e) => {

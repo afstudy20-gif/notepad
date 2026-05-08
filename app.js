@@ -3331,9 +3331,34 @@
     });
   }
 
-  // Handle PWA shortcut ?action=new
-  if (new URLSearchParams(location.search).get('action') === 'new') {
+  // Handle PWA shortcut ?action=new, protocol handler ?note=, share_target ?title/text/url
+  const __qp = new URLSearchParams(location.search);
+  if (__qp.get('action') === 'new') {
     createNote();
+    history.replaceState(null, '', location.pathname);
+  } else if (__qp.get('note')) {
+    const noteContent = decodeURIComponent(__qp.get('note'));
+    createNote();
+    setTimeout(() => {
+      if (editor && noteContent) {
+        editor.textContent = noteContent;
+        scheduleSave();
+      }
+    }, 50);
+    history.replaceState(null, '', location.pathname);
+  } else if (__qp.get('text') || __qp.get('title') || __qp.get('url')) {
+    const t = __qp.get('title') || '';
+    const text = __qp.get('text') || '';
+    const url = __qp.get('url') || '';
+    createNote();
+    setTimeout(() => {
+      if (noteTitle && t) noteTitle.value = t;
+      const body = [text, url].filter(Boolean).join('\n\n');
+      if (editor && body) {
+        editor.textContent = body;
+        scheduleSave();
+      }
+    }, 50);
     history.replaceState(null, '', location.pathname);
   }
 
