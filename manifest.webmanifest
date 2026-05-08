@@ -8,7 +8,17 @@
   "display": "standalone",
   "display_override": ["window-controls-overlay", "tabbed", "standalone"],
   "prefer_related_applications": false,
-  "related_applications": [],
+  "related_applications": [
+    {
+      "platform": "play",
+      "url": "https://play.google.com/store/apps/details?id=uk.drtr.not",
+      "id": "uk.drtr.not"
+    }
+  ],
+  "scope_extensions": [
+    { "origin": "https://drtr.uk" },
+    { "origin": "https://www.drtr.uk" }
+  ],
   "background_color": "#f0f2f5",
   "theme_color": "#1a1a2e",
   "orientation": "any",
