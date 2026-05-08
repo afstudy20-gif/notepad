@@ -163,29 +163,82 @@
   }
 
   // --- Render ---
+  const COLLAPSED_GROUPS_KEY = 'notepad_collapsed_groups';
+  function getCollapsedGroups() {
+    try { return new Set(JSON.parse(localStorage.getItem(COLLAPSED_GROUPS_KEY) || '[]')); }
+    catch (_) { return new Set(); }
+  }
+  function setCollapsedGroups(set) {
+    localStorage.setItem(COLLAPSED_GROUPS_KEY, JSON.stringify([...set]));
+  }
+  function getAllGroups() {
+    return [...new Set(notes.map(n => n.group).filter(Boolean))].sort();
+  }
+  window.__npGetAllGroups = getAllGroups;
+
   function renderNoteList() {
     const query = searchInput.value.toLowerCase();
     const filtered = query
       ? notes.filter(n =>
-          n.title.toLowerCase().includes(query) ||
+          (n.title || '').toLowerCase().includes(query) ||
           stripHtml(n.content).toLowerCase().includes(query)
         )
       : notes;
 
-    noteList.innerHTML = filtered.map(n => {
-      const preview = stripHtml(n.content).slice(0, 80) || 'Empty note';
-      const title = n.title || 'Untitled Note';
-      const time = formatTime(n.updated);
-      return `
-        <div class="note-item ${n.id === activeId ? 'active' : ''}" data-id="${n.id}">
-          <div class="note-item-title">${escapeHtml(title)}</div>
-          <div class="note-item-preview">${escapeHtml(preview)}</div>
-          <div class="note-item-time">${time}</div>
+    // Group notes
+    const groupsMap = new Map();
+    filtered.forEach(n => {
+      const g = n.group || '';
+      if (!groupsMap.has(g)) groupsMap.set(g, []);
+      groupsMap.get(g).push(n);
+    });
+    // Sort: named groups alphabetic, ungrouped last
+    const groupKeys = [...groupsMap.keys()].sort((a, b) => {
+      if (!a) return 1;
+      if (!b) return -1;
+      return a.localeCompare(b, 'tr');
+    });
+    const collapsed = getCollapsedGroups();
+
+    let html = '';
+    const useGroupHeaders = groupKeys.length > 1 || (groupKeys.length === 1 && groupKeys[0] !== '');
+    for (const g of groupKeys) {
+      if (useGroupHeaders) {
+        const isCollapsed = collapsed.has(g);
+        const label = g || 'Grupsuz';
+        html += `<div class="note-group-header${isCollapsed ? ' collapsed' : ''}" data-group="${escapeHtml(g)}">
+          <span>${escapeHtml(label)} (${groupsMap.get(g).length})</span>
+          <span class="ngh-arrow">▼</span>
         </div>`;
-    }).join('');
+        if (isCollapsed) continue;
+      }
+      for (const n of groupsMap.get(g)) {
+        const preview = stripHtml(n.content).slice(0, 80) || 'Empty note';
+        const title = n.title || 'Untitled Note';
+        const time = formatTime(n.updated);
+        const colorAttr = n.color ? ` data-color="${escapeHtml(n.color)}" style="--note-color:${escapeHtml(n.color)}"` : '';
+        const groupTag = n.group ? `<span class="note-item-tag">${escapeHtml(n.group)}</span>` : '';
+        html += `
+          <div class="note-item ${n.id === activeId ? 'active' : ''}" data-id="${n.id}"${colorAttr}>
+            <div class="note-item-title">${escapeHtml(title)}</div>
+            <div class="note-item-preview">${escapeHtml(preview)}</div>
+            <div>${groupTag}<span class="note-item-time">${time}</span></div>
+          </div>`;
+      }
+    }
+    noteList.innerHTML = html;
 
     noteList.querySelectorAll('.note-item').forEach(el => {
       el.addEventListener('click', () => loadNote(el.dataset.id));
+    });
+    noteList.querySelectorAll('.note-group-header').forEach(el => {
+      el.addEventListener('click', () => {
+        const g = el.dataset.group;
+        const cur = getCollapsedGroups();
+        if (cur.has(g)) cur.delete(g); else cur.add(g);
+        setCollapsedGroups(cur);
+        renderNoteList();
+      });
     });
   }
 
@@ -1754,12 +1807,123 @@
       saveNotes();
       renderNoteList();
       loadNote(copy.id);
+    } else if (action === 'color') {
+      openColorPalette(note.id);
+    } else if (action === 'group') {
+      openGroupPicker(note.id);
     } else if (action === 'delete') {
       if (confirm(`"${note.title || 'Untitled Note'}" silinsin mi?`)) {
         deleteNote(note.id);
       }
     }
     ctxTargetId = null;
+  });
+
+  // Color palette
+  const colorPalette = $('#colorPalette');
+  let colorTargetId = null;
+  function openColorPalette(noteId) {
+    colorTargetId = noteId;
+    const item = noteList.querySelector(`.note-item[data-id="${noteId}"]`);
+    const r = item ? item.getBoundingClientRect() : { left: 100, top: 100 };
+    colorPalette.hidden = false;
+    const vw = window.innerWidth;
+    let left = r.left + 20;
+    if (left + 220 > vw) left = vw - 230;
+    colorPalette.style.left = Math.max(8, left) + 'px';
+    colorPalette.style.top = (r.bottom + 4) + 'px';
+  }
+  function closeColorPalette() {
+    colorPalette.hidden = true;
+    colorTargetId = null;
+  }
+  colorPalette.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-color]');
+    if (!btn) return;
+    const note = notes.find(n => n.id === colorTargetId);
+    if (!note) { closeColorPalette(); return; }
+    note.color = btn.dataset.color || '';
+    saveNotes();
+    renderNoteList();
+    closeColorPalette();
+  });
+  document.addEventListener('click', (e) => {
+    if (!colorPalette.hidden && !e.target.closest('#colorPalette') && !e.target.closest('#noteContextMenu')) {
+      closeColorPalette();
+    }
+  });
+
+  // Group picker
+  const groupPicker = $('#groupPicker');
+  const groupPickerInput = $('#groupPickerInput');
+  const groupPickerList = $('#groupPickerList');
+  let groupTargetId = null;
+  function openGroupPicker(noteId) {
+    groupTargetId = noteId;
+    const note = notes.find(n => n.id === noteId);
+    groupPickerInput.value = (note && note.group) || '';
+    renderGroupPickerList();
+    const item = noteList.querySelector(`.note-item[data-id="${noteId}"]`);
+    const r = item ? item.getBoundingClientRect() : { left: 100, top: 100 };
+    groupPicker.hidden = false;
+    const vw = window.innerWidth;
+    let left = r.left + 20;
+    if (left + 250 > vw) left = vw - 260;
+    groupPicker.style.left = Math.max(8, left) + 'px';
+    groupPicker.style.top = (r.bottom + 4) + 'px';
+    setTimeout(() => groupPickerInput.focus(), 50);
+  }
+  function closeGroupPicker() {
+    groupPicker.hidden = true;
+    groupTargetId = null;
+  }
+  function renderGroupPickerList() {
+    const q = groupPickerInput.value.toLowerCase();
+    const groups = getAllGroups().filter(g => !q || g.toLowerCase().includes(q));
+    groupPickerList.innerHTML = groups.map(g => `<button data-grp="${escapeHtml(g)}">${escapeHtml(g)}</button>`).join('') ||
+      '<div style="font-size:11px;color:#888;padding:4px 9px">Henüz grup yok</div>';
+  }
+  function setNoteGroup(noteId, group) {
+    const note = notes.find(n => n.id === noteId);
+    if (!note) return;
+    note.group = group || '';
+    saveNotes();
+    renderNoteList();
+  }
+  groupPickerInput.addEventListener('input', renderGroupPickerList);
+  groupPickerInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      setNoteGroup(groupTargetId, groupPickerInput.value.trim());
+      closeGroupPicker();
+    } else if (e.key === 'Escape') {
+      closeGroupPicker();
+    }
+  });
+  groupPickerList.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-grp]');
+    if (!btn) return;
+    setNoteGroup(groupTargetId, btn.dataset.grp);
+    closeGroupPicker();
+  });
+  $('#groupPickerSet').addEventListener('click', () => {
+    setNoteGroup(groupTargetId, groupPickerInput.value.trim());
+    closeGroupPicker();
+  });
+  $('#groupPickerClear').addEventListener('click', () => {
+    setNoteGroup(groupTargetId, '');
+    closeGroupPicker();
+  });
+  document.addEventListener('click', (e) => {
+    if (!groupPicker.hidden && !e.target.closest('#groupPicker') && !e.target.closest('#noteContextMenu')) {
+      closeGroupPicker();
+    }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeColorPalette();
+      closeGroupPicker();
+    }
   });
 
   document.addEventListener('click', (e) => {
@@ -3278,6 +3442,8 @@
       insertTable: 'Tablo Ekle',
       calculator: 'Hesap Makinesi',
       insertSheet: 'Mini Tablo (Formüllü)',
+      noteColor: 'Renk',
+      noteGroup: 'Grup',
       bgImageSet: 'Arka Plan Yap',
       bgImageClear: 'Arka Planı Kaldır',
       bgImageFit: 'Sığdır',
@@ -3416,6 +3582,8 @@
       insertTable: 'Insert Table',
       calculator: 'Calculator',
       insertSheet: 'Mini Sheet (Formulas)',
+      noteColor: 'Color',
+      noteGroup: 'Group',
       bgImageSet: 'Set as Background',
       bgImageClear: 'Clear Background',
       bgImageFit: 'Fit',
