@@ -14,7 +14,7 @@
   <title>Notepad — Local-Only Text Editor</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
-  <link rel="stylesheet" href="style.css?v=50">
+  <link rel="stylesheet" href="style.css?v=51">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -46,6 +46,13 @@
     </button>
     <div class="search-box">
       <input type="text" id="searchInput" data-i18n-placeholder="searchNotes" placeholder="Notlarda ara...">
+    </div>
+    <div class="select-all-row" id="selectAllRow">
+      <label class="select-all-label">
+        <input type="checkbox" id="selectAllCheckbox">
+        <span data-i18n="selectAll">Tümünü Seç</span>
+      </label>
+      <span class="selection-count" id="selectionCount"></span>
     </div>
     <div class="note-list" id="noteList"></div>
     <div class="sidebar-footer-row">
@@ -289,9 +296,11 @@
   <!-- Note Context Menu -->
   <div class="context-menu" id="noteContextMenu" hidden>
     <button data-ctx="rename" data-i18n="rename">Adını Değiştir</button>
-    <button data-ctx="duplicate" data-i18n="duplicate">Kopyala</button>
+    <button data-ctx="duplicate" data-i18n="duplicate">Duplicate</button>
+    <button data-ctx="copyText" data-i18n="copyText">Kopyala</button>
+    <button data-ctx="copyNote" data-i18n="copyNoteJson">Notu Kopyala</button>
     <button data-ctx="color" data-i18n="noteColor">Renk</button>
-    <button data-ctx="group" data-i18n="noteGroup">Grup</button>
+    <button data-ctx="group" data-i18n="sendToGroup">Gruba Gönder</button>
     <button data-ctx="delete" class="ctx-danger" data-i18n="delete">Sil</button>
   </div>
 
@@ -651,13 +660,13 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html-docx-js@0.3.1/dist/html-docx.js"></script>
-  <script src="app.js?v=50"></script>
+  <script src="app.js?v=51"></script>
   <script>
     // Register service worker for PWA install + offline shell.
     // SW uses network-first for HTML/JS so updates roll out without manual refresh.
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=50').catch((err) => {
+        navigator.serviceWorker.register('./sw.js?v=51').catch((err) => {
           console.warn('[sw] register failed', err);
         });
       });

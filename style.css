@@ -420,11 +420,54 @@ body.has-image-panel .editor-area {
 }
 
 .note-item {
-  padding: 12px 20px;
+  padding: 12px 20px 12px 44px;
   cursor: pointer;
   border-left: 3px solid transparent;
   transition: all 0.15s;
+  position: relative;
 }
+.note-item .note-check {
+  position: absolute;
+  left: 16px;
+  top: 12px;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #4361ee;
+  z-index: 2;
+}
+.note-item.selected {
+  background: rgba(67, 97, 238, 0.12);
+}
+.select-all-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 20px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.02);
+}
+.select-all-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.7);
+  cursor: pointer;
+  user-select: none;
+}
+.select-all-label input {
+  width: 14px;
+  height: 14px;
+  accent-color: #4361ee;
+  cursor: pointer;
+}
+.selection-count {
+  font-size: 11px;
+  color: #4361ee;
+  font-weight: 500;
+}
+.selection-count:empty { display: none; }
 
 .note-item:hover {
   background: rgba(255,255,255,0.05);

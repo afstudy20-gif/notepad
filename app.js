@@ -176,6 +176,30 @@
   }
   window.__npGetAllGroups = getAllGroups;
 
+  // ===== Multi-select state =====
+  let selectedNoteIds = new Set();
+  function updateSelectionUI() {
+    const count = selectedNoteIds.size;
+    const el = $('#selectionCount');
+    if (el) el.textContent = count ? `${count} seçili` : '';
+    // Sync "select all" checkbox state
+    const all = $('#selectAllCheckbox');
+    if (all) {
+      const filtered = getFilteredNotes();
+      all.checked = filtered.length > 0 && filtered.every(n => selectedNoteIds.has(n.id));
+      all.indeterminate = !all.checked && filtered.some(n => selectedNoteIds.has(n.id));
+    }
+  }
+  function getFilteredNotes() {
+    const query = (searchInput.value || '').toLowerCase();
+    return query
+      ? notes.filter(n =>
+          (n.title || '').toLowerCase().includes(query) ||
+          stripHtml(n.content).toLowerCase().includes(query)
+        )
+      : notes;
+  }
+
   function renderNoteList() {
     const query = searchInput.value.toLowerCase();
     const filtered = query
@@ -218,8 +242,13 @@
         const time = formatTime(n.updated);
         const colorAttr = n.color ? ` data-color="${escapeHtml(n.color)}" style="--note-color:${escapeHtml(n.color)}"` : '';
         const groupTag = n.group ? `<span class="note-item-tag">${escapeHtml(n.group)}</span>` : '';
+        const isSelected = selectedNoteIds.has(n.id);
+        const classes = ['note-item'];
+        if (n.id === activeId) classes.push('active');
+        if (isSelected) classes.push('selected');
         html += `
-          <div class="note-item ${n.id === activeId ? 'active' : ''}" data-id="${n.id}"${colorAttr}>
+          <div class="${classes.join(' ')}" data-id="${n.id}"${colorAttr}>
+            <input type="checkbox" class="note-check" data-check-id="${n.id}"${isSelected ? ' checked' : ''}>
             <div class="note-item-title">${escapeHtml(title)}</div>
             <div class="note-item-preview">${escapeHtml(preview)}</div>
             <div>${groupTag}<span class="note-item-time">${time}</span></div>
@@ -229,8 +258,24 @@
     noteList.innerHTML = html;
 
     noteList.querySelectorAll('.note-item').forEach(el => {
-      el.addEventListener('click', () => loadNote(el.dataset.id));
+      el.addEventListener('click', (e) => {
+        // Checkbox click handled separately
+        if (e.target.classList && e.target.classList.contains('note-check')) return;
+        loadNote(el.dataset.id);
+      });
     });
+    noteList.querySelectorAll('.note-check').forEach(cb => {
+      cb.addEventListener('click', (e) => e.stopPropagation());
+      cb.addEventListener('change', (e) => {
+        const id = e.target.dataset.checkId;
+        if (e.target.checked) selectedNoteIds.add(id);
+        else selectedNoteIds.delete(id);
+        const item = e.target.closest('.note-item');
+        if (item) item.classList.toggle('selected', e.target.checked);
+        updateSelectionUI();
+      });
+    });
+    updateSelectionUI();
     noteList.querySelectorAll('.note-group-header').forEach(el => {
       el.addEventListener('click', () => {
         const g = el.dataset.group;
@@ -1765,30 +1810,75 @@
   // Create note
   $('#btnCreate').addEventListener('click', createNote);
 
+  // Select-all
+  $('#selectAllCheckbox').addEventListener('change', (e) => {
+    const filtered = getFilteredNotes();
+    if (e.target.checked) {
+      filtered.forEach(n => selectedNoteIds.add(n.id));
+    } else {
+      filtered.forEach(n => selectedNoteIds.delete(n.id));
+    }
+    renderNoteList();
+  });
+
   // Note context menu (right-click on note item)
   const ctxMenu = $('#noteContextMenu');
   let ctxTargetId = null;
+  let ctxIsMulti = false;
 
   noteList.addEventListener('contextmenu', (e) => {
     const item = e.target.closest('.note-item');
     if (!item) return;
     e.preventDefault();
-    ctxTargetId = item.dataset.id;
+    const id = item.dataset.id;
+    // If right-clicked note is in selection AND selection has multiple → multi-action
+    ctxIsMulti = selectedNoteIds.has(id) && selectedNoteIds.size > 1;
+    ctxTargetId = id;
+    // Hide rename when multi (doesn't make sense)
+    ctxMenu.querySelector('[data-ctx="rename"]').hidden = ctxIsMulti;
     ctxMenu.hidden = false;
     const vw = window.innerWidth, vh = window.innerHeight;
-    const mw = 180, mh = 130;
+    const mw = 200, mh = 230;
     ctxMenu.style.left = Math.min(e.clientX, vw - mw) + 'px';
     ctxMenu.style.top = Math.min(e.clientY, vh - mh) + 'px';
   });
 
-  ctxMenu.addEventListener('click', (e) => {
+  async function copyTextToClipboard(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (_) {
+      // Fallback
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch (_) {}
+      ta.remove();
+      return true;
+    }
+  }
+
+  function getTargetNotes() {
+    if (ctxIsMulti) {
+      return notes.filter(n => selectedNoteIds.has(n.id));
+    }
+    const single = notes.find(n => n.id === ctxTargetId);
+    return single ? [single] : [];
+  }
+
+  ctxMenu.addEventListener('click', async (e) => {
     const btn = e.target.closest('button[data-ctx]');
-    if (!btn || !ctxTargetId) return;
+    if (!btn) return;
     const action = btn.dataset.ctx;
-    const note = notes.find(n => n.id === ctxTargetId);
+    const targets = getTargetNotes();
     ctxMenu.hidden = true;
-    if (!note) return;
-    if (action === 'rename') {
+    if (!targets.length) return;
+
+    if (action === 'rename' && !ctxIsMulti) {
+      const note = targets[0];
       const name = prompt('Yeni ad:', note.title || 'Untitled Note');
       if (name === null) return;
       note.title = name.trim();
@@ -1796,27 +1886,62 @@
       saveNotes();
       renderNoteList();
     } else if (action === 'duplicate') {
-      const copy = {
-        ...note,
-        id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-        title: (note.title || 'Untitled') + ' (kopya)',
-        updated: Date.now()
-      };
-      notes.unshift(copy);
-      activeId = copy.id;
+      for (const note of targets) {
+        const copy = {
+          ...note,
+          id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6) + Math.random().toString(36).slice(2, 4),
+          title: (note.title || 'Untitled') + ' (kopya)',
+          updated: Date.now()
+        };
+        notes.unshift(copy);
+      }
       saveNotes();
       renderNoteList();
-      loadNote(copy.id);
+    } else if (action === 'copyText') {
+      const text = targets.map(n => {
+        const t = n.title || 'Untitled';
+        const body = stripHtml(n.content);
+        return `# ${t}\n\n${body}`;
+      }).join('\n\n---\n\n');
+      await copyTextToClipboard(text);
+    } else if (action === 'copyNote') {
+      const payload = JSON.stringify(targets, null, 2);
+      await copyTextToClipboard(payload);
     } else if (action === 'color') {
-      openColorPalette(note.id);
+      if (ctxIsMulti) {
+        openColorPalette(null);
+      } else {
+        openColorPalette(targets[0].id);
+      }
     } else if (action === 'group') {
-      openGroupPicker(note.id);
+      if (ctxIsMulti) {
+        openGroupPicker(null);
+      } else {
+        openGroupPicker(targets[0].id);
+      }
     } else if (action === 'delete') {
-      if (confirm(`"${note.title || 'Untitled Note'}" silinsin mi?`)) {
-        deleteNote(note.id);
+      const n = targets.length;
+      const msg = n === 1
+        ? `"${targets[0].title || 'Untitled Note'}" silinsin mi?`
+        : `${n} not silinsin mi?`;
+      if (confirm(msg)) {
+        const ids = new Set(targets.map(t => t.id));
+        notes = notes.filter(n => !ids.has(n.id));
+        ids.forEach(id => selectedNoteIds.delete(id));
+        if (ids.has(activeId)) {
+          if (notes.length === 0) {
+            createNote();
+            return;
+          }
+          activeId = notes[0].id;
+          loadNote(activeId);
+        }
+        saveNotes();
+        renderNoteList();
       }
     }
     ctxTargetId = null;
+    ctxIsMulti = false;
   });
 
   // Color palette
@@ -1824,8 +1949,8 @@
   let colorTargetId = null;
   function openColorPalette(noteId) {
     colorTargetId = noteId;
-    const item = noteList.querySelector(`.note-item[data-id="${noteId}"]`);
-    const r = item ? item.getBoundingClientRect() : { left: 100, top: 100 };
+    const item = noteId ? noteList.querySelector(`.note-item[data-id="${noteId}"]`) : null;
+    const r = item ? item.getBoundingClientRect() : { left: 200, top: 100, bottom: 130 };
     colorPalette.hidden = false;
     const vw = window.innerWidth;
     let left = r.left + 20;
@@ -1840,9 +1965,15 @@
   colorPalette.addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-color]');
     if (!btn) return;
-    const note = notes.find(n => n.id === colorTargetId);
-    if (!note) { closeColorPalette(); return; }
-    note.color = btn.dataset.color || '';
+    const color = btn.dataset.color || '';
+    if (colorTargetId === null) {
+      // Multi
+      notes.forEach(n => { if (selectedNoteIds.has(n.id)) n.color = color; });
+    } else {
+      const note = notes.find(n => n.id === colorTargetId);
+      if (!note) { closeColorPalette(); return; }
+      note.color = color;
+    }
     saveNotes();
     renderNoteList();
     closeColorPalette();
@@ -1860,11 +1991,11 @@
   let groupTargetId = null;
   function openGroupPicker(noteId) {
     groupTargetId = noteId;
-    const note = notes.find(n => n.id === noteId);
+    const note = noteId ? notes.find(n => n.id === noteId) : null;
     groupPickerInput.value = (note && note.group) || '';
     renderGroupPickerList();
-    const item = noteList.querySelector(`.note-item[data-id="${noteId}"]`);
-    const r = item ? item.getBoundingClientRect() : { left: 100, top: 100 };
+    const item = noteId ? noteList.querySelector(`.note-item[data-id="${noteId}"]`) : null;
+    const r = item ? item.getBoundingClientRect() : { left: 200, top: 100, bottom: 130 };
     groupPicker.hidden = false;
     const vw = window.innerWidth;
     let left = r.left + 20;
@@ -1884,9 +2015,14 @@
       '<div style="font-size:11px;color:#888;padding:4px 9px">Henüz grup yok</div>';
   }
   function setNoteGroup(noteId, group) {
-    const note = notes.find(n => n.id === noteId);
-    if (!note) return;
-    note.group = group || '';
+    if (noteId === null) {
+      // Multi
+      notes.forEach(n => { if (selectedNoteIds.has(n.id)) n.group = group || ''; });
+    } else {
+      const note = notes.find(n => n.id === noteId);
+      if (!note) return;
+      note.group = group || '';
+    }
     saveNotes();
     renderNoteList();
   }
@@ -3469,6 +3605,10 @@
       insertSheet: 'Mini Tablo (Formüllü)',
       noteColor: 'Renk',
       noteGroup: 'Grup',
+      sendToGroup: 'Gruba Gönder',
+      copyText: 'Kopyala',
+      copyNoteJson: 'Notu Kopyala',
+      selectAll: 'Tümünü Seç',
       androidApp: 'Android İndir',
       androidAppTip: 'Android uygulaması olarak indir',
       bgImageSet: 'Arka Plan Yap',
@@ -3611,6 +3751,10 @@
       insertSheet: 'Mini Sheet (Formulas)',
       noteColor: 'Color',
       noteGroup: 'Group',
+      sendToGroup: 'Send to Group',
+      copyText: 'Copy',
+      copyNoteJson: 'Copy Note',
+      selectAll: 'Select All',
       androidApp: 'Android App',
       androidAppTip: 'Download as Android app',
       bgImageSet: 'Set as Background',
