@@ -2205,11 +2205,13 @@
   $('#btnReplaceAll').addEventListener('click', replaceAll);
 
   // --- Multi-format Importer ---
+  // Local-first paths; SW also caches CDN as fallback for offline
   const CDN = {
-    mammoth: 'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.8.0/mammoth.browser.min.js',
-    xlsx: 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
-    pdfjs: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.mjs',
-    pdfWorker: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs',
+    mammoth: './vendor/mammoth.browser.min.js',
+    xlsx: './vendor/xlsx.full.min.js',
+    pdfjs: './vendor/pdf.min.mjs',
+    pdfWorker: './vendor/pdf.worker.min.mjs',
+    // OCR libs stay on CDN (heavy + model files); SW caches opaque
     tesseract: 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js',
     paddleOcr: 'https://cdn.jsdelivr.net/npm/@paddlejs-models/ocr@1.1.3/lib/index.js'
   };
@@ -3466,6 +3468,15 @@
       paddleOcrReady = null;
     });
   }
+
+  // Offline indicator
+  const offlineBadge = $('#offlineBadge');
+  function updateOnlineStatus() {
+    if (offlineBadge) offlineBadge.hidden = navigator.onLine;
+  }
+  window.addEventListener('online', updateOnlineStatus);
+  window.addEventListener('offline', updateOnlineStatus);
+  updateOnlineStatus();
 
   // Handle PWA shortcut ?action=new, protocol handler ?note=, share_target ?title/text/url
   const __qp = new URLSearchParams(location.search);

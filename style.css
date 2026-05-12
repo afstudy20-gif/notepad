@@ -1888,6 +1888,17 @@ body.has-image-panel .image-panel {
   margin-left: auto;
 }
 
+.offline-badge {
+  background: #fef3c7;
+  color: #b45309;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid #fcd34d;
+}
+.offline-badge[hidden] { display: none !important; }
+
 /* Find & Replace Dialog */
 .dialog-overlay {
   position: fixed;
