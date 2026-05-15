@@ -1701,6 +1701,10 @@ body.has-image-panel .editor-area {
   color: #333;
 }
 
+.context-menu button[hidden] {
+  display: none !important;
+}
+
 .context-menu button:hover {
   background: #f0f4ff;
   color: #4361ee;

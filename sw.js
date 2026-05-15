@@ -3,7 +3,7 @@
 //   - HTML/JS/CSS (app shell): network-first, fallback cache
 //   - Static icons + vendor libs: cache-first
 //   - Cross-origin (CDN libs): cache opaque responses, cache-first fallback
-const VERSION = 'v53';
+const VERSION = 'v54';
 const CACHE = `notepad-${VERSION}`;
 const SHELL = [
   './',
