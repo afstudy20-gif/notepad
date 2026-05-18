@@ -505,6 +505,67 @@
     }
   });
 
+  // Download image: data: URLs direct, http(s) URLs via fetch+blob to keep filename.
+  async function downloadImage(img) {
+    try {
+      const src = img.src || '';
+      let blobUrl, mime = 'image/png', ext = 'png';
+      if (src.startsWith('data:')) {
+        const m = src.match(/^data:([^;,]+)[;,]/);
+        if (m) {
+          mime = m[1];
+          ext = mime.split('/')[1] || 'png';
+        }
+        // Convert data URL to blob for reliable download
+        const res = await fetch(src);
+        const blob = await res.blob();
+        blobUrl = URL.createObjectURL(blob);
+      } else {
+        const res = await fetch(src, { mode: 'cors' }).catch(() => null);
+        if (res && res.ok) {
+          const blob = await res.blob();
+          mime = blob.type || mime;
+          ext = (mime.split('/')[1] || 'png').replace('jpeg', 'jpg');
+          blobUrl = URL.createObjectURL(blob);
+        } else {
+          // Fallback: direct link (may open in new tab if cross-origin blocks download)
+          blobUrl = src;
+        }
+      }
+      const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = `notepad-image-${ts}.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      if (blobUrl !== src) setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+    } catch (err) {
+      console.error('[saveImage]', err);
+      alert('Resim kaydedilemedi: ' + (err && err.message || err));
+    }
+  }
+
+  // Fit image into editor canvas without touching raster data.
+  // Only sets display width/height (browser handles quality scaling).
+  function fitImageToCanvas(img) {
+    const apply = () => {
+      const nw = img.naturalWidth, nh = img.naturalHeight;
+      if (!nw || !nh) return;
+      // Skip if already sized (re-loaded note or user-resized via panel)
+      if (img.style.width && img.style.width !== '') return;
+      const editorW = Math.max(200, (editor.clientWidth || 800) - 24);
+      const maxH = Math.max(200, Math.floor(window.innerHeight * 0.8));
+      let w = nw, h = nh;
+      if (w > editorW) { h = h * (editorW / w); w = editorW; }
+      if (h > maxH) { w = w * (maxH / h); h = maxH; }
+      img.style.width = Math.round(w) + 'px';
+      img.style.height = 'auto';
+    };
+    if (img.complete && img.naturalWidth) apply();
+    else img.addEventListener('load', apply, { once: true });
+  }
+
   function insertImage(src) {
     const img = document.createElement('img');
     img.src = src;
@@ -534,6 +595,7 @@
       editor.appendChild(img);
       editor.appendChild(document.createElement('br'));
     }
+    fitImageToCanvas(img);
     img.scrollIntoView({ block: 'nearest' });
   }
 
@@ -2169,6 +2231,10 @@
           img.remove();
           scheduleSave();
         }
+      } else if (action === 'saveImage') {
+        if (selectedImg && selectedImg.src) {
+          await downloadImage(selectedImg);
+        }
       } else if (action === 'bgToggleMode') {
         if (typeof window.__npToggleBgMode === 'function') window.__npToggleBgMode();
       } else if (action === 'bgClear') {
@@ -3583,6 +3649,7 @@
       paste: 'Yapıştır',
       pasteImage: 'Panodan Resim Yapıştır',
       uploadImage: 'Resim Yükle (Diskten)',
+      saveImage: 'Resmi Kaydet',
       findReplace: 'Bul ve Değiştir',
       find: 'Bul:',
       replaceWith: 'Şununla değiştir:',
@@ -3729,6 +3796,7 @@
       paste: 'Paste',
       pasteImage: 'Paste Image from Clipboard',
       uploadImage: 'Upload Image (from disk)',
+      saveImage: 'Save Image',
       findReplace: 'Find & Replace',
       find: 'Find:',
       replaceWith: 'Replace with:',
