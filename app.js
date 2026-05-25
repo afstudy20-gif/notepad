@@ -384,6 +384,9 @@
       if (pdfAttachment.tooLarge) {
         pdfRows.push('<em>PDF dosyası tarayıcı yerel depolama kotası için çok büyük olduğundan dosya yerine adres kaydedildi.</em>');
       }
+      if (pdfAttachment.downloadedExternally) {
+        pdfRows.push('<em>PDF dosyası Chrome indirmelerine gönderildi.</em>');
+      }
       if (pdfRows.length) parts.push(`<p><strong>PDF</strong><br>${pdfRows.join('<br>')}</p>`);
     }
 
@@ -2342,6 +2345,8 @@
         if (selectedImg && selectedImg.src) {
           await downloadImage(selectedImg);
         }
+      } else if (action === 'grabText') {
+        await runSelectedImageGrabText();
       } else if (action === 'bgToggleMode') {
         if (typeof window.__npToggleBgMode === 'function') window.__npToggleBgMode();
       } else if (action === 'bgClear') {
@@ -3389,7 +3394,7 @@
     }
   });
 
-  $('#ipGrabText').addEventListener('click', async () => {
+  async function runSelectedImageGrabText() {
     if (!selectedImg) { alert('Önce bir resim seçin.'); return; }
     const popup = $('#ocrPopup');
     const status = $('#ocrPopupStatus');
@@ -3407,7 +3412,9 @@
       status.textContent = 'Grab Text hata: ' + err.message;
       console.error('[grab-text]', err);
     }
-  });
+  }
+
+  $('#ipGrabText').addEventListener('click', runSelectedImageGrabText);
 
   $('#ocrInsertText').addEventListener('click', () => {
     const txt = $('#ocrPopupText').value;

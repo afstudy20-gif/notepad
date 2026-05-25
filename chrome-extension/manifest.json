@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Notepad Web Clipper",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "Aktif web sayfasının adresini, ekran görüntüsünü ve varsa PDF dosyasını Notepad uygulamasına yerel not olarak kaydeder.",
   "action": {
     "default_title": "Notepad'e kaydet",
@@ -25,6 +25,7 @@
   "options_page": "options.html",
   "permissions": [
     "activeTab",
+    "downloads",
     "scripting",
     "storage",
     "tabs"

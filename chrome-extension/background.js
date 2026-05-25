@@ -155,7 +155,8 @@ function resultSummary(payload) {
   return {
     screenshotIncluded: !!payload.screenshotDataUrl,
     pdfIncluded: !!payload.pdfAttachment?.dataUrl,
-    pdfLinkedOnly: !!payload.pdfAttachment?.url && !payload.pdfAttachment?.dataUrl
+    pdfDownloaded: !!payload.pdfAttachment?.downloadedExternally,
+    pdfLinkedOnly: !!payload.pdfAttachment?.url && !payload.pdfAttachment?.dataUrl && !payload.pdfAttachment?.downloadedExternally
   };
 }
 
@@ -182,6 +183,11 @@ async function capturePdfAttachment(tab) {
     const attachment = await fetchPdfAttachment(pdfUrl, tab);
     if (attachment?.dataUrl || attachment?.tooLarge) return attachment;
     if (attachment?.url && !fallback) fallback = attachment;
+  }
+
+  if (fallback?.url) {
+    const downloaded = await downloadPdfFallback(fallback.url, fallback.name);
+    return { ...fallback, downloadedExternally: downloaded };
   }
 
   return fallback;
@@ -212,6 +218,22 @@ async function fetchPdfAttachment(pdfUrl, tab) {
   } catch (error) {
     console.warn('[notepad-clipper] pdf skipped', error);
     return { name: pdfFileName(pdfUrl, tab?.title), url: pdfUrl };
+  }
+}
+
+async function downloadPdfFallback(pdfUrl, name) {
+  if (!chrome.downloads?.download) return false;
+
+  try {
+    await chrome.downloads.download({
+      url: pdfUrl,
+      filename: sanitizeDownloadPath(name || 'notepad-web-page.pdf'),
+      saveAs: false
+    });
+    return true;
+  } catch (error) {
+    console.warn('[notepad-clipper] pdf download fallback failed', error);
+    return false;
   }
 }
 
@@ -279,6 +301,11 @@ function fileNameFromContentDisposition(disposition) {
   } catch (_) {
     return raw.replace(/[\\/:*?"<>|]+/g, '-');
   }
+}
+
+function sanitizeDownloadPath(name) {
+  const safe = String(name || 'notepad-web-page.pdf').replace(/[\\/:*?"<>|]+/g, '-');
+  return safe.toLowerCase().endsWith('.pdf') ? safe : `${safe}.pdf`;
 }
 
 function arrayBufferToBase64(buffer) {

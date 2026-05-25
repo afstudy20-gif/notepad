@@ -18,6 +18,7 @@ async function saveCurrentTab() {
     const extras = [];
     if (response.screenshotIncluded) extras.push('screenshot');
     if (response.pdfIncluded) extras.push('PDF');
+    if (response.pdfDownloaded) extras.push('PDF indirildi');
     if (response.pdfLinkedOnly) extras.push('PDF adresi');
     statusEl.textContent = extras.length
       ? `Kaydedildi. Eklenenler: ${extras.join(', ')}.`

@@ -14,7 +14,7 @@
   <title>Notepad — Local-Only Text Editor</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
-  <link rel="stylesheet" href="style.css?v=59">
+  <link rel="stylesheet" href="style.css?v=60">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -370,6 +370,7 @@
     <button data-ectx="pasteImage" data-i18n="pasteImage">Panodan Resim Yapıştır</button>
     <button data-ectx="uploadImage" data-i18n="uploadImage">Resim Yükle (Diskten)</button>
     <button data-ectx="saveImage" class="ectx-img-only" data-i18n="saveImage" hidden>Resmi Kaydet</button>
+    <button data-ectx="grabText" class="ectx-img-only" data-i18n="grabText" hidden>Grab Text</button>
     <button data-ectx="deleteImage" class="ctx-danger ectx-img-only" data-i18n="delete" hidden>Sil</button>
     <button data-ectx="bgToggleMode" class="ectx-bg-only" data-i18n="bgImageCover" hidden>Kapla / Sığdır</button>
     <button data-ectx="bgClear" class="ctx-danger ectx-bg-only" data-i18n="bgImageClear" hidden>Arka Planı Kaldır</button>
@@ -669,13 +670,13 @@
 
   <script src="./vendor/html2pdf.bundle.min.js"></script>
   <script src="./vendor/html-docx.js"></script>
-  <script src="app.js?v=59"></script>
+  <script src="app.js?v=60"></script>
   <script>
     // Register service worker for PWA install + offline shell.
     // SW uses network-first for HTML/JS so updates roll out without manual refresh.
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=59').catch((err) => {
+        navigator.serviceWorker.register('./sw.js?v=60').catch((err) => {
           console.warn('[sw] register failed', err);
         });
       });
