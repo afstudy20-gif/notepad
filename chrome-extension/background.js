@@ -10,8 +10,9 @@ chrome.runtime.onInstalled.addListener(async () => {
 
 chrome.action.onClicked.addListener(async (tab) => {
   try {
-    await saveTabToNotepad(tab);
+    const result = await saveTabToNotepad(tab);
     await flashBadge(tab.id, 'OK', '#1f9d55');
+    return result;
   } catch (error) {
     console.error('[notepad-clipper] save failed', error);
     await flashBadge(tab.id, '!', '#c53030');
@@ -26,8 +27,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   (async () => {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      await saveTabToNotepad(tab);
-      sendResponse({ ok: true });
+      const result = await saveTabToNotepad(tab);
+      sendResponse({ ok: true, ...result });
     } catch (error) {
       console.error('[notepad-clipper] popup save failed', error);
       sendResponse({ ok: false, error: error?.message || 'Kaydedilemedi' });
@@ -41,7 +42,8 @@ async function saveTabToNotepad(tab) {
   const payload = {
     title: tab?.title || 'Web sayfası',
     text: '',
-    url: isWebUrl(tab?.url) ? tab.url : ''
+    url: isWebUrl(tab?.url) ? tab.url : '',
+    screenshotDataUrl: await captureScreenshot(tab)
   };
   const notepadUrl = await getNotepadUrl();
   const targetUrl = buildUrlWithPayload(notepadUrl, payload);
@@ -49,13 +51,23 @@ async function saveTabToNotepad(tab) {
 
   if (notepadTab?.id) {
     const injected = await injectIntoNotepad(notepadTab.id, payload);
-    if (injected) return;
+    if (injected) return { screenshotIncluded: !!payload.screenshotDataUrl };
 
     await chrome.tabs.update(notepadTab.id, { url: targetUrl });
-    return;
+    return { screenshotIncluded: false };
   }
 
-  await chrome.tabs.create({ url: targetUrl, active: true });
+  const createdTab = await chrome.tabs.create({ url: buildOpenUrl(notepadUrl), active: true });
+  if (createdTab?.id) {
+    await waitForTabComplete(createdTab.id);
+    const injected = await injectIntoNotepad(createdTab.id, payload);
+    if (injected) return { screenshotIncluded: !!payload.screenshotDataUrl };
+    await chrome.tabs.update(createdTab.id, { url: targetUrl });
+  } else {
+    await chrome.tabs.create({ url: targetUrl, active: true });
+  }
+
+  return { screenshotIncluded: false };
 }
 
 async function getNotepadUrl() {
@@ -77,6 +89,12 @@ function buildUrlWithPayload(baseUrl, payload) {
   url.searchParams.set('title', payload.title || 'Web sayfası');
   if (payload.text) url.searchParams.set('text', payload.text);
   if (payload.url) url.searchParams.set('url', payload.url);
+  url.searchParams.set('source', 'chrome-extension');
+  return url.toString();
+}
+
+function buildOpenUrl(baseUrl) {
+  const url = normalizeNotepadUrl(baseUrl);
   url.searchParams.set('source', 'chrome-extension');
   return url.toString();
 }
@@ -129,6 +147,46 @@ async function injectIntoNotepad(tabId, payload) {
 
 function isWebUrl(url) {
   return /^https?:\/\//i.test(url || '');
+}
+
+async function captureScreenshot(tab) {
+  if (!tab?.windowId || !/^https?:\/\//i.test(tab?.url || '')) return '';
+
+  try {
+    return await chrome.tabs.captureVisibleTab(tab.windowId, {
+      format: 'jpeg',
+      quality: 72
+    });
+  } catch (error) {
+    console.warn('[notepad-clipper] screenshot skipped', error);
+    return '';
+  }
+}
+
+function waitForTabComplete(tabId) {
+  return new Promise((resolve) => {
+    let done = false;
+    const timeout = setTimeout(finish, 8000);
+
+    function finish() {
+      if (done) return;
+      done = true;
+      clearTimeout(timeout);
+      chrome.tabs.onUpdated.removeListener(listener);
+      resolve();
+    }
+
+    function listener(updatedTabId, changeInfo) {
+      if (updatedTabId === tabId && changeInfo.status === 'complete') {
+        finish();
+      }
+    }
+
+    chrome.tabs.onUpdated.addListener(listener);
+    chrome.tabs.get(tabId).then((currentTab) => {
+      if (currentTab.status === 'complete') finish();
+    }).catch(finish);
+  });
 }
 
 async function flashBadge(tabId, text, color) {

@@ -329,10 +329,15 @@
     }
   }
 
+  function isSafeImageDataUrl(value) {
+    return /^data:image\/(?:png|jpe?g|webp);base64,[a-z0-9+/=]+$/i.test(value || '');
+  }
+
   function createExternalNote(payload = {}) {
     const title = String(payload.title || '').trim();
     const text = String(payload.text || '').trim();
     const url = String(payload.url || '').trim();
+    const screenshotDataUrl = String(payload.screenshotDataUrl || '').trim();
     let fallbackTitle = 'Web sayfası';
 
     if (url) {
@@ -352,6 +357,9 @@
         ? `<a href="${safeHref}" target="_blank" rel="noopener noreferrer">${safeUrl}</a>`
         : safeUrl;
       parts.push(`<p>${urlContent}</p>`);
+    }
+    if (isSafeImageDataUrl(screenshotDataUrl)) {
+      parts.push(`<p><img src="${screenshotDataUrl}" alt="Web page screenshot" style="max-width:100%;height:auto;"></p>`);
     }
 
     const note = {
