@@ -1,5 +1,6 @@
 const DEFAULT_NOTEPAD_URL = 'https://not.drtr.uk/';
 const NOTEPAD_URL_KEY = 'notepadUrl';
+const MAX_PDF_BYTES = 4 * 1024 * 1024;
 
 chrome.runtime.onInstalled.addListener(async () => {
   const stored = await chrome.storage.sync.get(NOTEPAD_URL_KEY);
@@ -43,7 +44,8 @@ async function saveTabToNotepad(tab) {
     title: tab?.title || 'Web sayfası',
     text: '',
     url: isWebUrl(tab?.url) ? tab.url : '',
-    screenshotDataUrl: await captureScreenshot(tab)
+    screenshotDataUrl: await captureScreenshot(tab),
+    pdfAttachment: await capturePdfAttachment(tab)
   };
   const notepadUrl = await getNotepadUrl();
   const targetUrl = buildUrlWithPayload(notepadUrl, payload);
@@ -51,23 +53,23 @@ async function saveTabToNotepad(tab) {
 
   if (notepadTab?.id) {
     const injected = await injectIntoNotepad(notepadTab.id, payload);
-    if (injected) return { screenshotIncluded: !!payload.screenshotDataUrl };
+    if (injected) return resultSummary(payload);
 
     await chrome.tabs.update(notepadTab.id, { url: targetUrl });
-    return { screenshotIncluded: false };
+    return { screenshotIncluded: false, pdfIncluded: false };
   }
 
   const createdTab = await chrome.tabs.create({ url: buildOpenUrl(notepadUrl), active: true });
   if (createdTab?.id) {
     await waitForTabComplete(createdTab.id);
     const injected = await injectIntoNotepad(createdTab.id, payload);
-    if (injected) return { screenshotIncluded: !!payload.screenshotDataUrl };
+    if (injected) return resultSummary(payload);
     await chrome.tabs.update(createdTab.id, { url: targetUrl });
   } else {
     await chrome.tabs.create({ url: targetUrl, active: true });
   }
 
-  return { screenshotIncluded: false };
+  return { screenshotIncluded: false, pdfIncluded: false };
 }
 
 async function getNotepadUrl() {
@@ -149,6 +151,14 @@ function isWebUrl(url) {
   return /^https?:\/\//i.test(url || '');
 }
 
+function resultSummary(payload) {
+  return {
+    screenshotIncluded: !!payload.screenshotDataUrl,
+    pdfIncluded: !!payload.pdfAttachment?.dataUrl,
+    pdfLinkedOnly: !!payload.pdfAttachment?.tooLarge
+  };
+}
+
 async function captureScreenshot(tab) {
   if (!tab?.windowId || !/^https?:\/\//i.test(tab?.url || '')) return '';
 
@@ -161,6 +171,86 @@ async function captureScreenshot(tab) {
     console.warn('[notepad-clipper] screenshot skipped', error);
     return '';
   }
+}
+
+async function capturePdfAttachment(tab) {
+  const pdfUrl = await findPdfUrl(tab);
+  if (!pdfUrl) return null;
+
+  try {
+    const response = await fetch(pdfUrl, { credentials: 'include' });
+    if (!response.ok) throw new Error(`PDF fetch failed: ${response.status}`);
+
+    const blob = await response.blob();
+    const contentType = blob.type || response.headers.get('content-type') || '';
+    if (!/pdf/i.test(contentType) && !/\.pdf(?:$|[?#])/i.test(pdfUrl)) return null;
+
+    const name = pdfFileName(pdfUrl, tab?.title);
+    if (blob.size > MAX_PDF_BYTES) {
+      return { name, url: pdfUrl, size: blob.size, tooLarge: true };
+    }
+
+    const buffer = await blob.arrayBuffer();
+    return {
+      name,
+      url: pdfUrl,
+      size: blob.size,
+      dataUrl: `data:application/pdf;base64,${arrayBufferToBase64(buffer)}`
+    };
+  } catch (error) {
+    console.warn('[notepad-clipper] pdf skipped', error);
+    return { name: pdfFileName(pdfUrl, tab?.title), url: pdfUrl };
+  }
+}
+
+async function findPdfUrl(tab) {
+  if (!isWebUrl(tab?.url)) return '';
+  if (/\.pdf(?:$|[?#])/i.test(tab.url)) return tab.url;
+
+  try {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      args: [tab.url],
+      func: (pageUrl) => {
+        const selectors = [
+          'embed[type*="pdf" i][src]',
+          'object[type*="pdf" i][data]',
+          'iframe[src*=".pdf" i]',
+          'a[href*=".pdf" i]'
+        ];
+        for (const selector of selectors) {
+          const el = document.querySelector(selector);
+          const raw = el?.src || el?.href || el?.data || el?.getAttribute('src') || el?.getAttribute('href') || el?.getAttribute('data');
+          if (raw) return new URL(raw, pageUrl).href;
+        }
+        return '';
+      }
+    });
+    return results?.[0]?.result || '';
+  } catch (error) {
+    console.warn('[notepad-clipper] pdf detection skipped', error);
+    return '';
+  }
+}
+
+function pdfFileName(pdfUrl, tabTitle) {
+  try {
+    const url = new URL(pdfUrl);
+    const last = decodeURIComponent(url.pathname.split('/').filter(Boolean).pop() || '');
+    if (/\.pdf$/i.test(last)) return last.replace(/[\\/:*?"<>|]+/g, '-');
+  } catch (_) {}
+  const base = (tabTitle || 'web-page').replace(/[\\/:*?"<>|]+/g, '-').slice(0, 80) || 'web-page';
+  return `${base}.pdf`;
+}
+
+function arrayBufferToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
 }
 
 function waitForTabComplete(tabId) {

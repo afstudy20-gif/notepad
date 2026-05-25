@@ -3,14 +3,14 @@
 //   - HTML/JS/CSS (app shell): network-first, fallback cache
 //   - Static icons + vendor libs: cache-first
 //   - Cross-origin (CDN libs): cache opaque responses, cache-first fallback
-const VERSION = 'v58';
+const VERSION = 'v59';
 const CACHE = `notepad-${VERSION}`;
 const SHELL = [
   './',
   './index.html',
   './install.html',
-  './style.css?v=58',
-  './app.js?v=58',
+  './style.css?v=59',
+  './app.js?v=59',
   './notepad-web-clipper.zip',
   './manifest.webmanifest',
   './icon.svg',

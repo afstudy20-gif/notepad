@@ -333,11 +333,16 @@
     return /^data:image\/(?:png|jpe?g|webp);base64,[a-z0-9+/=]+$/i.test(value || '');
   }
 
+  function isSafePdfDataUrl(value) {
+    return /^data:application\/pdf;base64,[a-z0-9+/=]+$/i.test(value || '');
+  }
+
   function createExternalNote(payload = {}) {
     const title = String(payload.title || '').trim();
     const text = String(payload.text || '').trim();
     const url = String(payload.url || '').trim();
     const screenshotDataUrl = String(payload.screenshotDataUrl || '').trim();
+    const pdfAttachment = payload.pdfAttachment || null;
     let fallbackTitle = 'Web sayfası';
 
     if (url) {
@@ -360,6 +365,26 @@
     }
     if (isSafeImageDataUrl(screenshotDataUrl)) {
       parts.push(`<p><img src="${screenshotDataUrl}" alt="Web page screenshot" style="max-width:100%;height:auto;"></p>`);
+    }
+    if (pdfAttachment && (pdfAttachment.url || pdfAttachment.dataUrl)) {
+      const pdfName = String(pdfAttachment.name || 'web-page.pdf').replace(/[\\/:*?"<>|]+/g, '-');
+      const safeName = escapeHtml(pdfName);
+      const safeDownloadName = escapeAttribute(pdfName);
+      const pdfRows = [];
+
+      if (isSafePdfDataUrl(pdfAttachment.dataUrl)) {
+        const safePdfData = escapeAttribute(pdfAttachment.dataUrl);
+        pdfRows.push(`<a href="${safePdfData}" download="${safeDownloadName}">PDF indir: ${safeName}</a>`);
+      }
+      if (pdfAttachment.url && isSafeLinkUrl(pdfAttachment.url)) {
+        const safePdfUrl = escapeHtml(pdfAttachment.url);
+        const safePdfHref = escapeAttribute(pdfAttachment.url);
+        pdfRows.push(`<a href="${safePdfHref}" target="_blank" rel="noopener noreferrer">PDF adresi</a>: ${safePdfUrl}`);
+      }
+      if (pdfAttachment.tooLarge) {
+        pdfRows.push('<em>PDF dosyası tarayıcı yerel depolama kotası için çok büyük olduğundan dosya yerine adres kaydedildi.</em>');
+      }
+      if (pdfRows.length) parts.push(`<p><strong>PDF</strong><br>${pdfRows.join('<br>')}</p>`);
     }
 
     const note = {
@@ -2410,6 +2435,12 @@
     return { text: data.text };
   }
 
+  async function runGrabText(imageSrc, progressCb) {
+    progressCb && progressCb(0, 'Grab Text başlatılıyor...');
+    const { text } = await runTesseract(imageSrc, progressCb);
+    return { text: (text || '').replace(/\n{3,}/g, '\n\n').trim() };
+  }
+
   function loadImg(src) {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -3358,6 +3389,26 @@
     }
   });
 
+  $('#ipGrabText').addEventListener('click', async () => {
+    if (!selectedImg) { alert('Önce bir resim seçin.'); return; }
+    const popup = $('#ocrPopup');
+    const status = $('#ocrPopupStatus');
+    const textEl = $('#ocrPopupText');
+    popup.hidden = false;
+    textEl.value = '';
+    status.textContent = 'Grab Text başlatılıyor...';
+    try {
+      const { text } = await runGrabText(selectedImg.src, (p, msg) => {
+        status.textContent = `${msg || 'Recognizing text'} — ${p}%`;
+      });
+      status.textContent = `Grab Text tamamlandı (${text.length} karakter)`;
+      textEl.value = text || '(Metin bulunamadı)';
+    } catch (err) {
+      status.textContent = 'Grab Text hata: ' + err.message;
+      console.error('[grab-text]', err);
+    }
+  });
+
   $('#ocrInsertText').addEventListener('click', () => {
     const txt = $('#ocrPopupText').value;
     if (!txt) return;
@@ -3704,6 +3755,8 @@
       sepia: 'Sepya',
       invert: 'İnvert',
       ocrButton: '🔍 Resimden Metin Çıkar',
+      grabText: 'Grab Text',
+      grabTextTip: 'Resimdeki metni Tesseract tur+eng ile yakala',
       ocrResult: 'OCR Sonucu',
       ocrPlaceholder: 'OCR sonucu burada görünecek...',
       insertText: 'Metni Ekle',
@@ -3853,6 +3906,8 @@
       sepia: 'Sepia',
       invert: 'Invert',
       ocrButton: '🔍 Extract Text (OCR)',
+      grabText: 'Grab Text',
+      grabTextTip: 'Grab text from the image with Tesseract tur+eng',
       ocrResult: 'OCR Result',
       ocrPlaceholder: 'OCR result will appear here...',
       insertText: 'Insert Text',

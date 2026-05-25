@@ -8,16 +8,20 @@ retryButton.addEventListener('click', saveCurrentTab);
 async function saveCurrentTab() {
   retryButton.hidden = true;
   statusEl.dataset.state = '';
-  statusEl.textContent = 'Aktif sekme ve ekran görüntüsü not olarak ekleniyor...';
+  statusEl.textContent = 'Aktif sekme, ekran görüntüsü ve varsa PDF not olarak ekleniyor...';
 
   try {
     const response = await chrome.runtime.sendMessage({ type: 'save-active-tab' });
     if (!response?.ok) throw new Error(response?.error || 'Kaydedilemedi');
 
     statusEl.dataset.state = 'ok';
-    statusEl.textContent = response.screenshotIncluded
-      ? 'Kaydedildi. Screenshot da nota eklendi.'
-      : 'Kaydedildi. Bu sayfada screenshot izni yoktu.';
+    const extras = [];
+    if (response.screenshotIncluded) extras.push('screenshot');
+    if (response.pdfIncluded) extras.push('PDF');
+    if (response.pdfLinkedOnly) extras.push('PDF adresi');
+    statusEl.textContent = extras.length
+      ? `Kaydedildi. Eklenenler: ${extras.join(', ')}.`
+      : 'Kaydedildi. Bu sayfada ek dosya izni yoktu.';
   } catch (error) {
     statusEl.dataset.state = 'error';
     statusEl.textContent = error?.message || 'Kaydedilemedi.';

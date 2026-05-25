@@ -1,6 +1,6 @@
 # Notepad Web Clipper
 
-Chrome MV3 uzantısı. Araç çubuğundaki Notepad ikonuna basıldığında aktif sekmenin başlığını, URL'sini ve görünen ekran görüntüsünü Notepad'e yeni not olarak ekler.
+Chrome MV3 uzantısı. Araç çubuğundaki Notepad ikonuna basıldığında aktif sekmenin başlığını, URL'sini, görünen ekran görüntüsünü ve sayfada PDF varsa PDF dosyasını Notepad'e yeni not olarak ekler.
 
 ## Kurulum
 

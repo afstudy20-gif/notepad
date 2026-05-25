@@ -14,7 +14,7 @@
   <title>Notepad — Local-Only Text Editor</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
-  <link rel="stylesheet" href="style.css?v=58">
+  <link rel="stylesheet" href="style.css?v=59">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -474,6 +474,7 @@
         <div class="ip-group-title">OCR</div>
         <div class="ip-btn-row">
           <button id="ipOcr" class="ip-toggle" data-i18n="ocrButton">🔍 Resimden Metin Çıkar</button>
+          <button id="ipGrabText" class="ip-toggle" title="Grab Text" data-i18n-title="grabTextTip" data-i18n="grabText">Grab Text</button>
         </div>
       </div>
 
@@ -668,13 +669,13 @@
 
   <script src="./vendor/html2pdf.bundle.min.js"></script>
   <script src="./vendor/html-docx.js"></script>
-  <script src="app.js?v=58"></script>
+  <script src="app.js?v=59"></script>
   <script>
     // Register service worker for PWA install + offline shell.
     // SW uses network-first for HTML/JS so updates roll out without manual refresh.
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=58').catch((err) => {
+        navigator.serviceWorker.register('./sw.js?v=59').catch((err) => {
           console.warn('[sw] register failed', err);
         });
       });

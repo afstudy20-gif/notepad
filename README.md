@@ -20,7 +20,7 @@ A browser-based rich-text notepad. All notes live in `localStorage` — nothing 
 - **Find & Replace** · **Print**
 - **Language toggle** — TR / EN (auto-detected from browser locale, manually switchable)
 - **PWA** — installable app, works offline
-- **Chrome extension** — save the current tab URL and screenshot into Notepad with one click
+- **Chrome extension** — save the current tab URL, screenshot, and detected PDF into Notepad with one click
 - **Refresh button** — clears this app's cache and reloads (notes preserved, other sites unaffected)
 - **Mobile-friendly** — bottom-sheet image panel, touch-sized handles, slide-in sidebar
 - **Keyboard shortcuts** — Ctrl+S (save), Ctrl+P (print), Ctrl+H (find & replace), Ctrl+Alt+N (new note)
@@ -42,7 +42,7 @@ Open `http://localhost:8000`. Service worker requires HTTPS in production; local
 
 ## Chrome extension
 
-Load `chrome-extension/` as an unpacked extension from `chrome://extensions`, or download `notepad-web-clipper.zip` from the install area in the app, unzip it, and select the extracted folder that contains `manifest.json`. By default it saves the current page URL and screenshot to `https://not.drtr.uk/`; change the target Notepad URL from the extension's Options page when testing locally, for example `http://localhost:8000/`.
+Load `chrome-extension/` as an unpacked extension from `chrome://extensions`, or download `notepad-web-clipper.zip` from the install area in the app, unzip it, and select the extracted folder that contains `manifest.json`. By default it saves the current page URL, screenshot, and detected PDF to `https://not.drtr.uk/`; change the target Notepad URL from the extension's Options page when testing locally, for example `http://localhost:8000/`.
 
 ## Deploy
 
