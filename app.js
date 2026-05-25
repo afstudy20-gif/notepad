@@ -442,6 +442,16 @@
     return note;
   }
 
+  function listClipTargetNotes() {
+    return notes.map(note => ({
+      id: note.id,
+      title: (note.title && note.title.trim()) || translated('untitled', 'Untitled'),
+      preview: stripHtml(note.content || '').slice(0, 140),
+      updated: note.updated || 0,
+      active: note.id === activeId
+    }));
+  }
+
   function closeClipTargetDialog() {
     const dialog = $('#clipTargetDialog');
     if (!dialog) return;
@@ -534,6 +544,8 @@
   window.__npCreateExternalNote = openClipTargetPicker;
   window.__npOpenClipTargetPicker = openClipTargetPicker;
   window.__npCreateExternalNoteDirect = createExternalNote;
+  window.__npAppendExternalClipToNote = appendExternalClipToNote;
+  window.__npListClipTargetNotes = listClipTargetNotes;
 
   function formatTime(ts) {
     const d = new Date(ts);

@@ -23,12 +23,24 @@ chrome.action.onClicked.addListener(async (tab) => {
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message?.type !== 'save-active-tab') return false;
+  if (!['get-notes', 'save-active-tab'].includes(message?.type)) return false;
 
   (async () => {
     try {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      const result = await saveTabToNotepad(tab);
+      if (message.type === 'get-notes') {
+        const result = await getNotepadNotes();
+        sendResponse({ ok: true, ...result });
+        return;
+      }
+
+      const tab = message.sourceTabId
+        ? await chrome.tabs.get(message.sourceTabId)
+        : (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
+      const result = await saveTabToNotepad(tab, {
+        targetNoteId: message.targetNoteId || '',
+        createNewNote: !!message.createNewNote
+      });
+      if (tab?.id) await flashBadge(tab.id, 'OK', '#1f9d55');
       sendResponse({ ok: true, ...result });
     } catch (error) {
       console.error('[notepad-clipper] popup save failed', error);
@@ -39,7 +51,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   return true;
 });
 
-async function saveTabToNotepad(tab) {
+async function saveTabToNotepad(tab, target = {}) {
   const payload = {
     title: tab?.title || 'Web sayfası',
     text: '',
@@ -49,11 +61,10 @@ async function saveTabToNotepad(tab) {
   };
   const notepadUrl = await getNotepadUrl();
   const targetUrl = buildUrlWithPayload(notepadUrl, payload);
-  const notepadTab = await findOpenNotepadTab(notepadUrl);
+  const notepadTab = await ensureNotepadTab(notepadUrl, { active: false });
 
   if (notepadTab?.id) {
-    await focusTab(notepadTab);
-    const injected = await injectIntoNotepad(notepadTab.id, payload);
+    const injected = await injectIntoNotepad(notepadTab.id, payload, target);
     if (injected) return resultSummary(payload);
 
     await chrome.tabs.update(notepadTab.id, { url: targetUrl, active: true });
@@ -71,6 +82,26 @@ async function saveTabToNotepad(tab) {
   }
 
   return { screenshotIncluded: false, pdfIncluded: false };
+}
+
+async function getNotepadNotes() {
+  const notepadUrl = await getNotepadUrl();
+  const tab = await ensureNotepadTab(notepadUrl, { active: false });
+  if (!tab?.id) return { notes: [] };
+
+  const results = await chrome.scripting.executeScript({
+    target: { tabId: tab.id },
+    world: 'MAIN',
+    func: () => {
+      if (typeof window.__npListClipTargetNotes !== 'function') return [];
+      return window.__npListClipTargetNotes();
+    }
+  });
+
+  return {
+    notes: results?.[0]?.result || [],
+    notepadTabId: tab.id
+  };
 }
 
 async function getNotepadUrl() {
@@ -128,13 +159,35 @@ async function findOpenNotepadTab(baseUrl) {
   });
 }
 
-async function injectIntoNotepad(tabId, payload) {
+async function ensureNotepadTab(baseUrl, options = {}) {
+  const existing = await findOpenNotepadTab(baseUrl);
+  if (existing?.id) {
+    await waitForTabComplete(existing.id);
+    return existing;
+  }
+
+  const created = await chrome.tabs.create({
+    url: buildOpenUrl(baseUrl),
+    active: !!options.active
+  });
+  if (created?.id) await waitForTabComplete(created.id);
+  return created;
+}
+
+async function injectIntoNotepad(tabId, payload, target = {}) {
   try {
     const results = await chrome.scripting.executeScript({
       target: { tabId },
       world: 'MAIN',
-      args: [payload],
-      func: (notePayload) => {
+      args: [payload, target],
+      func: (notePayload, noteTarget) => {
+        if (noteTarget?.targetNoteId && typeof window.__npAppendExternalClipToNote === 'function') {
+          return !!window.__npAppendExternalClipToNote(noteTarget.targetNoteId, notePayload);
+        }
+        if (noteTarget?.createNewNote && typeof window.__npCreateExternalNoteDirect === 'function') {
+          window.__npCreateExternalNoteDirect(notePayload);
+          return true;
+        }
         if (typeof window.__npOpenClipTargetPicker === 'function') {
           window.__npOpenClipTargetPicker(notePayload);
           return true;
@@ -168,7 +221,6 @@ function isWebUrl(url) {
 
 function resultSummary(payload) {
   return {
-    selectionRequired: true,
     screenshotIncluded: !!payload.screenshotDataUrl,
     pdfIncluded: !!payload.pdfAttachment?.dataUrl,
     pdfDownloaded: !!payload.pdfAttachment?.downloadedExternally,
