@@ -466,7 +466,8 @@
 
   function applyEditorZoom(value) {
     editorZoom = clampZoom(value);
-    editor.style.setProperty('--editor-zoom', editorZoom.toString());
+    const surface = $('#editorZoomSurface');
+    if (surface) surface.style.setProperty('--editor-zoom', editorZoom.toString());
     localStorage.setItem(ZOOM_KEY, editorZoom.toString());
     const zoomSelect = $('#zoomSelect');
     if (zoomSelect) zoomSelect.value = ZOOM_STEPS[nearestZoomIndex(editorZoom)].toString();
@@ -476,6 +477,21 @@
     const current = nearestZoomIndex(editorZoom);
     const next = Math.min(ZOOM_STEPS.length - 1, Math.max(0, current + direction));
     applyEditorZoom(ZOOM_STEPS[next]);
+  }
+
+  function zoomSelectedImage(multiplier) {
+    if (!selectedImg || !document.contains(selectedImg)) return;
+    const currentW = selectedImg.offsetWidth || selectedImg.naturalWidth || 160;
+    const currentH = selectedImg.offsetHeight || selectedImg.naturalHeight || currentW;
+    const nextW = Math.max(24, Math.round(currentW * multiplier));
+    const nextH = Math.max(24, Math.round(currentH * multiplier));
+    selectedImg.style.width = nextW + 'px';
+    selectedImg.style.height = nextH + 'px';
+    selectedImg.style.maxWidth = 'none';
+    positionOverlay();
+    updatePanelPreview();
+    syncSizeInputs();
+    scheduleSave();
   }
 
   const toolbarActions = {
@@ -2384,6 +2400,10 @@
         if (selectedImg && selectedImg.src) {
           await downloadImage(selectedImg);
         }
+      } else if (action === 'imageZoomOut') {
+        zoomSelectedImage(0.9);
+      } else if (action === 'imageZoomIn') {
+        zoomSelectedImage(1.1);
       } else if (action === 'grabText') {
         await runSelectedImageGrabText();
       } else if (action === 'bgToggleMode') {
@@ -3818,6 +3838,8 @@
       pasteImage: 'Panodan Resim Yapıştır',
       uploadImage: 'Resim Yükle (Diskten)',
       saveImage: 'Resmi Kaydet',
+      imageZoomOut: 'Resim -',
+      imageZoomIn: 'Resim +',
       findReplace: 'Bul ve Değiştir',
       find: 'Bul:',
       replaceWith: 'Şununla değiştir:',
@@ -3972,6 +3994,8 @@
       pasteImage: 'Paste Image from Clipboard',
       uploadImage: 'Upload Image (from disk)',
       saveImage: 'Save Image',
+      imageZoomOut: 'Image -',
+      imageZoomIn: 'Image +',
       findReplace: 'Find & Replace',
       find: 'Find:',
       replaceWith: 'Replace with:',

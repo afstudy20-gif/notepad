@@ -817,12 +817,24 @@ body.has-image-panel .editor-area {
   background: #fff;
 }
 
+.editor-zoom-surface {
+  width: 100%;
+  min-height: 100%;
+  transform: scale(var(--editor-zoom, 1));
+  transform-origin: top left;
+}
+
 /* Page mode: wrapper becomes gray workspace, editor becomes page */
 .editor-wrapper.page-mode {
   background: #e5e7eb;
   padding: 24px;
   display: flex;
-  justify-content: center;
+}
+
+.editor-wrapper.page-mode .editor-zoom-surface {
+  width: var(--page-w, 210mm);
+  min-height: var(--page-h, 297mm);
+  margin: 0 auto;
 }
 
 .editor-wrapper.page-mode #editor {
@@ -835,7 +847,6 @@ body.has-image-panel .editor-area {
 }
 
 #editor {
-  zoom: var(--editor-zoom, 1);
   min-height: 100%;
   padding: 20px 24px;
   font-size: 15px;
