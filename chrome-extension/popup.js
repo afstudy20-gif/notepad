@@ -75,32 +75,68 @@ async function init() {
       captureTextEl.textContent = captureTexts[selectedOption] || '';
     }
 
-    // Detect PDF
-    if (pdfIndicator) {
+    // Detect PDF directly from popup.js using activeTab scripting
+    if (pdfIndicator && sourceTabId && tab && /^https?:\/\//i.test(tab.url)) {
       pdfIndicator.className = 'pdf-indicator scanning';
-      chrome.runtime.sendMessage({ type: 'detect-pdf', sourceTabId }).then(response => {
-        if (response?.ok && response.pdfCount > 0) {
+      
+      chrome.scripting.executeScript({
+        target: { tabId: sourceTabId },
+        func: () => {
+          const pageUrl = window.location.href;
+          const selectors = [
+            'embed[type*="pdf" i][src]',
+            'object[type*="pdf" i][data]',
+            'iframe[src*=".pdf" i]',
+            'a[href*=".pdf" i]'
+          ];
+          const found = [];
+          for (const selector of selectors) {
+            for (const el of document.querySelectorAll(selector)) {
+              const raw = el?.src || el?.href || el?.data || el?.getAttribute('src') || el?.getAttribute('href') || el?.getAttribute('data');
+              if (raw) {
+                try {
+                  found.push(new URL(raw, pageUrl).href);
+                } catch (_) {}
+              }
+            }
+          }
+          if (/\.pdf(?:$|[?#])/i.test(pageUrl)) {
+            found.push(pageUrl);
+          }
+          return found;
+        }
+      }).then(results => {
+        const pdfUrls = results?.[0]?.result || [];
+        if (pdfUrls.length > 0) {
           pdfIndicator.className = 'pdf-indicator detected';
           const pdfCard = document.querySelector('.option-card[data-option="pdf"]');
           if (pdfCard) {
-            pdfCard.title = `Sayfada ${response.pdfCount} PDF adresi tespit edildi!`;
+            pdfCard.title = `Sayfada ${pdfUrls.length} PDF adresi tespit edildi!`;
           }
         } else {
           pdfIndicator.className = 'pdf-indicator';
         }
-      }).catch(() => {
+      }).catch(err => {
+        console.warn('[notepad-clipper] PDF detection failed', err);
         pdfIndicator.className = 'pdf-indicator';
       });
+    } else if (pdfIndicator) {
+      pdfIndicator.className = 'pdf-indicator';
     }
 
     const response = await chrome.runtime.sendMessage({ type: 'get-notes' });
     if (!response?.ok) throw new Error(response?.error || 'Notlar alınamadı');
     notes = Array.isArray(response.notes) ? response.notes : [];
     
-    statusEl.textContent = notes.length
-      ? 'Kayıt türü seçip istediğiniz nota veya yeni nota kaydedebilirsiniz.'
-      : 'Henüz not yok; yeni not oluşturarak kaydedebilirsiniz.';
-    renderNotes();
+    if (response.noTabOpen) {
+      statusEl.textContent = 'Kayıt türü seçip yeni nota kaydedebilirsiniz. Mevcut nota eklemek için Notepad sekmesini açın.';
+      noteListEl.innerHTML = '<div class="empty">Mevcut bir Notepad sekmesi bulunamadı.</div>';
+    } else {
+      statusEl.textContent = notes.length
+        ? 'Kayıt türü seçip istediğiniz nota veya yeni nota kaydedebilirsiniz.'
+        : 'Henüz not yok; yeni not oluşturarak kaydedebilirsiniz.';
+      renderNotes();
+    }
   } catch (error) {
     setStatus(error?.message || 'Notlar alınamadı.', 'error');
     noteListEl.innerHTML = '<div class="empty">Notepad listesi yüklenemedi.</div>';
@@ -163,7 +199,7 @@ async function saveToNotepad(target) {
     if (selectedOption === 'scroll') {
       const screenshotText = response.screenshotMode === 'scroll'
         ? 'Scroll screenshot nota eklendi'
-        : 'Scroll alınamadı; görünen alan screenshot olarak eklendi';
+        : 'Scroll alınamadı; Görünen alan eklendi';
       successText = response.screenshotIncluded
         ? `${screenshotText}${nonScreenshotExtras.length ? `. Eklenenler: ${nonScreenshotExtras.join(', ')}.` : '.'}`
         : (extras.length ? `Eklendi: ${extras.join(', ')}.` : 'Eklendi; scroll screenshot alınamadı.');

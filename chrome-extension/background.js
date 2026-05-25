@@ -193,8 +193,12 @@ async function saveTabToNotepad(tab, target = {}) {
 
 async function getNotepadNotes() {
   const notepadUrl = await getNotepadUrl();
-  const tab = await ensureNotepadTab(notepadUrl, { active: false });
-  if (!tab?.id) return { notes: [] };
+  const tab = await findOpenNotepadTab(notepadUrl);
+  if (!tab?.id) {
+    return { notes: [], noTabOpen: true };
+  }
+
+  await waitForTabComplete(tab.id);
 
   const results = await executeWhenNotepadReady(tab.id, () => {
     if (typeof window.__npListClipTargetNotes !== 'function') return { ready: false, notes: [] };
