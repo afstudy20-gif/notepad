@@ -12,157 +12,303 @@
 
     body {
       width: 320px;
-      max-height: 560px;
+      max-height: 580px;
       margin: 0;
-      background: #17172a;
+      background: #0f172a;
       color: #f8fafc;
+      overflow-x: hidden;
     }
 
     main {
-      display: grid;
-      grid-template-rows: auto auto auto auto 1fr;
-      min-height: 420px;
+      display: flex;
+      flex-direction: column;
+      min-height: 480px;
+      box-sizing: border-box;
     }
 
     header {
-      padding: 14px 14px 10px;
-      border-bottom: 1px solid rgba(255,255,255,0.08);
+      padding: 16px 16px 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      background: linear-gradient(180deg, rgba(30,41,59,0.5) 0%, rgba(15,23,42,0) 100%);
+    }
+
+    .brand-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand-logo {
+      width: 22px;
+      height: 22px;
+      background: linear-gradient(135deg, #4361ee, #7048e8);
+      border-radius: 6px;
+      display: grid;
+      place-items: center;
+      font-size: 11px;
+      font-weight: 800;
+      color: #fff;
     }
 
     h1 {
       margin: 0;
-      font-size: 15px;
-      line-height: 1.25;
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0.3px;
     }
 
     #pageTitle {
-      margin-top: 5px;
-      color: #aab0c7;
-      font-size: 12px;
-      line-height: 1.35;
+      margin-top: 6px;
+      color: #94a3b8;
+      font-size: 11px;
+      line-height: 1.4;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
-    #newNote {
-      margin: 12px 14px 10px;
-      border: 0;
-      border-radius: 8px;
-      padding: 11px 12px;
-      font: inherit;
-      font-size: 14px;
-      font-weight: 800;
-      color: #fff;
-      background: #4361ee;
+    /* Options Grid Styling */
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #64748b;
+      margin: 12px 16px 8px;
+    }
+
+    .options-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin: 0 16px 12px;
+    }
+
+    .option-card {
+      background: rgba(30,41,59,0.4);
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 10px;
+      padding: 12px 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
       cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+    }
+
+    .option-card:hover {
+      background: rgba(30,41,59,0.7);
+      border-color: rgba(255,255,255,0.15);
+      transform: translateY(-1px);
+    }
+
+    .option-card.selected {
+      background: rgba(67,97,238,0.12);
+      border-color: #4361ee;
+      box-shadow: 0 0 12px rgba(67,97,238,0.18);
+    }
+
+    .option-icon {
+      font-size: 18px;
+      margin-bottom: 6px;
+      transition: transform 0.2s;
+    }
+
+    .option-card:hover .option-icon {
+      transform: scale(1.1);
+    }
+
+    .option-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #cbd5e1;
+      transition: color 0.2s;
+    }
+
+    .option-card.selected .option-label {
+      color: #93c5fd;
+    }
+
+    .pdf-indicator {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.15);
+      transition: all 0.3s;
+    }
+
+    .pdf-indicator.detected {
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+    }
+
+    .pdf-indicator.scanning {
+      background: #f59e0b;
+      box-shadow: 0 0 6px #f59e0b;
+      animation: pulse 1s infinite alternate;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 0.4; }
+      100% { opacity: 1; }
     }
 
     .capture-row {
       display: flex;
       align-items: center;
       gap: 8px;
-      margin: 0 14px 10px;
-      padding: 8px 10px;
-      border: 1px solid rgba(85,217,141,0.28);
+      margin: 0 16px 12px;
+      padding: 8px 12px;
+      border: 1px solid rgba(67,97,238,0.18);
       border-radius: 8px;
-      background: rgba(85,217,141,0.1);
-      color: #c9f7d9;
-      font-size: 12px;
-      font-weight: 700;
+      background: rgba(67,97,238,0.06);
+      color: #93c5fd;
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1.35;
     }
 
     .capture-icon {
       display: inline-grid;
       place-items: center;
-      width: 18px;
-      height: 18px;
-      border-radius: 5px;
-      background: #27b86a;
-      color: #06150c;
-      font-size: 12px;
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      background: #4361ee;
+      color: #fff;
+      font-size: 10px;
       line-height: 1;
+      flex-shrink: 0;
+    }
+
+    #newNote {
+      margin: 0 16px 12px;
+      border: 0;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 800;
+      color: #fff;
+      background: linear-gradient(135deg, #4361ee 0%, #3a0ca3 100%);
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 4px 12px rgba(67,97,238,0.25);
+    }
+
+    #newNote:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(67,97,238,0.35);
+    }
+
+    #newNote:disabled, .note:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      box-shadow: none;
     }
 
     #search {
       box-sizing: border-box;
-      width: calc(100% - 28px);
-      margin: 0 14px 10px;
-      border: 1px solid rgba(255,255,255,0.18);
-      border-radius: 6px;
-      padding: 9px 10px;
-      background: #303044;
+      width: calc(100% - 32px);
+      margin: 0 16px 12px;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      padding: 8px 12px;
+      background: #1e293b;
       color: #fff;
       font: inherit;
-      font-size: 13px;
+      font-size: 12px;
       outline: none;
+      transition: all 0.2s;
+    }
+
+    #search:focus {
+      border-color: #4361ee;
+      box-shadow: 0 0 0 2px rgba(67,97,238,0.15);
     }
 
     #search::placeholder {
-      color: #9ca3af;
+      color: #64748b;
     }
 
     #status {
-      margin: 0 14px 10px;
-      min-height: 18px;
-      color: #aab0c7;
-      font-size: 12px;
+      margin: 0 16px 12px;
+      min-height: 16px;
+      color: #94a3b8;
+      font-size: 11px;
       line-height: 1.35;
+      font-weight: 500;
     }
 
     #status[data-state="ok"] {
-      color: #55d98d;
+      color: #10b981;
       font-weight: 700;
     }
 
     #status[data-state="error"] {
-      color: #ff8a8a;
+      color: #ef4444;
       font-weight: 700;
     }
 
+    /* Scrollable Note List */
     #noteList {
       overflow-y: auto;
-      max-height: 350px;
-      padding-bottom: 8px;
+      max-height: 200px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      background: rgba(15,23,42,0.3);
+      padding: 4px 0 12px;
     }
 
     .note {
       display: grid;
       grid-template-columns: 18px 1fr;
-      gap: 9px;
+      gap: 10px;
       width: 100%;
       border: 0;
       border-left: 3px solid transparent;
-      padding: 10px 14px 10px 11px;
+      padding: 10px 16px;
       background: transparent;
       color: inherit;
       text-align: left;
       cursor: pointer;
       font: inherit;
+      transition: all 0.15s;
     }
 
     .note:hover,
     .note:focus {
-      background: #22264e;
+      background: rgba(30,41,59,0.4);
       border-left-color: #4361ee;
       outline: none;
     }
 
     .note.active {
-      background: #242856;
+      background: rgba(67,97,238,0.05);
     }
 
     .box {
       width: 14px;
       height: 14px;
       margin-top: 2px;
-      border-radius: 2px;
-      background: #fff;
+      border: 1.5px solid #475569;
+      border-radius: 4px;
+      background: transparent;
+      transition: all 0.2s;
+    }
+
+    .note:hover .box {
+      border-color: #64748b;
     }
 
     .note.active .box {
       background: #4361ee;
-      box-shadow: inset 0 0 0 3px #4361ee;
+      border-color: #4361ee;
       position: relative;
     }
 
@@ -171,28 +317,29 @@
       position: absolute;
       left: 4px;
       top: 1px;
-      width: 4px;
-      height: 8px;
+      width: 3px;
+      height: 6px;
       border: solid #fff;
-      border-width: 0 2px 2px 0;
+      border-width: 0 1.5px 1.5px 0;
       transform: rotate(45deg);
     }
 
     .title {
       display: block;
-      font-size: 14px;
-      font-weight: 800;
-      line-height: 1.25;
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.3;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      color: #f1f5f9;
     }
 
     .preview {
       display: block;
-      margin-top: 3px;
-      color: #aab0c7;
-      font-size: 12px;
+      margin-top: 2px;
+      color: #64748b;
+      font-size: 11px;
       line-height: 1.3;
       white-space: nowrap;
       overflow: hidden;
@@ -201,15 +348,15 @@
 
     .time {
       display: block;
-      margin-top: 4px;
-      color: #858ba5;
-      font-size: 11px;
+      margin-top: 3px;
+      color: #475569;
+      font-size: 10px;
     }
 
     .empty {
-      padding: 18px 14px;
-      color: #aab0c7;
-      font-size: 13px;
+      padding: 24px 16px;
+      color: #64748b;
+      font-size: 11px;
       text-align: center;
     }
   </style>
@@ -217,15 +364,44 @@
 <body>
   <main>
     <header>
-      <h1>Nota ekle</h1>
+      <div class="brand-row">
+        <div class="brand-logo">N</div>
+        <h1>Notepad'e Ekle</h1>
+      </div>
       <div id="pageTitle">Aktif sayfa hazırlanıyor...</div>
     </header>
-    <button id="newNote">+ New Note</button>
+
+    <div class="section-title">1. Kayıt Türü Seçin</div>
+    <div class="options-grid">
+      <div class="option-card" data-option="url" title="Sadece sayfa adresi ve başlığı kaydeder">
+        <div class="option-icon">🌐</div>
+        <div class="option-label">Sadece URL</div>
+      </div>
+      <div class="option-card" data-option="viewport" title="Sayfa adresi ve o an ekranda görünen alanın görüntüsünü kaydeder">
+        <div class="option-icon">📸</div>
+        <div class="option-label">Ekran Görüntüsü</div>
+      </div>
+      <div class="option-card selected" data-option="scroll" title="Tüm sayfa boyunca kaydırarak tam ekran görüntüsünü birleştirip kaydeder">
+        <div class="option-icon">📜</div>
+        <div class="option-label">Tüm Sayfa (Scroll)</div>
+      </div>
+      <div class="option-card" data-option="pdf" title="Sayfadaki PDF linklerini tarayarak varsa PDF dosyasını kaydeder">
+        <div class="option-icon">📄</div>
+        <div class="option-label">PDF Belgesi</div>
+        <span class="pdf-indicator" id="pdfIndicator"></span>
+      </div>
+    </div>
+
     <div class="capture-row">
       <span class="capture-icon">✓</span>
-      <span>Scroll screenshot alınacak ve seçilen nota eklenecek</span>
+      <span id="captureText">Scroll screenshot alınacak ve seçilen nota eklenecek</span>
     </div>
-    <input id="search" type="search" placeholder="Search notes...">
+
+    <div class="section-title">2. Hedef Not Seçin</div>
+    <button id="newNote">➕ Yeni Not Olarak Kaydet</button>
+    
+    <input id="search" type="search" placeholder="Notlarda arayın...">
+    
     <div id="status" role="status">Notlar yükleniyor...</div>
     <div id="noteList"></div>
   </main>

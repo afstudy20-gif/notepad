@@ -17,11 +17,48 @@ chrome.runtime.onInstalled.addListener(async () => {
   if (!stored[NOTEPAD_URL_KEY]) {
     await chrome.storage.sync.set({ [NOTEPAD_URL_KEY]: DEFAULT_NOTEPAD_URL });
   }
+
+  // Create context menus
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({
+      id: 'notepad-parent',
+      title: "Notepad'e Ekle",
+      contexts: ['page', 'link', 'selection']
+    });
+
+    chrome.contextMenus.create({
+      id: 'clip-url',
+      parentId: 'notepad-parent',
+      title: 'Sadece Sayfa Adresi (URL)',
+      contexts: ['page', 'link', 'selection']
+    });
+
+    chrome.contextMenus.create({
+      id: 'clip-viewport',
+      parentId: 'notepad-parent',
+      title: 'Sayfa Adresi ve Screenshot',
+      contexts: ['page', 'link', 'selection']
+    });
+
+    chrome.contextMenus.create({
+      id: 'clip-scroll',
+      parentId: 'notepad-parent',
+      title: 'Sayfa Adresi ve Scroll Screenshot',
+      contexts: ['page', 'link', 'selection']
+    });
+
+    chrome.contextMenus.create({
+      id: 'clip-pdf',
+      parentId: 'notepad-parent',
+      title: 'Sayfa Adresi ve PDF (Varsa)',
+      contexts: ['page', 'link', 'selection']
+    });
+  });
 });
 
 chrome.action.onClicked.addListener(async (tab) => {
   try {
-    const result = await saveTabToNotepad(tab);
+    const result = await saveTabToNotepad(tab, { optionType: 'scroll' });
     await flashBadge(tab.id, 'OK', '#1f9d55');
     return result;
   } catch (error) {
@@ -32,8 +69,37 @@ chrome.action.onClicked.addListener(async (tab) => {
   }
 });
 
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  if (!tab) return;
+
+  let optionType = 'scroll';
+  if (info.menuItemId === 'clip-url') optionType = 'url';
+  else if (info.menuItemId === 'clip-viewport') optionType = 'viewport';
+  else if (info.menuItemId === 'clip-scroll') optionType = 'scroll';
+  else if (info.menuItemId === 'clip-pdf') optionType = 'pdf';
+
+  try {
+    await flashBadge(tab.id, '...', '#4361ee');
+    const result = await saveTabToNotepad(tab, {
+      optionType,
+      focusNotepad: true
+    });
+    await flashBadge(tab.id, 'OK', '#1f9d55');
+  } catch (error) {
+    console.error('[notepad-clipper] context menu save failed', error);
+    await flashBadge(tab.id, '!', '#c53030');
+    const notepadUrl = await getNotepadUrl();
+    const targetUrl = buildUrlWithPayload(notepadUrl, {
+      title: tab?.title || 'Web sayfası',
+      text: '',
+      url: isWebUrl(tab?.url) ? tab.url : ''
+    });
+    await chrome.tabs.create({ url: targetUrl, active: true });
+  }
+});
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (!['get-notes', 'save-active-tab'].includes(message?.type)) return false;
+  if (!['get-notes', 'save-active-tab', 'detect-pdf'].includes(message?.type)) return false;
 
   (async () => {
     try {
@@ -43,18 +109,28 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         return;
       }
 
+      if (message.type === 'detect-pdf') {
+        const tab = message.sourceTabId
+          ? await chrome.tabs.get(message.sourceTabId)
+          : (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
+        const pdfUrls = await findPdfUrls(tab);
+        sendResponse({ ok: true, pdfCount: pdfUrls.length });
+        return;
+      }
+
       const tab = message.sourceTabId
         ? await chrome.tabs.get(message.sourceTabId)
         : (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
       const result = await saveTabToNotepad(tab, {
         targetNoteId: message.targetNoteId || '',
         createNewNote: !!message.createNewNote,
-        includeScreenshot: message.includeScreenshot !== false
+        optionType: message.optionType || 'scroll',
+        focusNotepad: !!message.focusNotepad
       });
       if (tab?.id) await flashBadge(tab.id, 'OK', '#1f9d55');
       sendResponse({ ok: true, ...result });
     } catch (error) {
-      console.error('[notepad-clipper] popup save failed', error);
+      console.error('[notepad-clipper] popup message handler failed', error);
       sendResponse({ ok: false, error: error?.message || 'Kaydedilemedi' });
     }
   })();
@@ -63,24 +139,40 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 });
 
 async function saveTabToNotepad(tab, target = {}) {
-  const screenshot = target.includeScreenshot === false
-    ? { dataUrl: '', mode: 'none' }
-    : await captureScreenshot(tab, { fullPage: true });
+  const optionType = target.optionType || 'scroll'; // 'url', 'viewport', 'scroll', 'pdf'
+  
+  let screenshot = { dataUrl: '', mode: 'none' };
+  let pdfAttachment = null;
+
+  if (optionType === 'viewport') {
+    screenshot = await captureScreenshot(tab, { fullPage: false });
+  } else if (optionType === 'scroll') {
+    screenshot = await captureScreenshot(tab, { fullPage: true });
+  }
+
+  if (optionType === 'pdf') {
+    pdfAttachment = await capturePdfAttachment(tab);
+  }
+
   const payload = {
     title: tab?.title || 'Web sayfası',
     text: '',
     url: isWebUrl(tab?.url) ? tab.url : '',
     screenshotDataUrl: screenshot.dataUrl,
     screenshotMode: screenshot.mode,
-    pdfAttachment: await capturePdfAttachment(tab)
+    pdfAttachment: pdfAttachment
   };
+
   const notepadUrl = await getNotepadUrl();
   const targetUrl = buildUrlWithPayload(notepadUrl, payload);
-  const notepadTab = await ensureNotepadTab(notepadUrl, { active: false });
+  const notepadTab = await ensureNotepadTab(notepadUrl, { active: !!target.focusNotepad });
 
   if (notepadTab?.id) {
     const injected = await injectIntoNotepad(notepadTab.id, payload, target);
-    if (injected) return resultSummary(payload);
+    if (injected) {
+      if (target.focusNotepad) await focusTab(notepadTab);
+      return resultSummary(payload);
+    }
 
     await chrome.tabs.update(notepadTab.id, { url: targetUrl, active: true });
     return { screenshotIncluded: false, pdfIncluded: false };
