@@ -27,6 +27,11 @@
     }
     activeId = localStorage.getItem(ACTIVE_KEY);
     if (notes.length === 0) {
+      if (hasLaunchCreateRequest()) {
+        activeId = null;
+        renderNoteList();
+        return;
+      }
       createNote();
     } else {
       const found = notes.find(n => n.id === activeId);
@@ -34,6 +39,15 @@
       renderNoteList();
       loadNote(activeId);
     }
+  }
+
+  function hasLaunchCreateRequest() {
+    const params = new URLSearchParams(location.search);
+    return params.get('action') === 'new' ||
+      params.has('note') ||
+      params.has('text') ||
+      params.has('title') ||
+      params.has('url');
   }
 
   function saveNotes() {
@@ -298,6 +312,66 @@
     div.textContent = str;
     return div.innerHTML;
   }
+
+  function textToNoteHtml(text) {
+    return escapeHtml(text || '').replace(/\r?\n/g, '<br>');
+  }
+
+  function escapeAttribute(str) {
+    return escapeHtml(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  function isSafeLinkUrl(url) {
+    try {
+      return ['http:', 'https:'].includes(new URL(url).protocol);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function createExternalNote(payload = {}) {
+    const title = String(payload.title || '').trim();
+    const text = String(payload.text || '').trim();
+    const url = String(payload.url || '').trim();
+    let fallbackTitle = 'Web sayfası';
+
+    if (url) {
+      try {
+        fallbackTitle = new URL(url).hostname || fallbackTitle;
+      } catch (_) {
+        fallbackTitle = url;
+      }
+    }
+
+    const parts = [];
+    if (text) parts.push(`<p>${textToNoteHtml(text)}</p>`);
+    if (url) {
+      const safeUrl = escapeHtml(url);
+      const safeHref = escapeAttribute(url);
+      const urlContent = isSafeLinkUrl(url)
+        ? `<a href="${safeHref}" target="_blank" rel="noopener noreferrer">${safeUrl}</a>`
+        : safeUrl;
+      parts.push(`<p>${urlContent}</p>`);
+    }
+
+    const note = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      title: title || fallbackTitle,
+      content: parts.join('') || `<p>${textToNoteHtml(fallbackTitle)}</p>`,
+      pageSize: 'free',
+      pageOrientation: 'portrait',
+      updated: Date.now()
+    };
+
+    notes.unshift(note);
+    activeId = note.id;
+    saveNotes();
+    loadNote(note.id);
+    if (saveStatusEl) saveStatusEl.textContent = (typeof tr === 'function') ? tr('saved') : 'Saved';
+    return note;
+  }
+
+  window.__npCreateExternalNote = createExternalNote;
 
   function formatTime(ts) {
     const d = new Date(ts);
@@ -3550,28 +3624,14 @@
     createNote();
     history.replaceState(null, '', location.pathname);
   } else if (__qp.get('note')) {
-    const noteContent = decodeURIComponent(__qp.get('note'));
-    createNote();
-    setTimeout(() => {
-      if (editor && noteContent) {
-        editor.textContent = noteContent;
-        scheduleSave();
-      }
-    }, 50);
+    createExternalNote({ text: __qp.get('note') || '' });
     history.replaceState(null, '', location.pathname);
   } else if (__qp.get('text') || __qp.get('title') || __qp.get('url')) {
-    const t = __qp.get('title') || '';
-    const text = __qp.get('text') || '';
-    const url = __qp.get('url') || '';
-    createNote();
-    setTimeout(() => {
-      if (noteTitle && t) noteTitle.value = t;
-      const body = [text, url].filter(Boolean).join('\n\n');
-      if (editor && body) {
-        editor.textContent = body;
-        scheduleSave();
-      }
-    }, 50);
+    createExternalNote({
+      title: __qp.get('title') || '',
+      text: __qp.get('text') || '',
+      url: __qp.get('url') || ''
+    });
     history.replaceState(null, '', location.pathname);
   }
 
@@ -3689,6 +3749,8 @@
       selectAll: 'Tümünü Seç',
       androidApp: 'Android İndir',
       androidAppTip: 'Android uygulaması olarak indir',
+      chromeExtension: 'Chrome Eklentisi',
+      chromeExtensionTip: 'Chrome eklentisini ZIP olarak indir',
       bgImageSet: 'Arka Plan Yap',
       bgImageClear: 'Arka Planı Kaldır',
       bgImageFit: 'Sığdır',
@@ -3836,6 +3898,8 @@
       selectAll: 'Select All',
       androidApp: 'Android App',
       androidAppTip: 'Download as Android app',
+      chromeExtension: 'Chrome Extension',
+      chromeExtensionTip: 'Download the Chrome extension as a ZIP',
       bgImageSet: 'Set as Background',
       bgImageClear: 'Clear Background',
       bgImageFit: 'Fit',

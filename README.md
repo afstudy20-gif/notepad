@@ -20,6 +20,7 @@ A browser-based rich-text notepad. All notes live in `localStorage` — nothing 
 - **Find & Replace** · **Print**
 - **Language toggle** — TR / EN (auto-detected from browser locale, manually switchable)
 - **PWA** — installable app, works offline
+- **Chrome extension** — save the current tab URL into Notepad with one click
 - **Refresh button** — clears this app's cache and reloads (notes preserved, other sites unaffected)
 - **Mobile-friendly** — bottom-sheet image panel, touch-sized handles, slide-in sidebar
 - **Keyboard shortcuts** — Ctrl+S (save), Ctrl+P (print), Ctrl+H (find & replace), Ctrl+Alt+N (new note)
@@ -38,6 +39,10 @@ npx serve .
 ```
 
 Open `http://localhost:8000`. Service worker requires HTTPS in production; localhost is exempt.
+
+## Chrome extension
+
+Load `chrome-extension/` as an unpacked extension from `chrome://extensions`, or download `notepad-web-clipper.zip` from the install area in the app. By default it saves pages to `https://not.drtr.uk/`; change the target Notepad URL from the extension's Options page when testing locally, for example `http://localhost:8000/`.
 
 ## Deploy
 

@@ -269,6 +269,15 @@ body.has-image-panel .editor-area {
 .install-btn.android-btn:hover {
   box-shadow: 0 4px 12px rgba(5,150,105,0.45);
 }
+.install-btn.chrome-btn {
+  background: linear-gradient(135deg, #38bdf8 0%, #2563eb 100%);
+  text-decoration: none;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(37,99,235,0.3);
+}
+.install-btn.chrome-btn:hover {
+  box-shadow: 0 4px 12px rgba(37,99,235,0.45);
+}
 
 /* iOS install instructions */
 .ios-install-body {
