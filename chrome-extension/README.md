@@ -6,8 +6,9 @@ Chrome MV3 uzantısı. Araç çubuğundaki Notepad ikonuna basıldığında akti
 
 1. Chrome'da `chrome://extensions` sayfasını açın.
 2. `Developer mode` seçeneğini açın.
-3. `Load unpacked` ile bu klasörü seçin: `chrome-extension`.
-4. İkona bastığınızda mevcut sayfa Notepad'e kaydedilir.
+3. ZIP indirdiyseniz dosyayı çıkarın.
+4. `Load unpacked` ile `manifest.json` dosyasını içeren klasörü seçin.
+5. İkona bastığınızda mevcut sayfa Notepad'e kaydedilir ve küçük durum penceresi açılır.
 
 ## Notepad Adresi
 

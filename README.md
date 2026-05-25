@@ -42,7 +42,7 @@ Open `http://localhost:8000`. Service worker requires HTTPS in production; local
 
 ## Chrome extension
 
-Load `chrome-extension/` as an unpacked extension from `chrome://extensions`, or download `notepad-web-clipper.zip` from the install area in the app. By default it saves pages to `https://not.drtr.uk/`; change the target Notepad URL from the extension's Options page when testing locally, for example `http://localhost:8000/`.
+Load `chrome-extension/` as an unpacked extension from `chrome://extensions`, or download `notepad-web-clipper.zip` from the install area in the app, unzip it, and select the extracted folder that contains `manifest.json`. By default it saves pages to `https://not.drtr.uk/`; change the target Notepad URL from the extension's Options page when testing locally, for example `http://localhost:8000/`.
 
 ## Deploy
 

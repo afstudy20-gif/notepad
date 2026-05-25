@@ -20,6 +20,23 @@ chrome.action.onClicked.addListener(async (tab) => {
   }
 });
 
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type !== 'save-active-tab') return false;
+
+  (async () => {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      await saveTabToNotepad(tab);
+      sendResponse({ ok: true });
+    } catch (error) {
+      console.error('[notepad-clipper] popup save failed', error);
+      sendResponse({ ok: false, error: error?.message || 'Kaydedilemedi' });
+    }
+  })();
+
+  return true;
+});
+
 async function saveTabToNotepad(tab) {
   const payload = {
     title: tab?.title || 'Web sayfası',

@@ -14,7 +14,7 @@
   <title>Notepad — Local-Only Text Editor</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
-  <link rel="stylesheet" href="style.css?v=56">
+  <link rel="stylesheet" href="style.css?v=57">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -99,7 +99,7 @@
       </a>
     </div>
     <div class="sidebar-footer-row" style="border-top:none;padding-top:0">
-      <a id="btnChromeExtension" class="install-btn chrome-btn" href="./notepad-web-clipper.zip" download title="Chrome eklentisini ZIP olarak indir" data-i18n-title="chromeExtensionTip">
+      <a id="btnChromeExtension" class="install-btn chrome-btn" href="./notepad-web-clipper.zip" download title="ZIP'i indirip çıkarın; Chrome Extensions sayfasında Load unpacked ile manifest.json klasörünü seçin." data-i18n-title="chromeExtensionTip">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
         <span data-i18n="chromeExtension">Chrome Eklentisi</span>
       </a>
@@ -668,13 +668,13 @@
 
   <script src="./vendor/html2pdf.bundle.min.js"></script>
   <script src="./vendor/html-docx.js"></script>
-  <script src="app.js?v=56"></script>
+  <script src="app.js?v=57"></script>
   <script>
     // Register service worker for PWA install + offline shell.
     // SW uses network-first for HTML/JS so updates roll out without manual refresh.
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=56').catch((err) => {
+        navigator.serviceWorker.register('./sw.js?v=57').catch((err) => {
           console.warn('[sw] register failed', err);
         });
       });
