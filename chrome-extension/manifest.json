@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Notepad Web Clipper",
-  "version": "1.2.4",
-  "description": "Aktif web sayfasını popup içindeki not listesinden seçtiğiniz nota ekler.",
+  "version": "1.2.5",
+  "description": "Aktif web sayfasının screenshot'ını popup içindeki listeden seçtiğiniz nota ekler.",
   "action": {
     "default_title": "Notepad'e kaydet",
     "default_popup": "popup.html",

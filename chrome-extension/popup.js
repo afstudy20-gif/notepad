@@ -22,7 +22,9 @@ async function init() {
     const response = await chrome.runtime.sendMessage({ type: 'get-notes' });
     if (!response?.ok) throw new Error(response?.error || 'Notlar alınamadı');
     notes = Array.isArray(response.notes) ? response.notes : [];
-    statusEl.textContent = notes.length ? 'Eklenecek notu seçin.' : 'Henüz not yok; yeni not oluşturabilirsiniz.';
+    statusEl.textContent = notes.length
+      ? 'Not seçince screenshot alınır ve eklenir.'
+      : 'Henüz not yok; yeni not oluşturunca screenshot eklenecek.';
     renderNotes();
   } catch (error) {
     setStatus(error?.message || 'Notlar alınamadı.', 'error');
@@ -69,6 +71,7 @@ async function saveToNotepad(target) {
     const response = await chrome.runtime.sendMessage({
       type: 'save-active-tab',
       sourceTabId,
+      includeScreenshot: true,
       ...target
     });
     if (!response?.ok) throw new Error(response?.error || 'Kaydedilemedi');
@@ -78,7 +81,11 @@ async function saveToNotepad(target) {
     if (response.pdfIncluded) extras.push('PDF');
     if (response.pdfDownloaded) extras.push('PDF indirildi');
     if (response.pdfLinkedOnly) extras.push('PDF adresi');
-    setStatus(extras.length ? `Eklendi: ${extras.join(', ')}.` : 'Eklendi.', 'ok');
+    const nonScreenshotExtras = extras.filter(item => item !== 'screenshot');
+    setStatus(response.screenshotIncluded
+      ? `Screenshot nota eklendi${nonScreenshotExtras.length ? `. Eklenenler: ${nonScreenshotExtras.join(', ')}.` : '.'}`
+      : (extras.length ? `Eklendi: ${extras.join(', ')}.` : 'Eklendi; screenshot alınamadı.'),
+      response.screenshotIncluded ? 'ok' : '');
     setTimeout(() => window.close(), 650);
   } catch (error) {
     saving = false;

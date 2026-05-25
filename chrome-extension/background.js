@@ -38,7 +38,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         : (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
       const result = await saveTabToNotepad(tab, {
         targetNoteId: message.targetNoteId || '',
-        createNewNote: !!message.createNewNote
+        createNewNote: !!message.createNewNote,
+        includeScreenshot: message.includeScreenshot !== false
       });
       if (tab?.id) await flashBadge(tab.id, 'OK', '#1f9d55');
       sendResponse({ ok: true, ...result });
@@ -56,7 +57,7 @@ async function saveTabToNotepad(tab, target = {}) {
     title: tab?.title || 'Web sayfası',
     text: '',
     url: isWebUrl(tab?.url) ? tab.url : '',
-    screenshotDataUrl: await captureScreenshot(tab),
+    screenshotDataUrl: target.includeScreenshot === false ? '' : await captureScreenshot(tab),
     pdfAttachment: await capturePdfAttachment(tab)
   };
   const notepadUrl = await getNotepadUrl();

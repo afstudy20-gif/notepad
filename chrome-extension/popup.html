@@ -20,7 +20,7 @@
 
     main {
       display: grid;
-      grid-template-rows: auto auto auto 1fr;
+      grid-template-rows: auto auto auto auto 1fr;
       min-height: 420px;
     }
 
@@ -56,6 +56,32 @@
       color: #fff;
       background: #4361ee;
       cursor: pointer;
+    }
+
+    .capture-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0 14px 10px;
+      padding: 8px 10px;
+      border: 1px solid rgba(85,217,141,0.28);
+      border-radius: 8px;
+      background: rgba(85,217,141,0.1);
+      color: #c9f7d9;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .capture-icon {
+      display: inline-grid;
+      place-items: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 5px;
+      background: #27b86a;
+      color: #06150c;
+      font-size: 12px;
+      line-height: 1;
     }
 
     #search {
@@ -195,6 +221,10 @@
       <div id="pageTitle">Aktif sayfa hazırlanıyor...</div>
     </header>
     <button id="newNote">+ New Note</button>
+    <div class="capture-row">
+      <span class="capture-icon">✓</span>
+      <span>Screenshot alınacak ve seçilen nota eklenecek</span>
+    </div>
     <input id="search" type="search" placeholder="Search notes...">
     <div id="status" role="status">Notlar yükleniyor...</div>
     <div id="noteList"></div>
