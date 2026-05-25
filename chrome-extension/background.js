@@ -1,6 +1,16 @@
 const DEFAULT_NOTEPAD_URL = 'https://not.drtr.uk/';
 const NOTEPAD_URL_KEY = 'notepadUrl';
 const MAX_PDF_BYTES = 4 * 1024 * 1024;
+const SCROLL_CAPTURE_DELAY = 300;
+const MAX_SCROLL_CAPTURES = 40;
+const FULL_SCREENSHOT_MAX_PIXELS = 4_000_000;
+const FULL_SCREENSHOT_MAX_HEIGHT = 12_000;
+const FULL_SCREENSHOT_QUALITY = 0.62;
+const MAX_SCREENSHOT_DATA_URL_LENGTH = 3_500_000;
+const MIN_CAPTURE_INTERVAL = 550;
+
+let lastCaptureTime = 0;
+let offscreenReady = false;
 
 chrome.runtime.onInstalled.addListener(async () => {
   const stored = await chrome.storage.sync.get(NOTEPAD_URL_KEY);
@@ -53,11 +63,15 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 });
 
 async function saveTabToNotepad(tab, target = {}) {
+  const screenshot = target.includeScreenshot === false
+    ? { dataUrl: '', mode: 'none' }
+    : await captureScreenshot(tab, { fullPage: true });
   const payload = {
     title: tab?.title || 'Web sayfası',
     text: '',
     url: isWebUrl(tab?.url) ? tab.url : '',
-    screenshotDataUrl: target.includeScreenshot === false ? '' : await captureScreenshot(tab),
+    screenshotDataUrl: screenshot.dataUrl,
+    screenshotMode: screenshot.mode,
     pdfAttachment: await capturePdfAttachment(tab)
   };
   const notepadUrl = await getNotepadUrl();
@@ -223,23 +237,224 @@ function isWebUrl(url) {
 function resultSummary(payload) {
   return {
     screenshotIncluded: !!payload.screenshotDataUrl,
+    screenshotMode: payload.screenshotMode || (payload.screenshotDataUrl ? 'viewport' : 'none'),
     pdfIncluded: !!payload.pdfAttachment?.dataUrl,
     pdfDownloaded: !!payload.pdfAttachment?.downloadedExternally,
     pdfLinkedOnly: !!payload.pdfAttachment?.url && !payload.pdfAttachment?.dataUrl && !payload.pdfAttachment?.downloadedExternally
   };
 }
 
-async function captureScreenshot(tab) {
-  if (!tab?.windowId || !/^https?:\/\//i.test(tab?.url || '')) return '';
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function sendToTab(tabId, message) {
+  return new Promise((resolve, reject) => {
+    chrome.tabs.sendMessage(tabId, message, (response) => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+      } else if (!response || !response.success) {
+        reject(new Error(response?.error || 'No response'));
+      } else {
+        resolve(response.data);
+      }
+    });
+  });
+}
+
+async function captureVisibleTabThrottled(windowId, options, retries = 3) {
+  const elapsed = Date.now() - lastCaptureTime;
+  if (elapsed < MIN_CAPTURE_INTERVAL) {
+    await delay(MIN_CAPTURE_INTERVAL - elapsed);
+  }
+
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      lastCaptureTime = Date.now();
+      return await chrome.tabs.captureVisibleTab(windowId, options);
+    } catch (error) {
+      const rateLimited = /MAX_CAPTURE_VISIBLE_TAB_CALLS_PER_SECOND/i.test(error?.message || '');
+      if (rateLimited && attempt < retries - 1) {
+        await delay(MIN_CAPTURE_INTERVAL);
+        continue;
+      }
+      throw error;
+    }
+  }
+  return '';
+}
+
+async function ensureOffscreen() {
+  if (offscreenReady) return;
+  try {
+    await chrome.offscreen.createDocument({
+      url: 'offscreen.html',
+      reasons: ['BLOBS'],
+      justification: 'Stitch scrolling screenshots for Notepad notes'
+    });
+    offscreenReady = true;
+  } catch (error) {
+    if (/already exists/i.test(error?.message || '')) {
+      offscreenReady = true;
+      return;
+    }
+    throw error;
+  }
+}
+
+async function closeOffscreen() {
+  try {
+    await chrome.offscreen.closeDocument();
+  } catch (_) {
+    // Ignore: it may already be closed.
+  } finally {
+    offscreenReady = false;
+  }
+}
+
+function sendToOffscreen(message) {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(message, (response) => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+      } else if (response?.error) {
+        reject(new Error(response.error));
+      } else {
+        resolve(response);
+      }
+    });
+  });
+}
+
+function broadcastProgress(progress) {
+  chrome.runtime.sendMessage({ type: 'captureProgress', ...progress }).catch(() => {});
+}
+
+function scrollPositions(scrollHeight, viewportHeight) {
+  const safeViewport = Math.max(1, viewportHeight || 1);
+  const safeScrollHeight = Math.max(safeViewport, scrollHeight || safeViewport);
+  const maxScrollY = Math.max(0, safeScrollHeight - safeViewport);
+  const positions = [0];
+
+  for (let y = safeViewport; y < maxScrollY && positions.length < MAX_SCROLL_CAPTURES - 1; y += safeViewport) {
+    positions.push(y);
+  }
+  if (maxScrollY > 0 && positions[positions.length - 1] !== maxScrollY && positions.length < MAX_SCROLL_CAPTURES) {
+    positions.push(maxScrollY);
+  }
+
+  return positions;
+}
+
+async function captureScreenshot(tab, options = {}) {
+  if (!tab?.windowId || !/^https?:\/\//i.test(tab?.url || '')) {
+    return { dataUrl: '', mode: 'none' };
+  }
+
+  if (options.fullPage) {
+    const fullPage = await captureFullPageScreenshot(tab);
+    if (fullPage && fullPage.length <= MAX_SCREENSHOT_DATA_URL_LENGTH) {
+      return { dataUrl: fullPage, mode: 'scroll' };
+    }
+    if (fullPage) {
+      console.warn('[notepad-clipper] full-page screenshot too large, falling back to viewport');
+    }
+  }
 
   try {
-    return await chrome.tabs.captureVisibleTab(tab.windowId, {
+    const dataUrl = await captureVisibleTabThrottled(tab.windowId, {
       format: 'jpeg',
       quality: 72
     });
+    return { dataUrl, mode: 'viewport' };
   } catch (error) {
     console.warn('[notepad-clipper] screenshot skipped', error);
+    return { dataUrl: '', mode: 'none' };
+  }
+}
+
+async function captureFullPageScreenshot(tab) {
+  let prepared = false;
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      files: ['content.js']
+    });
+    await delay(80);
+
+    const dims = await sendToTab(tab.id, { action: 'getDimensions' });
+    const viewportHeight = Math.max(1, dims.viewportHeight || 1);
+    const positions = scrollPositions(dims.scrollHeight, viewportHeight);
+    const totalCaptures = positions.length;
+    const captures = [];
+    const seenScrollY = new Set();
+
+    await sendToTab(tab.id, { action: 'prepareCapture' });
+    prepared = true;
+    broadcastProgress({ phase: 'capturing', current: 0, total: totalCaptures });
+
+    for (let i = 0; i < positions.length; i++) {
+      const scrollY = positions[i];
+      const scrollResult = await sendToTab(tab.id, { action: 'scrollTo', x: 0, y: scrollY });
+      await delay(SCROLL_CAPTURE_DELAY);
+      await sendToTab(tab.id, { action: 'handleFixed' });
+      await delay(50);
+
+      const actualY = Math.max(0, Math.round(scrollResult.actualY || 0));
+      if (seenScrollY.has(actualY)) {
+        continue;
+      }
+      seenScrollY.add(actualY);
+
+      const dataUrl = await captureVisibleTabThrottled(tab.windowId, {
+        format: 'jpeg',
+        quality: 72
+      });
+      captures.push({
+        dataUrl,
+        scrollY: actualY,
+        index: i
+      });
+      broadcastProgress({ phase: 'capturing', current: Math.min(i + 1, totalCaptures), total: totalCaptures });
+    }
+
+    if (!captures.length) throw new Error('No scroll captures were produced');
+
+    await sendToTab(tab.id, { action: 'restore' });
+    prepared = false;
+
+    await ensureOffscreen();
+    broadcastProgress({ phase: 'stitching', current: 0, total: 1 });
+    const result = await sendToOffscreen({
+      target: 'offscreen',
+      action: 'stitch',
+      captures: captures.map((capture) => ({
+        dataUrl: capture.dataUrl,
+        scrollY: capture.scrollY
+      })),
+      dimensions: {
+        ...dims,
+        scrollHeight: Math.min(
+          dims.scrollHeight || viewportHeight,
+          Math.max(...captures.map((capture) => capture.scrollY)) + viewportHeight
+        )
+      },
+      format: 'jpg',
+      jpgQuality: FULL_SCREENSHOT_QUALITY,
+      maxPixels: FULL_SCREENSHOT_MAX_PIXELS,
+      maxHeight: FULL_SCREENSHOT_MAX_HEIGHT
+    });
+    broadcastProgress({ phase: 'done', current: 1, total: 1 });
+    return result?.dataUrl || '';
+  } catch (error) {
+    console.warn('[notepad-clipper] full-page screenshot skipped', error);
+    broadcastProgress({ phase: 'error', error: error?.message || 'Full-page screenshot failed' });
     return '';
+  } finally {
+    if (prepared) {
+      try { await sendToTab(tab.id, { action: 'restore' }); } catch (_) {}
+    }
+    await closeOffscreen();
   }
 }
 

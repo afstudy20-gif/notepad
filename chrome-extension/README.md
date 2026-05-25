@@ -1,6 +1,6 @@
 # Notepad Web Clipper
 
-Chrome MV3 uzantısı. Araç çubuğundaki Notepad ikonuna basıldığında popup içinde Notepad not listeniz görünür; bir nota tıklayınca aktif sekmenin screenshot'ı, başlığı, URL'si ve sayfada PDF varsa PDF dosyası o nota eklenir. `.pdf` ile bitmeyen `showPdf` benzeri PDF endpoint'leri de denenir; dosya nota gömülemezse Chrome indirmelerine gönderilir.
+Chrome MV3 uzantısı. Araç çubuğundaki Notepad ikonuna basıldığında popup içinde Notepad not listeniz görünür; bir nota tıklayınca aktif sekmenin scroll/full-page screenshot'ı, başlığı, URL'si ve sayfada PDF varsa PDF dosyası o nota eklenir. `.pdf` ile bitmeyen `showPdf` benzeri PDF endpoint'leri de denenir; dosya nota gömülemezse Chrome indirmelerine gönderilir.
 
 ## Kurulum
 

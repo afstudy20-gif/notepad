@@ -13,6 +13,16 @@ init();
 searchEl.addEventListener('input', renderNotes);
 newNoteButton.addEventListener('click', () => saveToNotepad({ createNewNote: true }));
 
+chrome.runtime.onMessage.addListener((message) => {
+  if (message?.type !== 'captureProgress') return;
+  if (message.phase === 'capturing') {
+    const total = message.total || 1;
+    setStatus(`Scroll screenshot alınıyor ${message.current}/${total}...`, '');
+  } else if (message.phase === 'stitching') {
+    setStatus('Screenshot birleştiriliyor...', '');
+  }
+});
+
 async function init() {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -23,8 +33,8 @@ async function init() {
     if (!response?.ok) throw new Error(response?.error || 'Notlar alınamadı');
     notes = Array.isArray(response.notes) ? response.notes : [];
     statusEl.textContent = notes.length
-      ? 'Not seçince screenshot alınır ve eklenir.'
-      : 'Henüz not yok; yeni not oluşturunca screenshot eklenecek.';
+      ? 'Not seçince scroll screenshot alınır ve eklenir.'
+      : 'Henüz not yok; yeni not oluşturunca scroll screenshot eklenecek.';
     renderNotes();
   } catch (error) {
     setStatus(error?.message || 'Notlar alınamadı.', 'error');
@@ -82,9 +92,12 @@ async function saveToNotepad(target) {
     if (response.pdfDownloaded) extras.push('PDF indirildi');
     if (response.pdfLinkedOnly) extras.push('PDF adresi');
     const nonScreenshotExtras = extras.filter(item => item !== 'screenshot');
+    const screenshotText = response.screenshotMode === 'scroll'
+      ? 'Scroll screenshot nota eklendi'
+      : 'Scroll alınamadı; görünen alan screenshot olarak eklendi';
     setStatus(response.screenshotIncluded
-      ? `Screenshot nota eklendi${nonScreenshotExtras.length ? `. Eklenenler: ${nonScreenshotExtras.join(', ')}.` : '.'}`
-      : (extras.length ? `Eklendi: ${extras.join(', ')}.` : 'Eklendi; screenshot alınamadı.'),
+      ? `${screenshotText}${nonScreenshotExtras.length ? `. Eklenenler: ${nonScreenshotExtras.join(', ')}.` : '.'}`
+      : (extras.length ? `Eklendi: ${extras.join(', ')}.` : 'Eklendi; scroll screenshot alınamadı.'),
       response.screenshotIncluded ? 'ok' : '');
     setTimeout(() => window.close(), 650);
   } catch (error) {
