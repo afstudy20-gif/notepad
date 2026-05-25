@@ -754,6 +754,11 @@ body.has-image-panel .editor-area {
   border-color: #bbb;
 }
 
+.toolbar .zoom-select {
+  width: 74px;
+  min-width: 74px;
+}
+
 #btnOrientation svg {
   transition: transform 0.2s;
 }
@@ -830,6 +835,7 @@ body.has-image-panel .editor-area {
 }
 
 #editor {
+  zoom: var(--editor-zoom, 1);
   min-height: 100%;
   padding: 20px 24px;
   font-size: 15px;

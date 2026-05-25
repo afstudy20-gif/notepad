@@ -14,7 +14,7 @@
   <title>Notepad — Local-Only Text Editor</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
-  <link rel="stylesheet" href="style.css?v=60">
+  <link rel="stylesheet" href="style.css?v=61">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -224,6 +224,26 @@
         </button>
         <button title="Unordered List" data-action="insertUnorderedList">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="4" cy="6" r="1.5" fill="currentColor"/><circle cx="4" cy="12" r="1.5" fill="currentColor"/><circle cx="4" cy="18" r="1.5" fill="currentColor"/></svg>
+        </button>
+      </div>
+      <div class="toolbar-divider"></div>
+      <div class="toolbar-group">
+        <button title="Uzaklaştır" data-i18n-title="zoomOut" data-action="zoomOut">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+        <select id="zoomSelect" class="zoom-select" title="Zoom" data-i18n-title="zoom">
+          <option value="0.5">50%</option>
+          <option value="0.75">75%</option>
+          <option value="0.9">90%</option>
+          <option value="1" selected>100%</option>
+          <option value="1.1">110%</option>
+          <option value="1.25">125%</option>
+          <option value="1.5">150%</option>
+          <option value="1.75">175%</option>
+          <option value="2">200%</option>
+        </select>
+        <button title="Yakınlaştır" data-i18n-title="zoomIn" data-action="zoomIn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
       </div>
       <div class="toolbar-divider"></div>
@@ -670,13 +690,13 @@
 
   <script src="./vendor/html2pdf.bundle.min.js"></script>
   <script src="./vendor/html-docx.js"></script>
-  <script src="app.js?v=60"></script>
+  <script src="app.js?v=61"></script>
   <script>
     // Register service worker for PWA install + offline shell.
     // SW uses network-first for HTML/JS so updates roll out without manual refresh.
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=60').catch((err) => {
+        navigator.serviceWorker.register('./sw.js?v=61').catch((err) => {
           console.warn('[sw] register failed', err);
         });
       });

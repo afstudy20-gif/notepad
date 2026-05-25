@@ -17,6 +17,9 @@
   let notes = [];
   let activeId = null;
   let saveTimeout = null;
+  const ZOOM_KEY = 'notepad_zoom';
+  const ZOOM_STEPS = [0.5, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2];
+  let editorZoom = clampZoom(parseFloat(localStorage.getItem(ZOOM_KEY) || '1'));
 
   // --- Storage ---
   function loadNotes() {
@@ -444,6 +447,37 @@
     fileInput.click();
   }
 
+  function clampZoom(value) {
+    return Math.min(2, Math.max(0.5, Number.isFinite(value) ? value : 1));
+  }
+
+  function nearestZoomIndex(value) {
+    let best = 0;
+    let bestDiff = Infinity;
+    ZOOM_STEPS.forEach((step, idx) => {
+      const diff = Math.abs(step - value);
+      if (diff < bestDiff) {
+        best = idx;
+        bestDiff = diff;
+      }
+    });
+    return best;
+  }
+
+  function applyEditorZoom(value) {
+    editorZoom = clampZoom(value);
+    editor.style.setProperty('--editor-zoom', editorZoom.toString());
+    localStorage.setItem(ZOOM_KEY, editorZoom.toString());
+    const zoomSelect = $('#zoomSelect');
+    if (zoomSelect) zoomSelect.value = ZOOM_STEPS[nearestZoomIndex(editorZoom)].toString();
+  }
+
+  function stepEditorZoom(direction) {
+    const current = nearestZoomIndex(editorZoom);
+    const next = Math.min(ZOOM_STEPS.length - 1, Math.max(0, current + direction));
+    applyEditorZoom(ZOOM_STEPS[next]);
+  }
+
   const toolbarActions = {
     new: () => createNote(),
     open: () => openFilePicker(),
@@ -469,6 +503,8 @@
     justifyRight: () => execCmd('justifyRight'),
     insertOrderedList: () => execCmd('insertOrderedList'),
     insertUnorderedList: () => execCmd('insertUnorderedList'),
+    zoomOut: () => stepEditorZoom(-1),
+    zoomIn: () => stepEditorZoom(1),
     findReplace: () => toggleFindReplace(),
     insertImage: () => {
       const inp = $('#imageInput');
@@ -1955,6 +1991,9 @@
   $('#fontSize').addEventListener('change', (e) => {
     execCmd('fontSize', e.target.value);
   });
+  $('#zoomSelect').addEventListener('change', (e) => {
+    applyEditorZoom(parseFloat(e.target.value));
+  });
   $('#pageSize').addEventListener('change', (e) => {
     const note = getActiveNote();
     if (!note) return;
@@ -2939,6 +2978,7 @@
     return t[key] != null ? t[key] : key;
   }
 
+  applyEditorZoom(editorZoom);
   loadNotes();
 
   function defaultImgState() {
@@ -3793,6 +3833,9 @@
       shareEmail: 'E-posta (metin)',
       shareEmailPdf: 'E-posta + PDF indir',
       shareWAPdf: 'WhatsApp + PDF indir',
+      zoom: 'Zoom',
+      zoomIn: 'Yakınlaştır',
+      zoomOut: 'Uzaklaştır',
       pageSize: 'Sayfa Boyutu',
       pageFree: 'Serbest',
       orientation: 'Sayfa Yönü',
@@ -3944,6 +3987,9 @@
       shareEmail: 'Email (text)',
       shareEmailPdf: 'Email + Download PDF',
       shareWAPdf: 'WhatsApp + Download PDF',
+      zoom: 'Zoom',
+      zoomIn: 'Zoom In',
+      zoomOut: 'Zoom Out',
       pageSize: 'Page Size',
       pageFree: 'Free',
       orientation: 'Page Orientation',
