@@ -104,17 +104,14 @@ async function getNotepadNotes() {
   const tab = await ensureNotepadTab(notepadUrl, { active: false });
   if (!tab?.id) return { notes: [] };
 
-  const results = await chrome.scripting.executeScript({
-    target: { tabId: tab.id },
-    world: 'MAIN',
-    func: () => {
-      if (typeof window.__npListClipTargetNotes !== 'function') return [];
-      return window.__npListClipTargetNotes();
-    }
+  const results = await executeWhenNotepadReady(tab.id, () => {
+    if (typeof window.__npListClipTargetNotes !== 'function') return { ready: false, notes: [] };
+    return { ready: true, notes: window.__npListClipTargetNotes() };
   });
+  const payload = results?.[0]?.result || {};
 
   return {
-    notes: results?.[0]?.result || [],
+    notes: payload.notes || [],
     notepadTabId: tab.id
   };
 }
@@ -189,31 +186,58 @@ async function ensureNotepadTab(baseUrl, options = {}) {
   return created;
 }
 
+async function executeWhenNotepadReady(tabId, func, args = [], retries = 20) {
+  let lastError = null;
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      const results = await chrome.scripting.executeScript({
+        target: { tabId },
+        world: 'MAIN',
+        args,
+        func
+      });
+      const value = results?.[0]?.result;
+      if (value?.ready === false) {
+        await delay(250);
+        continue;
+      }
+      return results;
+    } catch (error) {
+      lastError = error;
+      await delay(250);
+    }
+  }
+  if (lastError) throw lastError;
+  throw new Error('Notepad hazır değil');
+}
+
 async function injectIntoNotepad(tabId, payload, target = {}) {
   try {
-    const results = await chrome.scripting.executeScript({
-      target: { tabId },
-      world: 'MAIN',
-      args: [payload, target],
-      func: (notePayload, noteTarget) => {
+    const results = await executeWhenNotepadReady(tabId, (notePayload, noteTarget) => {
+        const ready = typeof window.__npAppendExternalClipToNote === 'function' ||
+          typeof window.__npCreateExternalNoteDirect === 'function' ||
+          typeof window.__npOpenClipTargetPicker === 'function' ||
+          typeof window.__npCreateExternalNote === 'function';
+        if (!ready) return { ready: false, saved: false };
         if (noteTarget?.targetNoteId && typeof window.__npAppendExternalClipToNote === 'function') {
-          return !!window.__npAppendExternalClipToNote(noteTarget.targetNoteId, notePayload);
+          return { ready: true, saved: !!window.__npAppendExternalClipToNote(noteTarget.targetNoteId, notePayload) };
         }
         if (noteTarget?.createNewNote && typeof window.__npCreateExternalNoteDirect === 'function') {
           window.__npCreateExternalNoteDirect(notePayload);
-          return true;
+          return { ready: true, saved: true };
         }
         if (typeof window.__npOpenClipTargetPicker === 'function') {
           window.__npOpenClipTargetPicker(notePayload);
-          return true;
+          return { ready: true, saved: true };
         }
-        if (typeof window.__npCreateExternalNote !== 'function') return false;
+        if (typeof window.__npCreateExternalNote !== 'function') return { ready: false, saved: false };
         window.__npCreateExternalNote(notePayload);
-        return true;
-      }
-    });
+        return { ready: true, saved: true };
+      },
+      [payload, target]
+    );
 
-    return results?.[0]?.result === true;
+    return results?.[0]?.result?.saved === true;
   } catch (error) {
     console.warn('[notepad-clipper] injection fallback', error);
     return false;
