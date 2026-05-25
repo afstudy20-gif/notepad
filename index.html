@@ -14,7 +14,7 @@
   <title>Notepad — Local-Only Text Editor</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
-  <link rel="stylesheet" href="style.css?v=63">
+  <link rel="stylesheet" href="style.css?v=64">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -407,6 +407,25 @@
     <button data-ectx="tableDelete" class="ctx-danger ectx-table-only" hidden>Tabloyu Sil</button>
   </div>
 
+  <!-- Web clip target picker -->
+  <div class="dialog-overlay" id="clipTargetDialog" hidden style="display:none">
+    <div class="dialog clip-target-dialog">
+      <div class="dialog-header">
+        <h3 data-i18n="clipTargetTitle">Web clip nereye eklensin?</h3>
+        <button class="dialog-close" id="clipTargetClose">&times;</button>
+      </div>
+      <div class="dialog-body clip-target-body">
+        <div class="clip-target-preview" id="clipTargetPreview"></div>
+        <input type="search" id="clipTargetSearch" placeholder="Not ara..." data-i18n-placeholder="searchNotes">
+        <div class="clip-target-list" id="clipTargetList"></div>
+      </div>
+      <div class="dialog-footer">
+        <button id="clipTargetNew" data-i18n="clipNewNote">Yeni not oluştur</button>
+        <button id="clipTargetCancel" data-i18n="cancel">İptal</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Image Edit Panel (always visible) -->
   <aside class="image-panel" id="imagePanel">
     <div class="image-panel-header">
@@ -694,13 +713,13 @@
 
   <script src="./vendor/html2pdf.bundle.min.js"></script>
   <script src="./vendor/html-docx.js"></script>
-  <script src="app.js?v=63"></script>
+  <script src="app.js?v=64"></script>
   <script>
     // Register service worker for PWA install + offline shell.
     // SW uses network-first for HTML/JS so updates roll out without manual refresh.
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=63').catch((err) => {
+        navigator.serviceWorker.register('./sw.js?v=64').catch((err) => {
           console.warn('[sw] register failed', err);
         });
       });

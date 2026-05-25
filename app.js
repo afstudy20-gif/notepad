@@ -340,7 +340,7 @@
     return /^data:application\/pdf;base64,[a-z0-9+/=]+$/i.test(value || '');
   }
 
-  function createExternalNote(payload = {}) {
+  function externalClipFromPayload(payload = {}) {
     const title = String(payload.title || '').trim();
     const text = String(payload.text || '').trim();
     const url = String(payload.url || '').trim();
@@ -393,10 +393,19 @@
       if (pdfRows.length) parts.push(`<p><strong>PDF</strong><br>${pdfRows.join('<br>')}</p>`);
     }
 
+    return {
+      title: title || fallbackTitle,
+      url,
+      content: parts.join('') || `<p>${textToNoteHtml(fallbackTitle)}</p>`
+    };
+  }
+
+  function createExternalNote(payload = {}) {
+    const clip = externalClipFromPayload(payload);
     const note = {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-      title: title || fallbackTitle,
-      content: parts.join('') || `<p>${textToNoteHtml(fallbackTitle)}</p>`,
+      title: clip.title,
+      content: clip.content,
       pageSize: 'free',
       pageOrientation: 'portrait',
       updated: Date.now()
@@ -410,7 +419,121 @@
     return note;
   }
 
-  window.__npCreateExternalNote = createExternalNote;
+  let pendingClipPayload = null;
+
+  function translated(key, fallback) {
+    const value = (typeof tr === 'function') ? tr(key) : key;
+    return value === key ? fallback : value;
+  }
+
+  function appendExternalClipToNote(noteId, payload = {}) {
+    const note = notes.find(n => n.id === noteId);
+    if (!note) return null;
+
+    const clip = externalClipFromPayload(payload);
+    const existing = String(note.content || '').trim();
+    note.content = existing ? `${existing}<hr>${clip.content}` : clip.content;
+    if (!String(note.title || '').trim()) note.title = clip.title;
+    note.updated = Date.now();
+    activeId = note.id;
+    saveNotes();
+    loadNote(note.id);
+    if (saveStatusEl) saveStatusEl.textContent = translated('saved', 'Saved');
+    return note;
+  }
+
+  function closeClipTargetDialog() {
+    const dialog = $('#clipTargetDialog');
+    if (!dialog) return;
+    dialog.hidden = true;
+    dialog.style.display = 'none';
+    pendingClipPayload = null;
+  }
+
+  function renderClipTargetDialog() {
+    const list = $('#clipTargetList');
+    const preview = $('#clipTargetPreview');
+    const search = $('#clipTargetSearch');
+    if (!list || !preview) return;
+
+    const clip = externalClipFromPayload(pendingClipPayload || {});
+    const clipTitle = escapeHtml(clip.title || translated('webPage', 'Web page'));
+    const clipUrl = clip.url ? `<span>${escapeHtml(clip.url)}</span>` : '';
+    preview.innerHTML = `<strong>${clipTitle}</strong>${clipUrl}`;
+
+    const query = String(search?.value || '').trim().toLowerCase();
+    const visibleNotes = notes.filter(note => {
+      if (!query) return true;
+      const hay = `${note.title || ''} ${stripHtml(note.content || '')}`.toLowerCase();
+      return hay.includes(query);
+    });
+
+    if (!visibleNotes.length) {
+      list.innerHTML = `<div class="clip-target-empty">${escapeHtml(translated('noNotesFound', 'No notes found'))}</div>`;
+      return;
+    }
+
+    list.innerHTML = visibleNotes.map(note => {
+      const title = (note.title && note.title.trim()) || translated('untitled', 'Untitled');
+      const previewText = stripHtml(note.content || '').slice(0, 110) || translated('emptyNote', 'Empty note');
+      const active = note.id === activeId ? ` · ${translated('activeNote', 'Active note')}` : '';
+      return `
+        <button class="clip-target-note" data-clip-note-id="${escapeAttribute(note.id)}">
+          <span class="clip-target-note-title">${escapeHtml(title)}${escapeHtml(active)}</span>
+          <span class="clip-target-note-preview">${escapeHtml(previewText)}</span>
+        </button>`;
+    }).join('');
+  }
+
+  function openClipTargetPicker(payload = {}) {
+    pendingClipPayload = payload || {};
+    const dialog = $('#clipTargetDialog');
+    const search = $('#clipTargetSearch');
+    if (!dialog) {
+      createExternalNote(payload);
+      return true;
+    }
+    if (search) search.value = '';
+    renderClipTargetDialog();
+    dialog.hidden = false;
+    dialog.style.display = 'flex';
+    setTimeout(() => {
+      const activeButton = Array.from(dialog.querySelectorAll('[data-clip-note-id]'))
+        .find(button => button.dataset.clipNoteId === activeId);
+      (activeButton || search || $('#clipTargetNew'))?.focus();
+    }, 0);
+    return true;
+  }
+
+  function bindClipTargetDialog() {
+    const dialog = $('#clipTargetDialog');
+    if (!dialog) return;
+    $('#clipTargetSearch')?.addEventListener('input', renderClipTargetDialog);
+    $('#clipTargetClose')?.addEventListener('click', closeClipTargetDialog);
+    $('#clipTargetCancel')?.addEventListener('click', closeClipTargetDialog);
+    $('#clipTargetNew')?.addEventListener('click', () => {
+      if (!pendingClipPayload) return closeClipTargetDialog();
+      createExternalNote(pendingClipPayload);
+      closeClipTargetDialog();
+    });
+    $('#clipTargetList')?.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-clip-note-id]');
+      if (!button || !pendingClipPayload) return;
+      appendExternalClipToNote(button.dataset.clipNoteId, pendingClipPayload);
+      closeClipTargetDialog();
+    });
+    dialog.addEventListener('click', (event) => {
+      if (event.target === dialog) closeClipTargetDialog();
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !dialog.hidden) closeClipTargetDialog();
+    });
+  }
+
+  bindClipTargetDialog();
+  window.__npCreateExternalNote = openClipTargetPicker;
+  window.__npOpenClipTargetPicker = openClipTargetPicker;
+  window.__npCreateExternalNoteDirect = createExternalNote;
 
   function formatTime(ts) {
     const d = new Date(ts);
@@ -3750,14 +3873,18 @@
     createNote();
     history.replaceState(null, '', location.pathname);
   } else if (__qp.get('note')) {
-    createExternalNote({ text: __qp.get('note') || '' });
+    const payload = { text: __qp.get('note') || '' };
+    if (__qp.get('source') === 'chrome-extension') openClipTargetPicker(payload);
+    else createExternalNote(payload);
     history.replaceState(null, '', location.pathname);
   } else if (__qp.get('text') || __qp.get('title') || __qp.get('url')) {
-    createExternalNote({
+    const payload = {
       title: __qp.get('title') || '',
       text: __qp.get('text') || '',
       url: __qp.get('url') || ''
-    });
+    };
+    if (__qp.get('source') === 'chrome-extension') openClipTargetPicker(payload);
+    else createExternalNote(payload);
     history.replaceState(null, '', location.pathname);
   }
 
@@ -3770,6 +3897,12 @@
       newNote: 'Yeni Not',
       searchNotes: 'Notlarda ara...',
       untitled: 'İsimsiz Not',
+      clipTargetTitle: 'Web clip nereye eklensin?',
+      clipNewNote: 'Yeni not oluştur',
+      noNotesFound: 'Not bulunamadı',
+      emptyNote: 'Boş not',
+      activeNote: 'aktif not',
+      webPage: 'Web sayfası',
       import: 'İçe Aktar',
       backup: 'Yedek',
       importAll: 'Tüm Dosyalar',
@@ -3926,6 +4059,12 @@
       newNote: 'New Note',
       searchNotes: 'Search notes...',
       untitled: 'Untitled Note',
+      clipTargetTitle: 'Add web clip to which note?',
+      clipNewNote: 'Create new note',
+      noNotesFound: 'No notes found',
+      emptyNote: 'Empty note',
+      activeNote: 'active note',
+      webPage: 'Web page',
       import: 'Import',
       backup: 'Backup',
       importAll: 'All Files',

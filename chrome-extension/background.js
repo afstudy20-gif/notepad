@@ -52,10 +52,11 @@ async function saveTabToNotepad(tab) {
   const notepadTab = await findOpenNotepadTab(notepadUrl);
 
   if (notepadTab?.id) {
+    await focusTab(notepadTab);
     const injected = await injectIntoNotepad(notepadTab.id, payload);
     if (injected) return resultSummary(payload);
 
-    await chrome.tabs.update(notepadTab.id, { url: targetUrl });
+    await chrome.tabs.update(notepadTab.id, { url: targetUrl, active: true });
     return { screenshotIncluded: false, pdfIncluded: false };
   }
 
@@ -134,6 +135,10 @@ async function injectIntoNotepad(tabId, payload) {
       world: 'MAIN',
       args: [payload],
       func: (notePayload) => {
+        if (typeof window.__npOpenClipTargetPicker === 'function') {
+          window.__npOpenClipTargetPicker(notePayload);
+          return true;
+        }
         if (typeof window.__npCreateExternalNote !== 'function') return false;
         window.__npCreateExternalNote(notePayload);
         return true;
@@ -147,12 +152,23 @@ async function injectIntoNotepad(tabId, payload) {
   }
 }
 
+async function focusTab(tab) {
+  if (!tab?.id) return;
+  try {
+    await chrome.tabs.update(tab.id, { active: true });
+    if (tab.windowId) await chrome.windows.update(tab.windowId, { focused: true });
+  } catch (error) {
+    console.warn('[notepad-clipper] focus skipped', error);
+  }
+}
+
 function isWebUrl(url) {
   return /^https?:\/\//i.test(url || '');
 }
 
 function resultSummary(payload) {
   return {
+    selectionRequired: true,
     screenshotIncluded: !!payload.screenshotDataUrl,
     pdfIncluded: !!payload.pdfAttachment?.dataUrl,
     pdfDownloaded: !!payload.pdfAttachment?.downloadedExternally,

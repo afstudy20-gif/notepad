@@ -8,7 +8,7 @@ retryButton.addEventListener('click', saveCurrentTab);
 async function saveCurrentTab() {
   retryButton.hidden = true;
   statusEl.dataset.state = '';
-  statusEl.textContent = 'Aktif sekme, ekran görüntüsü ve varsa PDF not olarak ekleniyor...';
+  statusEl.textContent = 'Aktif sekme, ekran görüntüsü ve varsa PDF hazırlanıyor...';
 
   try {
     const response = await chrome.runtime.sendMessage({ type: 'save-active-tab' });
@@ -20,9 +20,10 @@ async function saveCurrentTab() {
     if (response.pdfIncluded) extras.push('PDF');
     if (response.pdfDownloaded) extras.push('PDF indirildi');
     if (response.pdfLinkedOnly) extras.push('PDF adresi');
-    statusEl.textContent = extras.length
-      ? `Kaydedildi. Eklenenler: ${extras.join(', ')}.`
-      : 'Kaydedildi. Bu sayfada ek dosya izni yoktu.';
+    const suffix = extras.length ? ` Hazırlananlar: ${extras.join(', ')}.` : '';
+    statusEl.textContent = response.selectionRequired
+      ? `Notepad açıldı. Hedef notu seçin.${suffix}`
+      : (extras.length ? `Kaydedildi. Eklenenler: ${extras.join(', ')}.` : 'Kaydedildi. Bu sayfada ek dosya izni yoktu.');
   } catch (error) {
     statusEl.dataset.state = 'error';
     statusEl.textContent = error?.message || 'Kaydedilemedi.';
