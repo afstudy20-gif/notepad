@@ -155,7 +155,7 @@ function resultSummary(payload) {
   return {
     screenshotIncluded: !!payload.screenshotDataUrl,
     pdfIncluded: !!payload.pdfAttachment?.dataUrl,
-    pdfLinkedOnly: !!payload.pdfAttachment?.tooLarge
+    pdfLinkedOnly: !!payload.pdfAttachment?.url && !payload.pdfAttachment?.dataUrl
   };
 }
 
@@ -174,18 +174,30 @@ async function captureScreenshot(tab) {
 }
 
 async function capturePdfAttachment(tab) {
-  const pdfUrl = await findPdfUrl(tab);
-  if (!pdfUrl) return null;
+  const pdfUrls = await findPdfUrls(tab);
+  if (!pdfUrls.length) return null;
 
+  let fallback = null;
+  for (const pdfUrl of pdfUrls) {
+    const attachment = await fetchPdfAttachment(pdfUrl, tab);
+    if (attachment?.dataUrl || attachment?.tooLarge) return attachment;
+    if (attachment?.url && !fallback) fallback = attachment;
+  }
+
+  return fallback;
+}
+
+async function fetchPdfAttachment(pdfUrl, tab) {
   try {
     const response = await fetch(pdfUrl, { credentials: 'include' });
     if (!response.ok) throw new Error(`PDF fetch failed: ${response.status}`);
 
     const blob = await response.blob();
     const contentType = blob.type || response.headers.get('content-type') || '';
-    if (!/pdf/i.test(contentType) && !/\.pdf(?:$|[?#])/i.test(pdfUrl)) return null;
+    const disposition = response.headers.get('content-disposition') || '';
+    if (!isPdfResponse(pdfUrl, contentType, disposition)) return null;
 
-    const name = pdfFileName(pdfUrl, tab?.title);
+    const name = pdfFileName(pdfUrl, tab?.title, disposition);
     if (blob.size > MAX_PDF_BYTES) {
       return { name, url: pdfUrl, size: blob.size, tooLarge: true };
     }
@@ -203,9 +215,9 @@ async function capturePdfAttachment(tab) {
   }
 }
 
-async function findPdfUrl(tab) {
-  if (!isWebUrl(tab?.url)) return '';
-  if (/\.pdf(?:$|[?#])/i.test(tab.url)) return tab.url;
+async function findPdfUrls(tab) {
+  if (!isWebUrl(tab?.url)) return [];
+  const candidates = [tab.url];
 
   try {
     const results = await chrome.scripting.executeScript({
@@ -218,22 +230,35 @@ async function findPdfUrl(tab) {
           'iframe[src*=".pdf" i]',
           'a[href*=".pdf" i]'
         ];
+        const found = [];
         for (const selector of selectors) {
-          const el = document.querySelector(selector);
-          const raw = el?.src || el?.href || el?.data || el?.getAttribute('src') || el?.getAttribute('href') || el?.getAttribute('data');
-          if (raw) return new URL(raw, pageUrl).href;
+          for (const el of document.querySelectorAll(selector)) {
+            const raw = el?.src || el?.href || el?.data || el?.getAttribute('src') || el?.getAttribute('href') || el?.getAttribute('data');
+            if (raw) found.push(new URL(raw, pageUrl).href);
+          }
         }
-        return '';
+        return found;
       }
     });
-    return results?.[0]?.result || '';
+    candidates.push(...(results?.[0]?.result || []));
   } catch (error) {
     console.warn('[notepad-clipper] pdf detection skipped', error);
-    return '';
   }
+
+  return [...new Set(candidates.filter(isWebUrl))];
 }
 
-function pdfFileName(pdfUrl, tabTitle) {
+function isPdfResponse(pdfUrl, contentType, disposition) {
+  return /pdf/i.test(contentType || '') ||
+    /\.pdf(?:$|[?#])/i.test(pdfUrl || '') ||
+    /filename\*?=.*\.pdf/i.test(disposition || '') ||
+    /\/(?:show|view|download)?pdf\b/i.test(new URL(pdfUrl).pathname || '');
+}
+
+function pdfFileName(pdfUrl, tabTitle, disposition = '') {
+  const fromDisposition = fileNameFromContentDisposition(disposition);
+  if (fromDisposition) return fromDisposition;
+
   try {
     const url = new URL(pdfUrl);
     const last = decodeURIComponent(url.pathname.split('/').filter(Boolean).pop() || '');
@@ -241,6 +266,19 @@ function pdfFileName(pdfUrl, tabTitle) {
   } catch (_) {}
   const base = (tabTitle || 'web-page').replace(/[\\/:*?"<>|]+/g, '-').slice(0, 80) || 'web-page';
   return `${base}.pdf`;
+}
+
+function fileNameFromContentDisposition(disposition) {
+  if (!disposition) return '';
+  const utfMatch = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+  const rawMatch = disposition.match(/filename="?([^";]+)"?/i);
+  const raw = utfMatch?.[1] || rawMatch?.[1] || '';
+  if (!raw) return '';
+  try {
+    return decodeURIComponent(raw).replace(/[\\/:*?"<>|]+/g, '-');
+  } catch (_) {
+    return raw.replace(/[\\/:*?"<>|]+/g, '-');
+  }
 }
 
 function arrayBufferToBase64(buffer) {
