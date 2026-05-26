@@ -198,7 +198,9 @@ async function getNotepadNotes() {
     return { notes: [], noTabOpen: true };
   }
 
-  await waitForTabComplete(tab.id);
+  if (tab.status !== 'complete') {
+    await waitForTabComplete(tab.id);
+  }
 
   const results = await executeWhenNotepadReady(tab.id, () => {
     if (typeof window.__npListClipTargetNotes !== 'function') return { ready: false, notes: [] };
@@ -254,13 +256,33 @@ function normalizeNotepadUrl(rawUrl) {
 
 async function findOpenNotepadTab(baseUrl) {
   const target = normalizeNotepadUrl(baseUrl);
+  const defaultTarget = normalizeNotepadUrl(DEFAULT_NOTEPAD_URL);
   const tabs = await chrome.tabs.query({});
   return tabs.find((tab) => {
     if (!tab.url) return false;
     try {
       const current = new URL(tab.url);
-      return current.origin === target.origin &&
-        (current.pathname === target.pathname || current.pathname === '/' || current.pathname.endsWith('/index.html'));
+      
+      // 1. Match configured target URL
+      if (current.origin === target.origin &&
+          (current.pathname === target.pathname || current.pathname === '/' || current.pathname.endsWith('/index.html'))) {
+        return true;
+      }
+      
+      // 2. Match default production URL (https://not.drtr.uk)
+      if (current.origin === defaultTarget.origin &&
+          (current.pathname === '/' || current.pathname.endsWith('/index.html'))) {
+        return true;
+      }
+      
+      // 3. Match localhost or 127.0.0.1 running Notepad
+      const isLocal = current.hostname === 'localhost' || current.hostname === '127.0.0.1';
+      const isNotepad = tab.title && /Notepad/i.test(tab.title);
+      if (isLocal && isNotepad && (current.pathname === '/' || current.pathname.endsWith('/index.html'))) {
+        return true;
+      }
+      
+      return false;
     } catch (_) {
       return false;
     }
@@ -282,7 +304,7 @@ async function ensureNotepadTab(baseUrl, options = {}) {
   return created;
 }
 
-async function executeWhenNotepadReady(tabId, func, args = [], retries = 20) {
+async function executeWhenNotepadReady(tabId, func, args = [], retries = 8) {
   let lastError = null;
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
