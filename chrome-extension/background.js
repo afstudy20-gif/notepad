@@ -3,10 +3,10 @@ const NOTEPAD_URL_KEY = 'notepadUrl';
 const MAX_PDF_BYTES = 4 * 1024 * 1024;
 const SCROLL_CAPTURE_DELAY = 300;
 const MAX_SCROLL_CAPTURES = 40;
-const FULL_SCREENSHOT_MAX_PIXELS = 4_000_000;
-const FULL_SCREENSHOT_MAX_HEIGHT = 12_000;
-const FULL_SCREENSHOT_QUALITY = 0.62;
-const MAX_SCREENSHOT_DATA_URL_LENGTH = 3_500_000;
+const FULL_SCREENSHOT_MAX_PIXELS = 8_000_000;
+const FULL_SCREENSHOT_MAX_HEIGHT = 16_000;
+const FULL_SCREENSHOT_QUALITY = 0.85;
+const MAX_SCREENSHOT_DATA_URL_LENGTH = 4_500_000;
 const MIN_CAPTURE_INTERVAL = 550;
 
 let lastCaptureTime = 0;
@@ -98,13 +98,29 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   }
 });
 
+function withTimeout(promise, ms, timeoutErrorMsg) {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error(timeoutErrorMsg || 'İşlem zaman aşımına uğradı.'));
+    }, ms);
+    promise.then(
+      (res) => { clearTimeout(timeout); resolve(res); },
+      (err) => { clearTimeout(timeout); reject(err); }
+    );
+  });
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (!['get-notes', 'save-active-tab', 'detect-pdf'].includes(message?.type)) return false;
 
   (async () => {
     try {
       if (message.type === 'get-notes') {
-        const result = await getNotepadNotes();
+        const result = await withTimeout(
+          getNotepadNotes(),
+          3500,
+          'Notepad bağlantı zaman aşımı. Lütfen sekmeyi yenileyin veya aktif edin.'
+        );
         sendResponse({ ok: true, ...result });
         return;
       }
@@ -191,6 +207,14 @@ async function saveTabToNotepad(tab, target = {}) {
   return { screenshotIncluded: false, pdfIncluded: false };
 }
 
+async function executeScriptIsolated(tabId, func, args = []) {
+  return await chrome.scripting.executeScript({
+    target: { tabId },
+    args,
+    func
+  });
+}
+
 async function getNotepadNotes() {
   const notepadUrl = await getNotepadUrl();
   const tab = await ensureNotepadTab(notepadUrl, { active: false });
@@ -198,6 +222,46 @@ async function getNotepadNotes() {
     return { notes: [] };
   }
 
+  // 1. Try high-speed isolated world read (completely avoids background tab frozen hangs!)
+  try {
+    const results = await executeScriptIsolated(tab.id, () => {
+      try {
+        const rawNotes = localStorage.getItem('notepad_notes');
+        const notes = JSON.parse(rawNotes) || [];
+        const activeId = localStorage.getItem('notepad_active');
+        
+        const stripHtml = (html) => {
+          const tmp = document.createElement('div');
+          tmp.innerHTML = html || '';
+          return tmp.textContent || '';
+        };
+        
+        const mappedNotes = notes.map(note => ({
+          id: note.id,
+          title: (note.title && note.title.trim()) || 'İsimsiz Not',
+          preview: stripHtml(note.content || '').slice(0, 140),
+          updated: note.updated || 0,
+          active: note.id === activeId
+        }));
+        
+        return { ok: true, notes: mappedNotes };
+      } catch (e) {
+        return { ok: false, error: e.message };
+      }
+    });
+
+    const payload = results?.[0]?.result || {};
+    if (payload.ok) {
+      return {
+        notes: payload.notes || [],
+        notepadTabId: tab.id
+      };
+    }
+  } catch (error) {
+    console.warn('[notepad-clipper] isolated world read bypassed/failed, falling back', error);
+  }
+
+  // 2. Main world fallback if isolated world fails
   const results = await executeWhenNotepadReady(tab.id, () => {
     try {
       const rawNotes = localStorage.getItem('notepad_notes');
@@ -521,7 +585,7 @@ async function captureScreenshot(tab, options = {}) {
   try {
     const dataUrl = await captureVisibleTabThrottled(tab.windowId, {
       format: 'jpeg',
-      quality: 72
+      quality: 90
     });
     return { dataUrl, mode: 'viewport' };
   } catch (error) {
@@ -565,7 +629,7 @@ async function captureFullPageScreenshot(tab) {
 
       const dataUrl = await captureVisibleTabThrottled(tab.windowId, {
         format: 'jpeg',
-        quality: 72
+        quality: 90
       });
       captures.push({
         dataUrl,
