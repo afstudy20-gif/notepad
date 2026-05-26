@@ -19,6 +19,23 @@ const captureTexts = {
   pdf: 'Sayfa adresi ve varsa sayfadaki PDF dosyası kaydedilecek.'
 };
 
+// 100% Bulletproof cross-version Promise wrapper for chrome extension messaging
+function sendMessagePromise(message) {
+  return new Promise((resolve, reject) => {
+    try {
+      chrome.runtime.sendMessage(message, (response) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+        } else {
+          resolve(response);
+        }
+      });
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
 init();
 
 searchEl.addEventListener('input', renderNotes);
@@ -124,7 +141,7 @@ async function init() {
       pdfIndicator.className = 'pdf-indicator';
     }
 
-    const response = await chrome.runtime.sendMessage({ type: 'get-notes' });
+    const response = await sendMessagePromise({ type: 'get-notes' });
     if (!response?.ok) throw new Error(response?.error || 'Notlar alınamadı');
     notes = Array.isArray(response.notes) ? response.notes : [];
     
@@ -175,7 +192,7 @@ async function saveToNotepad(target) {
   setStatus('İçerik hazırlanıyor...', '');
 
   try {
-    const response = await chrome.runtime.sendMessage({
+    const response = await sendMessagePromise({
       type: 'save-active-tab',
       sourceTabId,
       optionType: selectedOption,

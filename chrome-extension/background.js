@@ -199,8 +199,29 @@ async function getNotepadNotes() {
   }
 
   const results = await executeWhenNotepadReady(tab.id, () => {
-    if (typeof window.__npListClipTargetNotes !== 'function') return { ready: false, notes: [] };
-    return { ready: true, notes: window.__npListClipTargetNotes() };
+    try {
+      const rawNotes = localStorage.getItem('notepad_notes');
+      const notes = JSON.parse(rawNotes) || [];
+      const activeId = localStorage.getItem('notepad_active');
+      
+      const stripHtml = (html) => {
+        const tmp = document.createElement('div');
+        tmp.innerHTML = html || '';
+        return tmp.textContent || '';
+      };
+      
+      const mappedNotes = notes.map(note => ({
+        id: note.id,
+        title: (note.title && note.title.trim()) || 'İsimsiz Not',
+        preview: stripHtml(note.content || '').slice(0, 140),
+        updated: note.updated || 0,
+        active: note.id === activeId
+      }));
+      
+      return { ready: true, notes: mappedNotes };
+    } catch (e) {
+      return { ready: false, notes: [], error: e.message };
+    }
   });
   const payload = results?.[0]?.result || {};
 
