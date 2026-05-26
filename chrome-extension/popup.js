@@ -128,15 +128,10 @@ async function init() {
     if (!response?.ok) throw new Error(response?.error || 'Notlar alınamadı');
     notes = Array.isArray(response.notes) ? response.notes : [];
     
-    if (response.noTabOpen) {
-      statusEl.textContent = 'Kayıt türü seçip yeni nota kaydedebilirsiniz. Mevcut nota eklemek için Notepad sekmesini açın.';
-      noteListEl.innerHTML = '<div class="empty">Mevcut bir Notepad sekmesi bulunamadı.</div>';
-    } else {
-      statusEl.textContent = notes.length
-        ? 'Kayıt türü seçip istediğiniz nota veya yeni nota kaydedebilirsiniz.'
-        : 'Henüz not yok; yeni not oluşturarak kaydedebilirsiniz.';
-      renderNotes();
-    }
+    statusEl.textContent = notes.length
+      ? 'Kayıt türü seçip istediğiniz nota veya yeni nota kaydedebilirsiniz.'
+      : 'Henüz not yok; yeni not oluşturarak kaydedebilirsiniz.';
+    renderNotes();
   } catch (error) {
     setStatus(error?.message || 'Notlar alınamadı.', 'error');
     noteListEl.innerHTML = '<div class="empty">Notepad listesi yüklenemedi.</div>';

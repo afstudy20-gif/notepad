@@ -193,13 +193,9 @@ async function saveTabToNotepad(tab, target = {}) {
 
 async function getNotepadNotes() {
   const notepadUrl = await getNotepadUrl();
-  const tab = await findOpenNotepadTab(notepadUrl);
+  const tab = await ensureNotepadTab(notepadUrl, { active: false });
   if (!tab?.id) {
-    return { notes: [], noTabOpen: true };
-  }
-
-  if (tab.status !== 'complete') {
-    await waitForTabComplete(tab.id);
+    return { notes: [] };
   }
 
   const results = await executeWhenNotepadReady(tab.id, () => {
@@ -292,7 +288,6 @@ async function findOpenNotepadTab(baseUrl) {
 async function ensureNotepadTab(baseUrl, options = {}) {
   const existing = await findOpenNotepadTab(baseUrl);
   if (existing?.id) {
-    await waitForTabComplete(existing.id);
     return existing;
   }
 
@@ -300,11 +295,10 @@ async function ensureNotepadTab(baseUrl, options = {}) {
     url: buildOpenUrl(baseUrl),
     active: !!options.active
   });
-  if (created?.id) await waitForTabComplete(created.id);
   return created;
 }
 
-async function executeWhenNotepadReady(tabId, func, args = [], retries = 8) {
+async function executeWhenNotepadReady(tabId, func, args = [], retries = 20) {
   let lastError = null;
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
