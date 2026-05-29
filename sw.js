@@ -3,14 +3,16 @@
 //   - HTML/JS/CSS (app shell): network-first, fallback cache
 //   - Static icons + vendor libs: cache-first
 //   - Cross-origin (CDN libs): cache opaque responses, cache-first fallback
-const VERSION = 'v67';
+const VERSION = 'v68';
 const CACHE = `notepad-${VERSION}`;
 const SHELL = [
   './',
   './index.html',
   './install.html',
-  './style.css?v=67',
-  './app.js?v=67',
+  './style.css?v=68',
+  './app.js?v=68',
+  './js/cloud-config.js?v=68',
+  './js/cloud-sync.js?v=68',
   './notepad-web-clipper.zip',
   './manifest.webmanifest',
   './icon.svg',
@@ -25,6 +27,15 @@ const SHELL = [
   './vendor/html2pdf.bundle.min.js',
   './vendor/html-docx.js'
 ];
+
+// Hosts that MUST never be cached (live OAuth + Drive API responses)
+const NEVER_CACHE = new Set([
+  'accounts.google.com',
+  'oauth2.googleapis.com',
+  'www.googleapis.com',
+  'apis.google.com',
+  'lh3.googleusercontent.com' // user avatars
+]);
 
 // CDN libs to lazy-cache on first request (kept opaque)
 const CDN_HOSTS = new Set([
@@ -53,6 +64,9 @@ self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
+
+  // Never intercept Google OAuth / Drive API / avatar — always go to network
+  if (NEVER_CACHE.has(url.hostname)) return;
 
   // Cross-origin CDN libs: cache-first with opaque responses
   if (url.origin !== location.origin) {

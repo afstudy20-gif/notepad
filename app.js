@@ -22,14 +22,25 @@
   let editorZoom = clampZoom(parseFloat(localStorage.getItem(ZOOM_KEY) || '1'));
 
   // --- Storage ---
+  function migrateNotesSchema(arr) {
+    // Backfill missing fields added for cloud-sync
+    for (const n of arr) {
+      if (typeof n.created !== 'number') n.created = n.updated || Date.now();
+      if (typeof n.version !== 'number') n.version = 1;
+      if (typeof n.deleted === 'undefined') n.deleted = null;
+      if (typeof n.rev === 'undefined') n.rev = null;
+    }
+    return arr;
+  }
   function loadNotes() {
     try {
-      notes = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+      notes = migrateNotesSchema(JSON.parse(localStorage.getItem(STORAGE_KEY)) || []);
     } catch {
       notes = [];
     }
     activeId = localStorage.getItem(ACTIVE_KEY);
-    if (notes.length === 0) {
+    const visible = notes.filter(n => !n.deleted);
+    if (visible.length === 0) {
       if (hasLaunchCreateRequest()) {
         activeId = null;
         renderNoteList();
@@ -37,8 +48,8 @@
       }
       createNote();
     } else {
-      const found = notes.find(n => n.id === activeId);
-      if (!found) activeId = notes[0].id;
+      const found = visible.find(n => n.id === activeId);
+      if (!found) activeId = visible[0].id;
       renderNoteList();
       loadNote(activeId);
     }
@@ -69,13 +80,18 @@
   };
 
   function createNote() {
+    const now = Date.now();
     const note = {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
       title: '',
       content: '',
       pageSize: 'free',
       pageOrientation: 'portrait',
-      updated: Date.now()
+      created: now,
+      updated: now,
+      deleted: null,
+      version: 1,
+      rev: null
     };
     notes.unshift(note);
     activeId = note.id;
@@ -83,17 +99,26 @@
     renderNoteList();
     loadNote(note.id);
     noteTitle.focus();
+    if (window.__npCloud) window.__npCloud.markDirty(note.id);
   }
 
   function deleteNote(id) {
-    if (notes.length <= 1) {
-      notes = [];
+    const target = notes.find(n => n.id === id);
+    if (!target) return;
+    // Soft delete: mark + keep in array so cloud sync can propagate the tombstone
+    target.deleted = Date.now();
+    target.updated = target.deleted;
+    target.version = (target.version || 0) + 1;
+    if (window.__npCloud) window.__npCloud.markDirty(id);
+
+    const visible = notes.filter(n => !n.deleted);
+    if (visible.length === 0) {
+      // No visible notes left — create a fresh one
       createNote();
       return;
     }
-    notes = notes.filter(n => n.id !== id);
     if (activeId === id) {
-      activeId = notes[0].id;
+      activeId = visible[0].id;
       loadNote(activeId);
     }
     saveNotes();
@@ -163,6 +188,7 @@
     });
     note.content = tmp.innerHTML;
     note.updated = Date.now();
+    note.version = (note.version || 0) + 1;
 
     // Move to top
     notes = notes.filter(n => n.id !== note.id);
@@ -171,6 +197,7 @@
     saveNotes();
     renderNoteList();
     saveStatusEl.textContent = (typeof tr === 'function') ? tr('saved') : 'Saved';
+    if (window.__npCloud) window.__npCloud.markDirty(note.id);
   }
 
   function scheduleSave() {
@@ -208,23 +235,25 @@
     }
   }
   function getFilteredNotes() {
+    const visible = notes.filter(n => !n.deleted);
     const query = (searchInput.value || '').toLowerCase();
     return query
-      ? notes.filter(n =>
+      ? visible.filter(n =>
           (n.title || '').toLowerCase().includes(query) ||
           stripHtml(n.content).toLowerCase().includes(query)
         )
-      : notes;
+      : visible;
   }
 
   function renderNoteList() {
+    const visible = notes.filter(n => !n.deleted);
     const query = searchInput.value.toLowerCase();
     const filtered = query
-      ? notes.filter(n =>
+      ? visible.filter(n =>
           (n.title || '').toLowerCase().includes(query) ||
           stripHtml(n.content).toLowerCase().includes(query)
         )
-      : notes;
+      : visible;
 
     // Group notes
     const groupsMap = new Map();
@@ -3136,6 +3165,71 @@
   applyEditorZoom(editorZoom);
   loadNotes();
 
+  // Expose globals needed by cloud-sync module
+  Object.defineProperty(window, '__npNotes', {
+    get() { return notes; },
+    set(v) { notes = v; },
+    configurable: true
+  });
+  window.__npSaveNotes = saveNotes;
+  window.__npRenderNoteList = renderNoteList;
+  window.__npGetActiveId = () => activeId;
+  window.__npLoadNote = loadNote;
+
+  // Initialize cloud sync (no-op if client ID not configured)
+  if (window.__npCloud && typeof window.__npCloud.init === 'function') {
+    window.__npCloud.init().catch(e => console.warn('[cloud] init', e));
+    initCloudUI();
+  }
+
+  function initCloudUI() {
+    const btnSignIn = $('#btnGoogleSignIn');
+    const btnSignOut = $('#btnSignOut');
+    const userBox = $('#cloudUser');
+    const avatar = $('#cloudAvatar');
+    const emailEl = $('#cloudEmail');
+    const statusEl = $('#cloudSyncStatus');
+    if (!btnSignIn || !statusEl) return;
+
+    const ICONS = { idle: '⚪', syncing: '🔄', ok: '✅', error: '⚠️', setupNeeded: '⚙️' };
+
+    function render(state) {
+      const icon = ICONS[state.status] || '⚪';
+      statusEl.textContent = icon;
+      const lastSync = state.lastSync ? new Date(state.lastSync).toLocaleString() : '-';
+      statusEl.title = `${tr(state.status === 'ok' ? 'syncOk' : state.status === 'syncing' ? 'syncing' : state.status === 'error' ? 'syncError' : state.status === 'setupNeeded' ? 'cloudSetupNeeded' : 'syncIdle')}\n${tr('lastSync')}${lastSync}${state.message ? '\n' + state.message : ''}`;
+      if (state.signedIn && state.user) {
+        btnSignIn.hidden = true;
+        userBox.hidden = false;
+        if (avatar && state.user.picture) avatar.src = state.user.picture;
+        if (emailEl) emailEl.textContent = state.user.email || state.user.name || '';
+      } else {
+        btnSignIn.hidden = false;
+        userBox.hidden = true;
+      }
+      if (state.status === 'setupNeeded') {
+        btnSignIn.disabled = true;
+        btnSignIn.title = tr('cloudSetupNeeded');
+      } else {
+        btnSignIn.disabled = false;
+        btnSignIn.title = '';
+      }
+    }
+
+    btnSignIn.addEventListener('click', () => {
+      window.__npCloud.signIn().catch(e => console.warn('[cloud] signIn', e));
+    });
+    if (btnSignOut) {
+      btnSignOut.addEventListener('click', () => {
+        if (confirm(tr('cloudConfirmSignOut'))) {
+          window.__npCloud.signOut();
+        }
+      });
+    }
+    window.__npCloud.onChange(render);
+    render(window.__npCloud.getStatus());
+  }
+
   function defaultImgState() {
     return {
       filters: { brightness: 1, contrast: 1, saturate: 1, 'hue-rotate': 0, blur: 0, grayscale: 0, sepia: 0, invert: 0 },
@@ -4062,7 +4156,17 @@
       iosStep1: '1. Tarayıcıdaki Paylaş simgesine dokunun',
       iosStep2: '2. Açılan menüden "Ana Ekrana Ekle" seçeneğine dokunun',
       iosStep3: '3. Sağ üstten Ekle deyin — uygulama ana ekranınızda yer alır',
-      gotIt: 'Tamam'
+      gotIt: 'Tamam',
+      signInGoogle: 'Google ile Bağla',
+      signOut: 'Çıkış',
+      signedInAs: 'Bağlı: ',
+      syncIdle: 'Senkron beklemede',
+      syncing: 'Senkronize ediliyor...',
+      syncOk: 'Senkronize edildi',
+      syncError: 'Senkronizasyon hatası',
+      cloudSetupNeeded: 'Google OAuth Client ID eksik (cloud-config.js)',
+      cloudConfirmSignOut: 'Google hesabınızdan çıkış yapılacak. Yerel notlar korunur. Devam edilsin mi?',
+      lastSync: 'Son senkron: '
     },
     en: {
       notes: 'Notes',
@@ -4224,7 +4328,17 @@
       iosStep1: '1. Tap the Share icon in your browser',
       iosStep2: '2. Choose "Add to Home Screen" from the menu',
       iosStep3: '3. Tap Add — the app will appear on your home screen',
-      gotIt: 'Got it'
+      gotIt: 'Got it',
+      signInGoogle: 'Sign in with Google',
+      signOut: 'Sign out',
+      signedInAs: 'Signed in: ',
+      syncIdle: 'Sync idle',
+      syncing: 'Syncing...',
+      syncOk: 'Synced',
+      syncError: 'Sync error',
+      cloudSetupNeeded: 'Google OAuth Client ID missing (cloud-config.js)',
+      cloudConfirmSignOut: 'Sign out from your Google account? Local notes will be kept.',
+      lastSync: 'Last sync: '
     }
   };
 
