@@ -25,6 +25,9 @@
   const LS_TOKEN = 'np_cloud_token';
   const LS_USER = 'np_cloud_user';
   const LS_LAST_SYNC = 'np_cloud_last_sync';
+  const LS_MODE = 'np_cloud_mode';     // 'popup' | 'redirect'
+  const SS_STATE = 'np_oauth_state';   // CSRF state (sessionStorage)
+  const AUTH_ENDPOINT = 'https://accounts.google.com/o/oauth2/v2/auth';
 
   // ---------- State ----------
   let tokenClient = null;
@@ -32,6 +35,7 @@
   let tokenExpiresAt = 0;
   let userInfo = null;
   let signedIn = false;
+  let authMode = localStorage.getItem(LS_MODE) || 'popup'; // how the active token was obtained
   let status = 'idle';      // idle | syncing | ok | error | setupNeeded
   let statusMsg = '';
   let dirtyIds = new Set();
@@ -40,6 +44,41 @@
   let initialized = false;
   let listeners = [];
   let inFlight = false;
+
+  // ---------- Platform detection ----------
+  // iOS standalone PWAs (and some embedded contexts) break window.open OAuth popups.
+  // Detect and route those to a full-page redirect flow instead.
+  function isStandalone() {
+    try {
+      return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+             window.navigator.standalone === true;
+    } catch { return false; }
+  }
+  function isIOS() {
+    return /iP(hone|ad|od)/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  }
+  function gisAvailable() {
+    return !!(window.google && window.google.accounts && window.google.accounts.oauth2);
+  }
+  // Prefer redirect when popups are unreliable: iOS standalone, or GIS lib unavailable.
+  function preferRedirect() {
+    if (isStandalone() && isIOS()) return true;
+    return false;
+  }
+  function redirectUri() {
+    // Must EXACTLY match an "Authorized redirect URI" in the OAuth client config.
+    return location.origin + '/';
+  }
+  function randomState() {
+    try {
+      const a = new Uint8Array(16);
+      crypto.getRandomValues(a);
+      return Array.from(a).map(b => b.toString(16).padStart(2, '0')).join('');
+    } catch {
+      return Date.now().toString(36) + Math.random().toString(36).slice(2);
+    }
+  }
 
   // ---------- Listeners ----------
   function emit() {
@@ -69,6 +108,7 @@
   function persistToken() {
     if (accessToken && tokenExpiresAt > Date.now()) {
       localStorage.setItem(LS_TOKEN, JSON.stringify({ t: accessToken, e: tokenExpiresAt }));
+      localStorage.setItem(LS_MODE, authMode);
     } else {
       localStorage.removeItem(LS_TOKEN);
     }
@@ -129,11 +169,23 @@
         accessToken = resp.access_token;
         tokenExpiresAt = Date.now() + (resp.expires_in - 60) * 1000;
         signedIn = true;
+        authMode = 'popup';
         persistToken();
         fetchUserInfo().then(() => {
           setStatus('syncing', 'Initial sync...');
           syncNow().catch((e) => setStatus('error', e.message));
+          startBackgroundPull();
         });
+      },
+      error_callback: (err) => {
+        // Popup blocked / failed to open (common in TWA / restrictive WebViews)
+        // → fall back to the universal redirect flow. User-cancelled = stay put.
+        console.warn('[cloud] GIS error', err);
+        if (err && (err.type === 'popup_failed_to_open' || err.type === 'unknown')) {
+          startRedirectAuth(false);
+        } else {
+          setStatus('idle', err && err.type === 'popup_closed' ? '' : (err && err.type) || 'auth cancelled');
+        }
       },
     });
   }
@@ -150,15 +202,97 @@
     } catch (e) { console.warn('[cloud] userinfo', e); }
   }
 
+  // ---------- Redirect (implicit) flow — universal, works on iOS standalone & TWA ----------
+  // Full-page navigation to Google, returns with #access_token=... in URL fragment.
+  function buildAuthUrl(silent) {
+    const state = randomState();
+    try { sessionStorage.setItem(SS_STATE, state); } catch (_) {}
+    const params = new URLSearchParams({
+      client_id: CFG.GOOGLE_CLIENT_ID,
+      redirect_uri: redirectUri(),
+      response_type: 'token',
+      scope: CFG.SCOPE,
+      include_granted_scopes: 'true',
+      state: state,
+    });
+    if (silent) params.set('prompt', 'none');
+    if (userInfo && userInfo.email) params.set('login_hint', userInfo.email);
+    return AUTH_ENDPOINT + '?' + params.toString();
+  }
+
+  function startRedirectAuth(silent) {
+    if (!CFG.GOOGLE_CLIENT_ID) { setStatus('setupNeeded', ''); return; }
+    authMode = 'redirect';
+    localStorage.setItem(LS_MODE, 'redirect');
+    location.href = buildAuthUrl(!!silent);
+  }
+
+  // Parse #access_token / #error from the URL after a redirect return.
+  // Returns 'ok' | 'error' | null (not a callback).
+  function handleRedirectCallback() {
+    const hash = location.hash || '';
+    if (hash.indexOf('access_token') === -1 && hash.indexOf('error=') === -1) return null;
+    const frag = new URLSearchParams(hash.replace(/^#/, ''));
+    const token = frag.get('access_token');
+    const err = frag.get('error');
+    const state = frag.get('state');
+    let savedState = null;
+    try { savedState = sessionStorage.getItem(SS_STATE); sessionStorage.removeItem(SS_STATE); } catch (_) {}
+    // Clean the URL (drop fragment + any query) regardless of outcome
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (_) {}
+    if (err) {
+      console.warn('[cloud] redirect auth error:', err);
+      return 'error';
+    }
+    if (!token) return 'error';
+    if (savedState && state !== savedState) {
+      console.warn('[cloud] OAuth state mismatch — possible CSRF, ignoring token');
+      return 'error';
+    }
+    const expiresIn = parseInt(frag.get('expires_in') || '3600', 10);
+    accessToken = token;
+    tokenExpiresAt = Date.now() + (expiresIn - 60) * 1000;
+    signedIn = true;
+    authMode = 'redirect';
+    persistToken();
+    return 'ok';
+  }
+
   // ---------- Sign in / out ----------
   async function signIn() {
     if (!CFG.GOOGLE_CLIENT_ID) {
       setStatus('setupNeeded', 'OAuth client ID not configured in cloud-config.js');
       return;
     }
-    if (!tokenClient) await initTokenClient();
-    // GIS prompts for consent on first call; silent thereafter
-    tokenClient.requestAccessToken({ prompt: signedIn ? '' : 'consent' });
+    // Route platforms with broken popups straight to redirect
+    if (preferRedirect()) { startRedirectAuth(false); return; }
+    try {
+      if (!tokenClient) await initTokenClient();
+      // GIS prompts for consent on first call; silent thereafter
+      tokenClient.requestAccessToken({ prompt: signedIn ? '' : 'consent' });
+    } catch (e) {
+      // GIS unavailable (offline lib, blocked) → fall back to redirect
+      console.warn('[cloud] popup auth unavailable, using redirect', e);
+      startRedirectAuth(false);
+    }
+  }
+
+  async function signOut() {
+    if (accessToken && window.google && google.accounts && google.accounts.oauth2) {
+      try { google.accounts.oauth2.revoke(accessToken, () => {}); } catch (_) {}
+    }
+    accessToken = null;
+    tokenExpiresAt = 0;
+    signedIn = false;
+    userInfo = null;
+    dirtyIds.clear();
+    localStorage.removeItem(LS_TOKEN);
+    localStorage.removeItem(LS_USER);
+    localStorage.removeItem(LS_MODE);
+    clearTimeout(pushTimer);
+    clearInterval(pullTimer);
+    pullTimer = null;
+    setStatus('idle', '');
   }
 
   async function signOut() {
@@ -178,30 +312,58 @@
     setStatus('idle', '');
   }
 
+  // Refresh the access token before it expires.
+  // popup mode: silent GIS re-grant (no UI). redirect mode: navigate with prompt=none
+  // (Google immediately bounces back with a fresh token if consent is still valid).
+  async function refreshToken() {
+    if (authMode === 'redirect') {
+      startRedirectAuth(true); // prompt=none → page navigates; resumes via init() on return
+      // Halt this call; the page is unloading.
+      await new Promise(() => {});
+      return;
+    }
+    if (!gisAvailable()) throw new Error('Token expired and GIS unavailable');
+    if (!tokenClient) await initTokenClient();
+    await new Promise((resolve, reject) => {
+      const prev = tokenClient.callback;
+      tokenClient.callback = (resp) => {
+        tokenClient.callback = prev;
+        if (resp.error) { reject(new Error(resp.error)); return; }
+        accessToken = resp.access_token;
+        tokenExpiresAt = Date.now() + (resp.expires_in - 60) * 1000;
+        authMode = 'popup';
+        persistToken();
+        resolve();
+      };
+      tokenClient.requestAccessToken({ prompt: '' });
+    });
+  }
+
   // ---------- Drive REST ----------
   async function driveFetch(path, init) {
     if (!accessToken) throw new Error('No access token');
     if (tokenExpiresAt && tokenExpiresAt <= Date.now()) {
-      // Silent refresh
-      await new Promise((resolve, reject) => {
-        const prev = tokenClient.callback;
-        tokenClient.callback = (resp) => {
-          tokenClient.callback = prev;
-          if (resp.error) { reject(new Error(resp.error)); return; }
-          accessToken = resp.access_token;
-          tokenExpiresAt = Date.now() + (resp.expires_in - 60) * 1000;
-          persistToken();
-          resolve();
-        };
-        tokenClient.requestAccessToken({ prompt: '' });
-      });
+      await refreshToken();
     }
     const opts = init || {};
     opts.headers = Object.assign({}, opts.headers || {}, {
       Authorization: 'Bearer ' + accessToken,
     });
     const url = path.startsWith('http') ? path : (CFG.DRIVE_API + path);
-    const r = await fetch(url, opts);
+    let r = await fetch(url, opts);
+    // 401 → token rejected server-side (revoked/expired early). Refresh once, retry.
+    if (r.status === 401) {
+      try {
+        await refreshToken();
+        opts.headers.Authorization = 'Bearer ' + accessToken;
+        r = await fetch(url, opts);
+      } catch (e) {
+        signedIn = false;
+        localStorage.removeItem(LS_TOKEN);
+        setStatus('idle', 'Re-sign-in required');
+        throw new Error('Token rejected (401), re-sign-in required');
+      }
+    }
     if (!r.ok) {
       const errText = await r.text().catch(() => '');
       throw new Error(`Drive ${r.status}: ${errText.slice(0, 200)}`);
@@ -391,6 +553,13 @@
     }, CFG.PULL_INTERVAL_MS);
   }
 
+  async function afterSignedIn() {
+    setStatus('syncing', '');
+    await fetchUserInfo();
+    await syncNow();
+    startBackgroundPull();
+  }
+
   // ---------- Init ----------
   async function init() {
     if (initialized) return;
@@ -400,24 +569,31 @@
       setStatus('setupNeeded', 'OAuth client ID not configured');
       return;
     }
-    try {
-      await initTokenClient();
-    } catch (e) {
-      setStatus('error', e.message);
+
+    window.addEventListener('online', () => { if (signedIn) syncNow(); });
+
+    // 1. Returning from a redirect sign-in? Token is in the URL fragment.
+    const cb = handleRedirectCallback();
+    if (cb === 'ok') {
+      try { await afterSignedIn(); }
+      catch (e) { setStatus('error', e.message); }
       return;
     }
-    // Try silent restore
+    if (cb === 'error') {
+      // Silent (prompt=none) refresh failed → user must re-consent interactively
+      setStatus('idle', 'Re-sign-in required');
+      // fall through to allow popup client init for browsers
+    }
+
+    // 2. Restore a cached token and verify it still works.
     if (restoreToken()) {
       signedIn = true;
       setStatus('ok', '');
-      // Try refresh silently to verify token still valid
       try {
-        await driveFetch('/about?fields=user');
-        setStatus('syncing', '');
-        await syncNow();
-        startBackgroundPull();
+        await driveFetch('/about?fields=user'); // validates token
+        await afterSignedIn();
       } catch (e) {
-        // Token revoked / invalid → require re-sign-in
+        // refreshToken in redirect mode navigates away; only reaches here in popup mode on failure
         accessToken = null;
         tokenExpiresAt = 0;
         signedIn = false;
@@ -425,7 +601,17 @@
         setStatus('idle', 'Re-sign-in required');
       }
     }
-    window.addEventListener('online', () => { if (signedIn) syncNow(); });
+
+    // 3. Redirect-mode users with an expired token: attempt a silent re-auth
+    //    (prompt=none) on a clean load. Loop-safe: only when there was no callback
+    //    fragment this load, so an error return falls through to the sign-in button.
+    if (cb === null && !signedIn && authMode === 'redirect' && userInfo && navigator.onLine) {
+      startRedirectAuth(true); // navigates away; returns via handleRedirectCallback
+      return;
+    }
+
+    // 4. Warm up the GIS popup client for browser sign-in (non-blocking; ignore on failure).
+    initTokenClient().catch(() => { /* redirect flow remains available */ });
   }
 
   // Public API

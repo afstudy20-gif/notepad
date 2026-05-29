@@ -91,6 +91,11 @@ body.has-image-panel .editor-area {
   border-radius: 16px;
   max-width: calc(100% - 30px);
 }
+/* HTML hidden attr must beat display:inline-flex above (specificity battle) */
+.cloud-user[hidden],
+.cloud-signin-btn[hidden] {
+  display: none !important;
+}
 .cloud-avatar {
   width: 22px;
   height: 22px;

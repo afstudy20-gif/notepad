@@ -11,12 +11,22 @@
 //        - Save (no need to publish for ≤100 testers; publish later for prod)
 //   4. Credentials → Create Credentials → OAuth client ID
 //        - Application type: Web application
-//        - Authorized JavaScript origins:
+//        - Authorized JavaScript origins (for popup sign-in — desktop/Android):
 //            https://not.drtr.uk
 //            http://localhost:8000   (for local dev)
+//        - Authorized redirect URIs (for redirect sign-in — iOS standalone PWA / TWA):
+//            https://not.drtr.uk/
+//            http://localhost:8000/
+//            (NOTE the trailing slash — must EXACTLY match location.origin + '/')
 //        - Save → copy "Client ID"
 //   5. Paste it below (REPLACE the placeholder). Client IDs are PUBLIC — safe to commit.
 //   6. Deploy.
+//
+// Cross-platform notes:
+//   - Desktop/Android browsers + Android TWA: GIS popup flow (no page reload).
+//   - iOS standalone PWA (Add to Home Screen): popups are broken there, so the app
+//     auto-switches to a full-page redirect flow. This REQUIRES the redirect URIs above.
+//   - Same Google account on any platform ⇒ same hidden appDataFolder ⇒ same notes.
 //
 // If empty/placeholder, the cloud sync UI shows a "setup required" hint and stays disabled.
 
