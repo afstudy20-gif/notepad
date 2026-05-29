@@ -3207,16 +3207,18 @@
         btnSignIn.hidden = false;
         userBox.hidden = true;
       }
-      if (state.status === 'setupNeeded') {
-        btnSignIn.disabled = true;
-        btnSignIn.title = tr('cloudSetupNeeded');
-      } else {
-        btnSignIn.disabled = false;
-        btnSignIn.title = '';
-      }
+      // Keep the button clickable even when setup is pending — clicking shows
+      // a clear explanation instead of being a silent dead button.
+      btnSignIn.disabled = false;
+      btnSignIn.title = state.status === 'setupNeeded' ? tr('cloudSetupNeeded') : '';
+      btnSignIn.classList.toggle('needs-setup', state.status === 'setupNeeded');
     }
 
     btnSignIn.addEventListener('click', () => {
+      if (window.__npCloud.getStatus().status === 'setupNeeded') {
+        alert(tr('cloudSetupHelp'));
+        return;
+      }
       window.__npCloud.signIn().catch(e => console.warn('[cloud] signIn', e));
     });
     if (btnSignOut) {
@@ -4165,6 +4167,7 @@
       syncOk: 'Senkronize edildi',
       syncError: 'Senkronizasyon hatası',
       cloudSetupNeeded: 'Google OAuth Client ID eksik (cloud-config.js)',
+      cloudSetupHelp: 'Google Drive senkronizasyonu için OAuth Client ID gerekli.\n\nKurulum (uygulama sahibi yapar):\n1. console.cloud.google.com → yeni proje\n2. Google Drive API\'yi etkinleştir\n3. OAuth consent screen + scope: drive.appdata\n4. Credentials → OAuth client ID (Web)\n   - JS origins: https://not.drtr.uk\n   - Redirect URIs: https://not.drtr.uk/ (sonunda slash)\n5. Client ID\'yi js/cloud-config.js içine yapıştır\n6. Yeniden yükle\n\nDetaylar cloud-config.js dosyasının başında.',
       cloudConfirmSignOut: 'Google hesabınızdan çıkış yapılacak. Yerel notlar korunur. Devam edilsin mi?',
       lastSync: 'Son senkron: '
     },
@@ -4337,6 +4340,7 @@
       syncOk: 'Synced',
       syncError: 'Sync error',
       cloudSetupNeeded: 'Google OAuth Client ID missing (cloud-config.js)',
+      cloudSetupHelp: 'Google Drive sync needs an OAuth Client ID.\n\nSetup (app owner):\n1. console.cloud.google.com → new project\n2. Enable Google Drive API\n3. OAuth consent screen + scope: drive.appdata\n4. Credentials → OAuth client ID (Web)\n   - JS origins: https://not.drtr.uk\n   - Redirect URIs: https://not.drtr.uk/ (trailing slash)\n5. Paste the Client ID into js/cloud-config.js\n6. Reload\n\nFull steps at the top of cloud-config.js.',
       cloudConfirmSignOut: 'Sign out from your Google account? Local notes will be kept.',
       lastSync: 'Last sync: '
     }

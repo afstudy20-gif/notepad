@@ -82,6 +82,10 @@ body.has-image-panel .editor-area {
   opacity: 0.6;
   cursor: not-allowed;
 }
+.cloud-signin-btn.needs-setup {
+  border-style: dashed;
+  border-color: #f0ad4e;
+}
 .cloud-user {
   display: inline-flex;
   align-items: center;
