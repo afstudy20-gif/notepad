@@ -198,8 +198,27 @@
       if (r.ok) {
         userInfo = await r.json();
         localStorage.setItem(LS_USER, JSON.stringify(userInfo));
+        return;
       }
-    } catch (e) { console.warn('[cloud] userinfo', e); }
+    } catch (e) {
+      console.warn('[cloud] userinfo fetch failed, trying Drive about', e);
+    }
+
+    try {
+      // Fallback: use Drive API's about endpoint (authorized by drive.appdata scope)
+      const r = await driveFetch('/about?fields=user');
+      const data = await r.json();
+      if (data && data.user) {
+        userInfo = {
+          email: data.user.emailAddress,
+          name: data.user.displayName,
+          picture: data.user.photoLink
+        };
+        localStorage.setItem(LS_USER, JSON.stringify(userInfo));
+      }
+    } catch (e) {
+      console.warn('[cloud] userinfo fallback failed', e);
+    }
   }
 
   // ---------- Redirect (implicit) flow — universal, works on iOS standalone & TWA ----------
