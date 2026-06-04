@@ -3198,11 +3198,15 @@
       statusEl.textContent = icon;
       const lastSync = state.lastSync ? new Date(state.lastSync).toLocaleString() : '-';
       statusEl.title = `${tr(state.status === 'ok' ? 'syncOk' : state.status === 'syncing' ? 'syncing' : state.status === 'error' ? 'syncError' : state.status === 'setupNeeded' ? 'cloudSetupNeeded' : 'syncIdle')}\n${tr('lastSync')}${lastSync}${state.message ? '\n' + state.message : ''}`;
-      if (state.signedIn && state.user) {
+      if (state.signedIn) {
         btnSignIn.hidden = true;
         userBox.hidden = false;
-        if (avatar && state.user.picture) avatar.src = state.user.picture;
-        if (emailEl) emailEl.textContent = state.user.email || state.user.name || '';
+        if (avatar) {
+          avatar.src = (state.user && state.user.picture) ? state.user.picture : 'icon.svg';
+        }
+        if (emailEl) {
+          emailEl.textContent = (state.user && (state.user.email || state.user.name)) ? (state.user.email || state.user.name) : 'Google Drive';
+        }
       } else {
         btnSignIn.hidden = false;
         userBox.hidden = true;

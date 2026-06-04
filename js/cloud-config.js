@@ -35,8 +35,8 @@
   window.NP_CLOUD_CONFIG = {
     // PASTE OAUTH CLIENT ID HERE (format: 1234567890-abcdef.apps.googleusercontent.com)
     GOOGLE_CLIENT_ID: '866965837196-e30js8ltie1pirn0ohuv3is2uhcecmd3.apps.googleusercontent.com',
-    // Scope: hidden app-private folder in user's Drive
-    SCOPE: 'https://www.googleapis.com/auth/drive.appdata',
+    // Scope: hidden app-private folder in user's Drive + profile info
+    SCOPE: 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile',
     // Drive API base
     DRIVE_API: 'https://www.googleapis.com/drive/v3',
     DRIVE_UPLOAD: 'https://www.googleapis.com/upload/drive/v3',
