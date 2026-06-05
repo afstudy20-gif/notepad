@@ -3945,6 +3945,22 @@
     });
   }
 
+  // Tools & Settings Accordion toggle
+  const btnToolsToggle = $('#btnToolsToggle');
+  const toolsContent = $('#toolsContent');
+  if (btnToolsToggle && toolsContent) {
+    btnToolsToggle.addEventListener('click', () => {
+      const isHidden = toolsContent.style.display === 'none';
+      toolsContent.style.display = isHidden ? 'block' : 'none';
+      btnToolsToggle.classList.toggle('active', isHidden);
+      const arrow = btnToolsToggle.querySelector('.accordion-arrow');
+      if (arrow) {
+        arrow.textContent = isHidden ? '▴' : '▾';
+      }
+    });
+  }
+
+
   // Refresh app: clear ONLY this app's cached files (origin-scoped) + reload
   // Notes (localStorage) and other sites' data are NOT touched.
   // Browser-managed HTTP cache is bypassed via cache-bust query param.
@@ -4184,6 +4200,7 @@
       about: 'Hakkında',
       rights: 'Tüm hakları saklıdır',
       otherTools: 'Diğer araçlar:',
+      toolsSettings: 'Araçlar & Ayarlar',
       moreTools: 'Daha fazla araç → drtr.uk',
       refreshApp: 'Güncelle',
       refreshTip: 'Bu uygulamanın önbelleğini temizle ve yenile (notlar korunur)',
@@ -4357,6 +4374,7 @@
       about: 'About',
       rights: 'All rights reserved',
       otherTools: 'Other tools:',
+      toolsSettings: 'Tools & Settings',
       moreTools: 'More tools → drtr.uk',
       refreshApp: 'Refresh',
       refreshTip: 'Clear this app’s cache and reload (notes are kept)',

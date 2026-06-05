@@ -96,46 +96,55 @@
       <input type="file" id="sqlInput" accept=".sql" style="display:none">
     </div>
     <div class="sidebar-footer-row" style="border-top:none;padding-top:0">
-      <select id="ocrEngine" title="OCR">
-        <option value="paddle" data-i18n="ocrPaddle">PaddleOCR (hızlı)</option>
-        <option value="tesseract" data-i18n="ocrTesseract">Tesseract (TR)</option>
-      </select>
-    </div>
-    <div class="sidebar-footer-row" id="installRow" hidden>
-      <button id="btnInstallApp" class="install-btn" title="Uygulama olarak yükle" data-i18n-title="installAppTip">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><polyline points="7 10 12 15 17 10"/><path d="M5 21h14"/></svg>
-        <span data-i18n="installApp">Uygulama Olarak Yükle</span>
+      <button class="accordion-toggle" id="btnToolsToggle">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span data-i18n="toolsSettings">Araçlar & Ayarlar</span>
+        <span class="accordion-arrow">▾</span>
       </button>
     </div>
-    <div class="sidebar-footer-row" style="border-top:none;padding-top:0">
-      <a id="btnAndroidApk" class="install-btn android-btn" href="./install.html" title="Android uygulaması" data-i18n-title="androidAppTip">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18.01"/></svg>
-        <span data-i18n="androidApp">Android İndir</span>
-      </a>
-    </div>
-    <div class="sidebar-footer-row" style="border-top:none;padding-top:0">
-      <a id="btnChromeExtension" class="install-btn chrome-btn" href="./notepad-web-clipper.zip" download title="ZIP'i indirip çıkarın; Chrome Extensions sayfasında Load unpacked ile manifest.json klasörünü seçin." data-i18n-title="chromeExtensionTip">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
-        <span data-i18n="chromeExtension">Chrome Eklentisi</span>
-      </a>
-    </div>
-    <div class="sidebar-footer-row" style="border-top:none;padding-top:0">
-      <button id="btnRefreshApp" class="refresh-btn" title="Cache temizle ve güncelle" data-i18n-title="refreshTip">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15.5-6.36L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.5 6.36L3 16"/><path d="M3 21v-5h5"/></svg>
-        <span data-i18n="refreshApp">Güncelle</span>
-      </button>
-    </div>
-    <div class="sidebar-about">
-      <button class="about-toggle" id="btnAbout" data-i18n="about">Hakkında</button>
-      <div class="about-panel" id="aboutPanel" hidden>
-        <p class="about-author">© <span data-i18n="rights">Tüm hakları saklıdır</span> · Dr. Yusuf Hoşoğlu</p>
-        <p class="about-links-title" data-i18n="otherTools">Diğer araçlar:</p>
-        <ul class="about-links">
-          <li><a href="https://ustat.drtr.uk/" target="_blank" rel="noopener">Biostatistics · uStat</a></li>
-          <li><a href="https://flow.drtr.uk/" target="_blank" rel="noopener">Academic Flow Designer</a></li>
-          <li><a href="https://neodw.drtr.uk/" target="_blank" rel="noopener">DICOM Viewer · NeoDW</a></li>
-          <li><a href="https://drtr.uk" target="_blank" rel="noopener" class="about-hub" data-i18n="moreTools">Daha fazla araç → drtr.uk</a></li>
-        </ul>
+    <div class="accordion-content" id="toolsContent" style="display:none">
+      <div class="sidebar-footer-row">
+        <select id="ocrEngine" title="OCR" style="width: 100%">
+          <option value="paddle" data-i18n="ocrPaddle">PaddleOCR (hızlı)</option>
+          <option value="tesseract" data-i18n="ocrTesseract">Tesseract (TR)</option>
+        </select>
+      </div>
+      <div class="sidebar-footer-row" id="installRow" hidden>
+        <button id="btnInstallApp" class="install-btn" title="Uygulama olarak yükle" data-i18n-title="installAppTip">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><polyline points="7 10 12 15 17 10"/><path d="M5 21h14"/></svg>
+          <span data-i18n="installApp">Uygulama Olarak Yükle</span>
+        </button>
+      </div>
+      <div class="sidebar-footer-row" style="border-top:none;padding-top:0">
+        <a id="btnAndroidApk" class="install-btn android-btn" href="./install.html" title="Android uygulaması" data-i18n-title="androidAppTip">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18.01"/></svg>
+          <span data-i18n="androidApp">Android İndir</span>
+        </a>
+      </div>
+      <div class="sidebar-footer-row" style="border-top:none;padding-top:0">
+        <a id="btnChromeExtension" class="install-btn chrome-btn" href="./notepad-web-clipper.zip" download title="ZIP'i indirip çıkarın; Chrome Extensions sayfasında Load unpacked ile manifest.json klasörünü seçin." data-i18n-title="chromeExtensionTip">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+          <span data-i18n="chromeExtension">Chrome Eklentisi</span>
+        </a>
+      </div>
+      <div class="sidebar-footer-row" style="border-top:none;padding-top:0">
+        <button id="btnRefreshApp" class="refresh-btn" title="Cache temizle ve güncelle" data-i18n-title="refreshTip">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15.5-6.36L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.5 6.36L3 16"/><path d="M3 21v-5h5"/></svg>
+          <span data-i18n="refreshApp">Güncelle</span>
+        </button>
+      </div>
+      <div class="sidebar-about" style="border-top:none;padding-top:0">
+        <button class="about-toggle" id="btnAbout" data-i18n="about">Hakkında</button>
+        <div class="about-panel" id="aboutPanel" hidden>
+          <p class="about-author">© <span data-i18n="rights">Tüm hakları saklıdır</span> · Dr. Yusuf Hoşoğlu</p>
+          <p class="about-links-title" data-i18n="otherTools">Diğer araçlar:</p>
+          <ul class="about-links">
+            <li><a href="https://ustat.drtr.uk/" target="_blank" rel="noopener">Biostatistics · uStat</a></li>
+            <li><a href="https://flow.drtr.uk/" target="_blank" rel="noopener">Academic Flow Designer</a></li>
+            <li><a href="https://neodw.drtr.uk/" target="_blank" rel="noopener">DICOM Viewer · NeoDW</a></li>
+            <li><a href="https://drtr.uk" target="_blank" rel="noopener" class="about-hub" data-i18n="moreTools">Daha fazla araç → drtr.uk</a></li>
+          </ul>
+        </div>
       </div>
     </div>
   </aside>

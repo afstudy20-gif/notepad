@@ -241,12 +241,44 @@ body.has-image-panel .editor-area {
 .lang-select:hover { background: rgba(255,255,255,0.16); }
 .lang-select option { background: #1a1a2e; color: #fff; }
 
-/* Footer dropup menus (Import / Backup) */
 .sidebar-footer-row {
   display: flex;
   gap: 4px;
   padding: 4px 8px;
   border-top: 1px solid rgba(255,255,255,0.08);
+}
+.accordion-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.85);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.accordion-toggle:hover {
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+}
+.accordion-toggle.active {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.2);
+}
+.accordion-arrow {
+  margin-left: auto;
+  font-size: 10px;
+  opacity: 0.7;
+}
+.accordion-content {
+  background: rgba(0,0,0,0.15);
+  border-top: 1px dashed rgba(255,255,255,0.05);
+  padding: 4px 0;
 }
 
 .sidebar-footer-row select {
@@ -522,7 +554,7 @@ body.has-image-panel .editor-area {
 }
 
 .note-item {
-  padding: 12px 20px 12px 44px;
+  padding: 8px 16px 8px 40px;
   cursor: pointer;
   border-left: 3px solid transparent;
   transition: all 0.15s;
@@ -530,8 +562,8 @@ body.has-image-panel .editor-area {
 }
 .note-item .note-check {
   position: absolute;
-  left: 16px;
-  top: 12px;
+  left: 14px;
+  top: 10px;
   width: 16px;
   height: 16px;
   cursor: pointer;
@@ -711,16 +743,16 @@ body.has-image-panel .editor-area {
 .gp-actions .gp-primary:hover { background: #2540c4; }
 
 .note-item-title {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .note-item-preview {
-  font-size: 12px;
+  font-size: 11px;
   color: rgba(255,255,255,0.5);
   white-space: nowrap;
   overflow: hidden;
@@ -728,9 +760,9 @@ body.has-image-panel .editor-area {
 }
 
 .note-item-time {
-  font-size: 11px;
+  font-size: 10px;
   color: rgba(255,255,255,0.3);
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 /* Editor Area */
