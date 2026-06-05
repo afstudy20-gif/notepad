@@ -2474,32 +2474,26 @@
         openGroupPicker(targets[0].id);
       }
     } else if (action === 'delete') {
-      const n = targets.length;
-      const msg = n === 1
-        ? `"${targets[0].title || 'Untitled Note'}" silinsin mi?`
-        : `${n} not silinsin mi?`;
-      if (confirm(msg)) {
-        targets.forEach(t => {
-          t.deleted = Date.now();
-          t.updated = t.deleted;
-          t.version = (t.version || 0) + 1;
-          if (window.__npCloud) window.__npCloud.markDirty(t.id);
-        });
-        const ids = new Set(targets.map(t => t.id));
-        ids.forEach(id => selectedNoteIds.delete(id));
-        
-        const visible = notes.filter(n => !n.deleted);
-        if (visible.length === 0) {
-          createNote();
-          return;
-        }
-        if (ids.has(activeId)) {
-          activeId = visible[0].id;
-          loadNote(activeId);
-        }
-        saveNotes();
-        renderNoteList();
+      targets.forEach(t => {
+        t.deleted = Date.now();
+        t.updated = t.deleted;
+        t.version = (t.version || 0) + 1;
+        if (window.__npCloud) window.__npCloud.markDirty(t.id);
+      });
+      const ids = new Set(targets.map(t => t.id));
+      ids.forEach(id => selectedNoteIds.delete(id));
+      
+      const visible = notes.filter(n => !n.deleted);
+      if (visible.length === 0) {
+        createNote();
+        return;
       }
+      if (ids.has(activeId)) {
+        activeId = visible[0].id;
+        loadNote(activeId);
+      }
+      saveNotes();
+      renderNoteList();
     }
     ctxTargetId = null;
     ctxIsMulti = false;
@@ -2763,9 +2757,7 @@
 
   // Delete note
   $('#btnDelete').addEventListener('click', () => {
-    if (confirm('Delete this note?')) {
-      deleteNote(activeId);
-    }
+    deleteNote(activeId);
   });
 
   // Find & Replace
