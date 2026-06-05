@@ -345,7 +345,13 @@
     if (!tokenClient) await initTokenClient();
     await new Promise((resolve, reject) => {
       const prev = tokenClient.callback;
+      const timeoutId = setTimeout(() => {
+        tokenClient.callback = prev;
+        reject(new Error('Silent token refresh timed out (often due to blocked third-party cookies)'));
+      }, 5000);
+
       tokenClient.callback = (resp) => {
+        clearTimeout(timeoutId);
         tokenClient.callback = prev;
         if (resp.error) { reject(new Error(resp.error)); return; }
         accessToken = resp.access_token;
