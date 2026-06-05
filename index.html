@@ -14,7 +14,7 @@
   <title>Notepad — Local-Only Text Editor</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
-  <link rel="stylesheet" href="style.css?v=72">
+  <link rel="stylesheet" href="style.css?v=73">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -59,6 +59,10 @@
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       <span data-i18n="newNote">Yeni Not</span>
     </button>
+    <div class="sidebar-tabs">
+      <button class="tab-btn active" id="tabNotes" data-i18n="myNotes">Notlarım</button>
+      <button class="tab-btn" id="tabTrash" data-i18n="trashBin">Çöp Kutusu</button>
+    </div>
     <div class="search-box">
       <input type="text" id="searchInput" data-i18n-placeholder="searchNotes" placeholder="Notlarda ara...">
     </div>
@@ -68,6 +72,9 @@
         <span data-i18n="selectAll">Tümünü Seç</span>
       </label>
       <span class="selection-count" id="selectionCount"></span>
+    </div>
+    <div class="trash-actions-row" id="trashActionsRow" style="display:none">
+      <button id="btnEmptyTrash" class="trash-btn-danger" data-i18n="emptyTrash">Çöpü Boşalt</button>
     </div>
     <div class="note-list" id="noteList"></div>
     <div class="sidebar-footer-row">
@@ -320,6 +327,14 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
         </button>
       </div>
+    </div>
+
+    <!-- Trash Banner -->
+    <div class="trash-banner" id="trashBanner" style="display:none">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:8px;flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span data-i18n="trashBannerText" style="flex:1">Bu not Çöp Kutusu'nda bulunuyor.</span>
+      <button id="btnRestoreNote" class="trash-banner-btn" data-i18n="restore">Kurtar</button>
+      <button id="btnPurgeNote" class="trash-banner-btn danger" data-i18n="deletePermanently">Kalıcı Olarak Sil</button>
     </div>
 
     <!-- Note Title -->
@@ -737,15 +752,15 @@
 
   <script src="./vendor/html2pdf.bundle.min.js"></script>
   <script src="./vendor/html-docx.js"></script>
-  <script src="js/cloud-config.js?v=72"></script>
-  <script src="js/cloud-sync.js?v=72"></script>
-  <script src="app.js?v=72"></script>
+  <script src="js/cloud-config.js?v=73"></script>
+  <script src="js/cloud-sync.js?v=73"></script>
+  <script src="app.js?v=73"></script>
   <script>
     // Register service worker for PWA install + offline shell.
     // SW uses network-first for HTML/JS so updates roll out without manual refresh.
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=71').catch((err) => {
+        navigator.serviceWorker.register('./sw.js?v=73').catch((err) => {
           console.warn('[sw] register failed', err);
         });
       });

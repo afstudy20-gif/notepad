@@ -38,6 +38,20 @@
     } catch {
       notes = [];
     }
+
+    // Prune old deleted notes on startup
+    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const isCloudConnected = window.__npCloud && window.__npCloud.isSignedIn();
+    notes = notes.filter(n => {
+      if (n.deleted === 1) {
+        return !!isCloudConnected; // Keep only if cloud can sync the purge
+      }
+      if (n.deleted && typeof n.deleted === 'number' && n.deleted < thirtyDaysAgo) {
+        return false;
+      }
+      return true;
+    });
+
     activeId = localStorage.getItem(ACTIVE_KEY);
     const visible = notes.filter(n => !n.deleted);
     if (visible.length === 0) {
@@ -125,12 +139,93 @@
     renderNoteList();
   }
 
+  function purgeNotePermanently(id) {
+    const target = notes.find(n => n.id === id);
+    if (!target) return;
+
+    const isCloudConnected = window.__npCloud && window.__npCloud.isSignedIn();
+    if (isCloudConnected) {
+      target.deleted = 1;
+      target.updated = Date.now();
+      target.version = (target.version || 0) + 1;
+      window.__npCloud.markDirty(id);
+    } else {
+      notes = notes.filter(n => n.id !== id);
+    }
+
+    const visible = notes.filter(n => !n.deleted);
+    if (visible.length === 0) {
+      createNote();
+      return;
+    }
+    if (activeId === id) {
+      activeId = visible[0].id;
+      loadNote(activeId);
+    }
+    saveNotes();
+    renderNoteList();
+  }
+
+  function emptyTrash() {
+    const isCloudConnected = window.__npCloud && window.__npCloud.isSignedIn();
+    const deletedNotes = notes.filter(n => n.deleted && n.deleted !== 1);
+    if (deletedNotes.length === 0) return;
+
+    if (isCloudConnected) {
+      deletedNotes.forEach(target => {
+        target.deleted = 1;
+        target.updated = Date.now();
+        target.version = (target.version || 0) + 1;
+        window.__npCloud.markDirty(target.id);
+      });
+    } else {
+      notes = notes.filter(n => !n.deleted);
+    }
+
+    saveNotes();
+    renderNoteList();
+
+    const visible = notes.filter(n => !n.deleted);
+    if (visible.length === 0) {
+      createNote();
+    } else {
+      const activeNote = notes.find(n => n.id === activeId);
+      if (!activeNote || activeNote.deleted) {
+        activeId = visible[0].id;
+        loadNote(activeId);
+      }
+    }
+  }
+
+  function restoreNote(id) {
+    const target = notes.find(n => n.id === id);
+    if (!target) return;
+    target.deleted = null;
+    target.updated = Date.now();
+    target.version = (target.version || 0) + 1;
+    if (window.__npCloud) window.__npCloud.markDirty(id);
+    saveNotes();
+    renderNoteList();
+    loadNote(id);
+  }
+
   function loadNote(id) {
     const note = notes.find(n => n.id === id);
     if (!note) return;
     activeId = id;
     noteTitle.value = note.title;
     editor.innerHTML = note.content;
+
+    // Handle deleted state (trash banner & read-only)
+    const banner = $('#trashBanner');
+    if (banner) {
+      banner.style.display = note.deleted ? 'flex' : 'none';
+    }
+    editor.contentEditable = note.deleted ? 'false' : 'true';
+    noteTitle.readOnly = !!note.deleted;
+    const btnDel = $('#btnDelete');
+    if (btnDel) btnDel.disabled = !!note.deleted;
+
     updateCounts();
     renderNoteList();
     localStorage.setItem(ACTIVE_KEY, activeId);
@@ -221,6 +316,7 @@
   window.__npGetAllGroups = getAllGroups;
 
   // ===== Multi-select state =====
+  let currentSidebarTab = 'notes'; // 'notes' or 'trash'
   let selectedNoteIds = new Set();
   function updateSelectionUI() {
     const count = selectedNoteIds.size;
@@ -235,7 +331,9 @@
     }
   }
   function getFilteredNotes() {
-    const visible = notes.filter(n => !n.deleted);
+    const visible = (currentSidebarTab === 'trash')
+      ? notes.filter(n => n.deleted && n.deleted !== 1)
+      : notes.filter(n => !n.deleted);
     const query = (searchInput.value || '').toLowerCase();
     return query
       ? visible.filter(n =>
@@ -246,14 +344,7 @@
   }
 
   function renderNoteList() {
-    const visible = notes.filter(n => !n.deleted);
-    const query = searchInput.value.toLowerCase();
-    const filtered = query
-      ? visible.filter(n =>
-          (n.title || '').toLowerCase().includes(query) ||
-          stripHtml(n.content).toLowerCase().includes(query)
-        )
-      : visible;
+    const filtered = getFilteredNotes();
 
     // Group notes
     const groupsMap = new Map();
@@ -321,6 +412,15 @@
         updateSelectionUI();
       });
     });
+    const selAllRow = $('#selectAllRow');
+    const trashActRow = $('#trashActionsRow');
+    if (currentSidebarTab === 'trash') {
+      if (selAllRow) selAllRow.style.display = 'none';
+      if (trashActRow) trashActRow.style.display = 'block';
+    } else {
+      if (selAllRow) selAllRow.style.display = 'flex';
+      if (trashActRow) trashActRow.style.display = 'none';
+    }
     updateSelectionUI();
     noteList.querySelectorAll('.note-group-header').forEach(el => {
       el.addEventListener('click', () => {
@@ -2198,8 +2298,70 @@
     renderNoteList();
   });
 
-  // Create note
   $('#btnCreate').addEventListener('click', createNote);
+
+  // Sidebar Tabs (Notes / Trash)
+  const tabNotes = $('#tabNotes');
+  const tabTrash = $('#tabTrash');
+  if (tabNotes && tabTrash) {
+    tabNotes.addEventListener('click', () => {
+      currentSidebarTab = 'notes';
+      tabNotes.classList.add('active');
+      tabTrash.classList.remove('active');
+      renderNoteList();
+      // Load first visible note if active note is deleted
+      const visible = notes.filter(n => !n.deleted);
+      if (visible.length > 0) {
+        const found = visible.find(n => n.id === activeId);
+        if (!found) loadNote(visible[0].id);
+      }
+    });
+    tabTrash.addEventListener('click', () => {
+      currentSidebarTab = 'trash';
+      tabTrash.classList.add('active');
+      tabNotes.classList.remove('active');
+      renderNoteList();
+      // Load first trash note if active note is not deleted
+      const deletedNotes = notes.filter(n => n.deleted && n.deleted !== 1);
+      if (deletedNotes.length > 0) {
+        const found = deletedNotes.find(n => n.id === activeId);
+        if (!found) loadNote(deletedNotes[0].id);
+      }
+    });
+  }
+
+  // Trash actions
+  const btnEmptyTrash = $('#btnEmptyTrash');
+  if (btnEmptyTrash) {
+    btnEmptyTrash.addEventListener('click', () => {
+      const msg = (CURRENT_LANG === 'en')
+        ? 'Are you sure you want to permanently delete all notes in the Trash?'
+        : 'Çöp Kutusu\'ndaki tüm notları kalıcı olarak silmek istediğinize emin misiniz?';
+      if (confirm(msg)) {
+        emptyTrash();
+      }
+    });
+  }
+
+  // Trash Banner Buttons
+  const btnRestoreNote = $('#btnRestoreNote');
+  if (btnRestoreNote) {
+    btnRestoreNote.addEventListener('click', () => {
+      if (activeId) restoreNote(activeId);
+    });
+  }
+
+  const btnPurgeNote = $('#btnPurgeNote');
+  if (btnPurgeNote) {
+    btnPurgeNote.addEventListener('click', () => {
+      const msg = (CURRENT_LANG === 'en')
+        ? 'Are you sure you want to permanently delete this note? This action cannot be undone.'
+        : 'Bu notu kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz.';
+      if (confirm(msg)) {
+        if (activeId) purgeNotePermanently(activeId);
+      }
+    });
+  }
 
   // Select-all
   $('#selectAllCheckbox').addEventListener('change', (e) => {
@@ -2218,6 +2380,7 @@
   let ctxIsMulti = false;
 
   noteList.addEventListener('contextmenu', (e) => {
+    if (currentSidebarTab === 'trash') return; // Disable context menu in Trash
     const item = e.target.closest('.note-item');
     if (!item) return;
     e.preventDefault();
@@ -2316,15 +2479,22 @@
         ? `"${targets[0].title || 'Untitled Note'}" silinsin mi?`
         : `${n} not silinsin mi?`;
       if (confirm(msg)) {
+        targets.forEach(t => {
+          t.deleted = Date.now();
+          t.updated = t.deleted;
+          t.version = (t.version || 0) + 1;
+          if (window.__npCloud) window.__npCloud.markDirty(t.id);
+        });
         const ids = new Set(targets.map(t => t.id));
-        notes = notes.filter(n => !ids.has(n.id));
         ids.forEach(id => selectedNoteIds.delete(id));
+        
+        const visible = notes.filter(n => !n.deleted);
+        if (visible.length === 0) {
+          createNote();
+          return;
+        }
         if (ids.has(activeId)) {
-          if (notes.length === 0) {
-            createNote();
-            return;
-          }
-          activeId = notes[0].id;
+          activeId = visible[0].id;
           loadNote(activeId);
         }
         saveNotes();
@@ -4050,6 +4220,12 @@
   I18N_TABLE = {
     tr: {
       notes: 'Notlar',
+      myNotes: 'Notlarım',
+      trashBin: 'Çöp Kutusu',
+      emptyTrash: 'Çöpü Boşalt',
+      trashBannerText: 'Bu not Çöp Kutusu\'nda bulunuyor.',
+      restore: 'Kurtar',
+      deletePermanently: 'Kalıcı Olarak Sil',
       privacy: 'Yerel — sunucuya yüklenmez',
       privacyTooltip: 'Tüm notlar tarayıcınızda yerel olarak saklanır. Hiçbir şey yüklenmez.',
       newNote: 'Yeni Not',
@@ -4224,6 +4400,12 @@
     },
     en: {
       notes: 'Notes',
+      myNotes: 'My Notes',
+      trashBin: 'Trash Bin',
+      emptyTrash: 'Empty Trash',
+      trashBannerText: 'This note is in the Trash Bin.',
+      restore: 'Restore',
+      deletePermanently: 'Delete Permanently',
       privacy: 'Local only — no server',
       privacyTooltip: 'All notes are stored locally in your browser. Nothing is uploaded.',
       newNote: 'New Note',

@@ -504,14 +504,36 @@
       const r = remoteMap.get(note.id);
       const localNewer = !r || (note.updated || 0) > (r.updated || 0);
       if (!localNewer) continue;
+
+      const fname = `note-${note.id}.json`;
+      const existing = fileMap.get(fname);
+
+      if (note.deleted) {
+        // If note is deleted locally, delete the note file from Drive (if exists)
+        if (existing) {
+          try {
+            await deleteFile(existing.id);
+            fileMap.delete(fname);
+          } catch (e) {
+            console.warn('[cloud] failed to delete note file from Drive', note.id, e);
+          }
+        }
+        remoteMap.set(note.id, {
+          id: note.id,
+          updated: note.updated,
+          deleted: note.deleted,
+          rev: null,
+        });
+        pushed++;
+        continue;
+      }
+
       // Size guard
       const payload = JSON.stringify(note);
       if (payload.length > CFG.MAX_NOTE_BYTES) {
         console.warn('[cloud] note too large, skipping', note.id, payload.length);
         continue;
       }
-      const fname = `note-${note.id}.json`;
-      const existing = fileMap.get(fname);
       try {
         const uploaded = await uploadJson(fname, note, existing ? existing.id : null);
         note.rev = uploaded.id;
@@ -526,6 +548,15 @@
         console.warn('[cloud] push note failed', note.id, e);
       }
     }
+
+    // Clean up remote index: remove tombstones that are older than 30 days
+    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    for (const [id, r] of remoteMap.entries()) {
+      if (r.deleted && typeof r.deleted === 'number' && r.deleted < thirtyDaysAgo) {
+        remoteMap.delete(id);
+      }
+    }
+
     // Always rebuild + push index
     const newIndex = {
       version: 1,
@@ -537,7 +568,26 @@
     } catch (e) {
       console.warn('[cloud] push index failed', e);
     }
-    // Persist rev IDs to local
+
+    // Clean up local notes that are permanently deleted (deleted === 1) or older than 30 days
+    let hasPurged = false;
+    const cleanLocal = local.filter((note) => {
+      if (note.deleted === 1) {
+        hasPurged = true;
+        return false;
+      }
+      if (note.deleted && typeof note.deleted === 'number' && note.deleted < thirtyDaysAgo) {
+        hasPurged = true;
+        return false;
+      }
+      return true;
+    });
+
+    if (hasPurged) {
+      window.__npNotes = cleanLocal;
+    }
+
+    // Persist rev IDs to local (and saves the cleaned list)
     window.__npSaveNotes && window.__npSaveNotes();
     return { pushed };
   }
