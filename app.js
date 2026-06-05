@@ -3231,6 +3231,21 @@
       btnSignIn.disabled = false;
       btnSignIn.title = state.status === 'setupNeeded' ? tr('cloudSetupNeeded') : '';
       btnSignIn.classList.toggle('needs-setup', state.status === 'setupNeeded');
+
+      // Update privacy note dynamically based on cloud state
+      const privacyTextEl = $('#privacyNoteText');
+      const privacyNoteEl = $('#privacyNoteEl');
+      if (privacyTextEl && privacyNoteEl) {
+        if (state.signedIn) {
+          privacyTextEl.textContent = (CURRENT_LANG === 'en') ? 'Cloud sync active — backed up' : 'Bulut eşitleme aktif — yedekleniyor';
+          privacyNoteEl.title = (CURRENT_LANG === 'en') 
+            ? 'Notes are synced and backed up to your personal Google Drive app folder.' 
+            : 'Notlar kişisel Google Drive uygulama klasörünüzle senkronize edilir ve yedeklenir.';
+        } else {
+          privacyTextEl.textContent = tr('privacy');
+          privacyNoteEl.title = tr('privacyTooltip');
+        }
+      }
     }
 
     btnSignIn.addEventListener('click', () => {
