@@ -134,6 +134,14 @@ body.has-image-panel .editor-area {
   cursor: help;
   margin-left: auto;
 }
+.cloud-sync-msg {
+  font-size: 10px;
+  color: rgba(255,255,255,0.6);
+  width: 100%;
+  margin-top: 4px;
+  text-align: left;
+  line-height: 1.3;
+}
 
 .sidebar-footer {
   display: flex;

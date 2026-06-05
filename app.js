@@ -3196,6 +3196,21 @@
     function render(state) {
       const icon = ICONS[state.status] || '⚪';
       statusEl.textContent = icon;
+
+      const msgEl = $('#cloudSyncMsg');
+      if (msgEl) {
+        if (state.status === 'syncing') {
+          msgEl.textContent = (CURRENT_LANG === 'en') ? 'Syncing notes, please wait...' : 'Not senkronizasyonu yapılıyor, lütfen bekleyin...';
+          msgEl.style.display = 'inline-block';
+        } else if (state.status === 'error') {
+          msgEl.textContent = state.message || ((CURRENT_LANG === 'en') ? 'Sync error' : 'Senkronizasyon hatası');
+          msgEl.style.display = 'inline-block';
+        } else {
+          msgEl.textContent = '';
+          msgEl.style.display = 'none';
+        }
+      }
+
       const lastSync = state.lastSync ? new Date(state.lastSync).toLocaleString() : '-';
       statusEl.title = `${tr(state.status === 'ok' ? 'syncOk' : state.status === 'syncing' ? 'syncing' : state.status === 'error' ? 'syncError' : state.status === 'setupNeeded' ? 'cloudSetupNeeded' : 'syncIdle')}\n${tr('lastSync')}${lastSync}${state.message ? '\n' + state.message : ''}`;
       if (state.signedIn) {
