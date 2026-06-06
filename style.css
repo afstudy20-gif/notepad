@@ -524,27 +524,54 @@ body.has-image-panel .editor-area {
   color: #b6cdff;
 }
 
-.search-box {
+.search-sort-row {
+  display: flex;
   padding: 8px 20px;
+  gap: 8px;
+  align-items: center;
 }
 
-.search-box input {
-  width: 100%;
+.search-sort-row input {
+  flex: 2.2;
   padding: 8px 12px;
-  background: rgba(255,255,255,0.1);
-  border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
   border-radius: 6px;
   color: #fff;
   font-size: 13px;
   outline: none;
+  transition: border-color 0.15s;
 }
 
-.search-box input::placeholder {
+.search-sort-row input::placeholder {
   color: rgba(255,255,255,0.4);
 }
 
-.search-box input:focus {
+.search-sort-row input:focus {
   border-color: #4361ee;
+}
+
+.search-sort-row select {
+  flex: 1;
+  padding: 8px 6px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 6px;
+  color: rgba(255,255,255,0.85);
+  font-size: 12px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.search-sort-row select:focus, .search-sort-row select:hover {
+  border-color: #4361ee;
+  color: #fff;
+}
+
+.search-sort-row select option {
+  background: #1a1a2e;
+  color: #fff;
 }
 
 .note-list {
@@ -2446,7 +2473,7 @@ body.has-image-panel .image-panel {
   }
   /* iOS: prevent zoom on focus by enforcing >=16px input font-size */
   .note-title-bar input,
-  .search-box input,
+  .search-sort-row input,
   #findInput,
   #replaceInput,
   .ip-size-row input {
@@ -2517,7 +2544,7 @@ body.has-image-panel .image-panel {
     padding: 13px 16px;
     font-size: 16px;
   }
-  .search-box {
+  .search-sort-row {
     padding: 6px 14px;
   }
   .note-item {

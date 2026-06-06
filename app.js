@@ -330,17 +330,36 @@
       all.indeterminate = !all.checked && filtered.some(n => selectedNoteIds.has(n.id));
     }
   }
+  let currentSortOption = localStorage.getItem('np_sort_option') || 'date'; // 'date' or 'name'
+
   function getFilteredNotes() {
     const visible = (currentSidebarTab === 'trash')
       ? notes.filter(n => n.deleted && n.deleted !== 1)
       : notes.filter(n => !n.deleted);
+
+    // Sort visible notes
+    const sorted = [...visible];
+    if (currentSortOption === 'name') {
+      sorted.sort((a, b) => {
+        const titleA = (a.title || '').trim().toLowerCase();
+        const titleB = (b.title || '').trim().toLowerCase();
+        if (!titleA && !titleB) return 0;
+        if (!titleA) return 1; // Put untitled at bottom
+        if (!titleB) return -1;
+        return titleA.localeCompare(titleB, 'tr');
+      });
+    } else {
+      // Default: date (newest first)
+      sorted.sort((a, b) => (b.updated || 0) - (a.updated || 0));
+    }
+
     const query = (searchInput.value || '').toLowerCase();
     return query
-      ? visible.filter(n =>
+      ? sorted.filter(n =>
           (n.title || '').toLowerCase().includes(query) ||
           stripHtml(n.content).toLowerCase().includes(query)
         )
-      : visible;
+      : sorted;
   }
 
   function renderNoteList() {
@@ -2300,6 +2319,17 @@
 
   $('#btnCreate').addEventListener('click', createNote);
 
+  // Sort Selection
+  const sortSelect = $('#sortSelect');
+  if (sortSelect) {
+    sortSelect.value = currentSortOption;
+    sortSelect.addEventListener('change', (e) => {
+      currentSortOption = e.target.value;
+      localStorage.setItem('np_sort_option', currentSortOption);
+      renderNoteList();
+    });
+  }
+
   // Sidebar Tabs (Notes / Trash)
   const tabNotes = $('#tabNotes');
   const tabTrash = $('#tabTrash');
@@ -4222,6 +4252,8 @@
       privacyTooltip: 'Tüm notlar tarayıcınızda yerel olarak saklanır. Hiçbir şey yüklenmez.',
       newNote: 'Yeni Not',
       searchNotes: 'Notlarda ara...',
+      sortByDate: 'Tarih',
+      sortByName: 'İsim',
       untitled: 'İsimsiz Not',
       clipTargetTitle: 'Web clip nereye eklensin?',
       clipNewNote: 'Yeni not oluştur',
@@ -4402,6 +4434,8 @@
       privacyTooltip: 'All notes are stored locally in your browser. Nothing is uploaded.',
       newNote: 'New Note',
       searchNotes: 'Search notes...',
+      sortByDate: 'Date',
+      sortByName: 'Name',
       untitled: 'Untitled Note',
       clipTargetTitle: 'Add web clip to which note?',
       clipNewNote: 'Create new note',

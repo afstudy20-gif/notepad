@@ -14,7 +14,7 @@
   <title>Notepad — Local-Only Text Editor</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
-  <link rel="stylesheet" href="style.css?v=74">
+  <link rel="stylesheet" href="style.css?v=75">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -63,8 +63,12 @@
       <button class="tab-btn active" id="tabNotes" data-i18n="myNotes">Notlarım</button>
       <button class="tab-btn" id="tabTrash" data-i18n="trashBin">Çöp Kutusu</button>
     </div>
-    <div class="search-box">
+    <div class="search-sort-row">
       <input type="text" id="searchInput" data-i18n-placeholder="searchNotes" placeholder="Notlarda ara...">
+      <select id="sortSelect" title="Sırala">
+        <option value="date" data-i18n="sortByDate">Tarih</option>
+        <option value="name" data-i18n="sortByName">İsim</option>
+      </select>
     </div>
     <div class="select-all-row" id="selectAllRow">
       <label class="select-all-label">
@@ -752,15 +756,15 @@
 
   <script src="./vendor/html2pdf.bundle.min.js"></script>
   <script src="./vendor/html-docx.js"></script>
-  <script src="js/cloud-config.js?v=74"></script>
-  <script src="js/cloud-sync.js?v=74"></script>
-  <script src="app.js?v=74"></script>
+  <script src="js/cloud-config.js?v=75"></script>
+  <script src="js/cloud-sync.js?v=75"></script>
+  <script src="app.js?v=75"></script>
   <script>
     // Register service worker for PWA install + offline shell.
     // SW uses network-first for HTML/JS so updates roll out without manual refresh.
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=74').catch((err) => {
+        navigator.serviceWorker.register('./sw.js?v=75').catch((err) => {
           console.warn('[sw] register failed', err);
         });
       });
