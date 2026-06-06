@@ -3,16 +3,16 @@
 //   - HTML/JS/CSS (app shell): network-first, fallback cache
 //   - Static icons + vendor libs: cache-first
 //   - Cross-origin (CDN libs): cache opaque responses, cache-first fallback
-const VERSION = 'v75';
+const VERSION = 'v76';
 const CACHE = `notepad-${VERSION}`;
 const SHELL = [
   './',
   './index.html',
   './install.html',
-  './style.css?v=75',
-  './app.js?v=75',
-  './js/cloud-config.js?v=75',
-  './js/cloud-sync.js?v=75',
+  './style.css?v=76',
+  './app.js?v=76',
+  './js/cloud-config.js?v=76',
+  './js/cloud-sync.js?v=76',
   './notepad-web-clipper.zip',
   './manifest.webmanifest',
   './icon.svg',
@@ -75,7 +75,7 @@ self.addEventListener('fetch', (e) => {
         const cached = await caches.match(req);
         if (cached) return cached;
         try {
-          const fresh = await fetch(req, { mode: 'no-cors' });
+          const fresh = await fetch(req);
           const cache = await caches.open(CACHE);
           cache.put(req, fresh.clone()).catch(() => {});
           return fresh;

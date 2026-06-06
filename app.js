@@ -3811,6 +3811,22 @@
     if (e.target.closest('#editorContextMenu')) return;
     deselectImage();
   }, true);
+
+  // Mobile touch selection
+  document.addEventListener('touchstart', (e) => {
+    const img = e.target.closest && e.target.closest('#editor img');
+    console.log('[select] touchstart target=', e.target.tagName, 'img?', !!img);
+    if (img) {
+      selectImage(img);
+      return;
+    }
+    if (e.target.closest('.img-sel-overlay')) return;
+    if (!selectedImg) return;
+    if (e.target.closest('.image-panel')) return;
+    if (e.target.closest('.toolbar')) return;
+    if (e.target.closest('#editorContextMenu')) return;
+    deselectImage();
+  }, { capture: true, passive: true });
   // Right-click image also selects it
   document.addEventListener('contextmenu', (e) => {
     const img = e.target.closest && e.target.closest('#editor img');
