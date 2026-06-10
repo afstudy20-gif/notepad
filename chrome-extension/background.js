@@ -240,7 +240,7 @@ async function executeScriptIsolated(tabId, func, args = []) {
 
 async function getNotepadNotes() {
   const notepadUrl = await getNotepadUrl();
-  const tab = await ensureNotepadTab(notepadUrl, { active: false });
+  const tab = await ensureNotepadTab(notepadUrl, { active: true });
   if (!tab?.id) {
     return { notes: [] };
   }
