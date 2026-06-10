@@ -53,6 +53,13 @@ chrome.runtime.onInstalled.addListener(async () => {
       title: 'Sayfa Adresi ve PDF (Varsa)',
       contexts: ['page', 'link', 'selection']
     });
+
+    chrome.contextMenus.create({
+      id: 'clip-txt',
+      parentId: 'notepad-parent',
+      title: 'Tüm Sayfa İçeriği (TXT)',
+      contexts: ['page', 'link', 'selection']
+    });
   });
 });
 
@@ -77,6 +84,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   else if (info.menuItemId === 'clip-viewport') optionType = 'viewport';
   else if (info.menuItemId === 'clip-scroll') optionType = 'scroll';
   else if (info.menuItemId === 'clip-pdf') optionType = 'pdf';
+  else if (info.menuItemId === 'clip-txt') optionType = 'txt';
 
   try {
     await flashBadge(tab.id, '...', '#4361ee');
@@ -155,10 +163,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 });
 
 async function saveTabToNotepad(tab, target = {}) {
-  const optionType = target.optionType || 'scroll'; // 'url', 'viewport', 'scroll', 'pdf'
+  const optionType = target.optionType || 'scroll'; // 'url', 'viewport', 'scroll', 'pdf', 'txt'
   
   let screenshot = { dataUrl: '', mode: 'none' };
   let pdfAttachment = null;
+  let pageText = '';
 
   if (optionType === 'viewport') {
     screenshot = await captureScreenshot(tab, { fullPage: false });
@@ -170,9 +179,23 @@ async function saveTabToNotepad(tab, target = {}) {
     pdfAttachment = await capturePdfAttachment(tab);
   }
 
+  if (optionType === 'txt' && tab?.id) {
+    try {
+      const results = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: () => {
+          return document.body.innerText || '';
+        }
+      });
+      pageText = results?.[0]?.result || '';
+    } catch (err) {
+      console.warn('[notepad-clipper] failed to extract page text:', err);
+    }
+  }
+
   const payload = {
     title: tab?.title || 'Web sayfası',
-    text: '',
+    text: pageText,
     url: isWebUrl(tab?.url) ? tab.url : '',
     screenshotDataUrl: screenshot.dataUrl,
     screenshotMode: screenshot.mode,

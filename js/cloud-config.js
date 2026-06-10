@@ -41,8 +41,8 @@
     DRIVE_API: 'https://www.googleapis.com/drive/v3',
     DRIVE_UPLOAD: 'https://www.googleapis.com/upload/drive/v3',
     // Sync tuning
-    PUSH_DEBOUNCE_MS: 10000,     // wait N ms after last edit before pushing
-    PULL_INTERVAL_MS: 60000,     // background pull cadence
+    PUSH_DEBOUNCE_MS: 30000,     // wait N ms after last edit before pushing
+    PULL_INTERVAL_MS: 120000,    // background pull cadence
     MAX_NOTE_BYTES: 5 * 1024 * 1024, // 5 MB per note JSON (Drive accepts larger; cap for sanity)
   };
 })();

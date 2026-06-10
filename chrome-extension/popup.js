@@ -16,7 +16,8 @@ const captureTexts = {
   url: 'Sadece web sayfa adresi (URL) kaydedilecek.',
   viewport: 'Sayfa adresi ve ekran görüntüsü (visible) kaydedilecek.',
   scroll: 'Scroll screenshot alınacak ve seçilen nota eklenecek.',
-  pdf: 'Sayfa adresi ve varsa sayfadaki PDF dosyası kaydedilecek.'
+  pdf: 'Sayfa adresi ve varsa sayfadaki PDF dosyası kaydedilecek.',
+  txt: 'Tüm sayfa içeriği düz metin (TXT) olarak nota eklenecek.'
 };
 
 // 100% Bulletproof cross-version Promise wrapper for chrome extension messaging
@@ -227,6 +228,8 @@ async function saveToNotepad(target) {
       }
     } else if (selectedOption === 'url') {
       successText = 'Sayfa adresi başarıyla kaydedildi.';
+    } else if (selectedOption === 'txt') {
+      successText = 'Tüm sayfa içeriği (TXT) başarıyla eklendi.';
     }
 
     setStatus(successText, 'ok');

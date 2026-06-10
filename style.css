@@ -131,8 +131,16 @@ body.has-image-panel .editor-area {
 .cloud-status {
   font-size: 14px;
   user-select: none;
-  cursor: help;
+  cursor: pointer;
   margin-left: auto;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+.cloud-status:hover {
+  opacity: 0.8;
+  transform: scale(1.1);
+}
+.cloud-status:active {
+  transform: scale(0.95);
 }
 .cloud-sync-msg {
   font-size: 10px;
@@ -2067,6 +2075,10 @@ body.has-image-panel .image-panel {
 #saveStatus {
   margin-left: auto;
 }
+#saveStatus[data-state="error"] {
+  color: #b42318;
+  font-weight: 700;
+}
 
 .offline-badge {
   background: #fef3c7;
@@ -2088,6 +2100,41 @@ body.has-image-panel .image-panel {
   align-items: center;
   justify-content: center;
   z-index: 1000;
+}
+#findReplaceDialog {
+  background: transparent;
+  pointer-events: none;
+}
+#findReplaceDialog .dialog {
+  pointer-events: auto;
+  position: fixed;
+  left: calc(50% - 210px);
+  top: 150px;
+}
+#findReplaceDialog .dialog-header {
+  cursor: move;
+}
+.find-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 4px 0;
+}
+.find-option-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #4b5563;
+  cursor: pointer;
+  user-select: none;
+}
+.find-option-label input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  accent-color: #4361ee;
+  cursor: pointer;
 }
 .dialog-overlay[hidden] {
   display: none !important;

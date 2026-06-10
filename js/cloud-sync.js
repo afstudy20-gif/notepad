@@ -314,28 +314,14 @@
     setStatus('idle', '');
   }
 
-  async function signOut() {
-    if (accessToken && window.google && google.accounts && google.accounts.oauth2) {
-      try { google.accounts.oauth2.revoke(accessToken, () => {}); } catch (_) {}
-    }
-    accessToken = null;
-    tokenExpiresAt = 0;
-    signedIn = false;
-    userInfo = null;
-    dirtyIds.clear();
-    localStorage.removeItem(LS_TOKEN);
-    localStorage.removeItem(LS_USER);
-    clearTimeout(pushTimer);
-    clearInterval(pullTimer);
-    pullTimer = null;
-    setStatus('idle', '');
-  }
-
   // Refresh the access token before it expires.
   // popup mode: silent GIS re-grant (no UI). redirect mode: navigate with prompt=none
   // (Google immediately bounces back with a fresh token if consent is still valid).
-  async function refreshToken() {
+  async function refreshToken(allowRedirect = true) {
     if (authMode === 'redirect') {
+      if (!allowRedirect) {
+        throw new Error('Token expired, redirect refresh deferred');
+      }
       startRedirectAuth(true); // prompt=none → page navigates; resumes via init() on return
       // Halt this call; the page is unloading.
       await new Promise(() => {});
@@ -365,10 +351,10 @@
   }
 
   // ---------- Drive REST ----------
-  async function driveFetch(path, init) {
+  async function driveFetch(path, init, allowRedirect = false) {
     if (!accessToken) throw new Error('No access token');
     if (tokenExpiresAt && tokenExpiresAt <= Date.now()) {
-      await refreshToken();
+      await refreshToken(allowRedirect);
     }
     const opts = init || {};
     opts.headers = Object.assign({}, opts.headers || {}, {
@@ -379,7 +365,7 @@
     // 401 → token rejected server-side (revoked/expired early). Refresh once, retry.
     if (r.status === 401) {
       try {
-        await refreshToken();
+        await refreshToken(allowRedirect);
         opts.headers.Authorization = 'Bearer ' + accessToken;
         r = await fetch(url, opts);
       } catch (e) {
@@ -396,18 +382,18 @@
     return r;
   }
 
-  async function listAppData() {
-    const r = await driveFetch('/files?spaces=appDataFolder&fields=files(id,name,modifiedTime,size)&pageSize=1000');
+  async function listAppData(allowRedirect = false) {
+    const r = await driveFetch('/files?spaces=appDataFolder&fields=files(id,name,modifiedTime,size)&pageSize=1000', null, allowRedirect);
     const data = await r.json();
     return data.files || [];
   }
 
-  async function downloadJson(fileId) {
-    const r = await driveFetch(`/files/${fileId}?alt=media`);
+  async function downloadJson(fileId, allowRedirect = false) {
+    const r = await driveFetch(`/files/${fileId}?alt=media`, null, allowRedirect);
     return await r.json();
   }
 
-  async function uploadJson(name, json, existingFileId) {
+  async function uploadJson(name, json, existingFileId, allowRedirect = false) {
     const meta = existingFileId
       ? { name }
       : { name, parents: ['appDataFolder'], mimeType: 'application/json' };
@@ -427,14 +413,12 @@
       method: existingFileId ? 'PATCH' : 'POST',
       headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
       body,
-    });
+    }, allowRedirect);
     return await r.json();
   }
 
-  async function deleteFile(fileId) {
-    try {
-      await driveFetch(`/files/${fileId}`, { method: 'DELETE' });
-    } catch (e) { console.warn('[cloud] delete failed', fileId, e); }
+  async function deleteFile(fileId, allowRedirect = false) {
+    await driveFetch(`/files/${fileId}`, { method: 'DELETE' }, allowRedirect);
   }
 
   // ---------- Sync ----------
@@ -442,16 +426,19 @@
 
   function findFile(files, name) { return files.find((f) => f.name === name); }
 
-  async function pull() {
-    const files = await listAppData();
+  async function pull(allowRedirect = false) {
+    const files = await listAppData(allowRedirect);
     const indexFile = findFile(files, 'notes-index.json');
-    if (!indexFile) return { pulled: 0 }; // first sync, nothing remote
-    const remoteIndex = await downloadJson(indexFile.id);
+    if (!indexFile) return { pulled: 0, failures: [] }; // first sync, nothing remote
+    const remoteIndex = await downloadJson(indexFile.id, allowRedirect);
     const remoteNotes = remoteIndex.notes || [];
     const local = notesArr();
     const localById = new Map(local.map((n) => [n.id, n]));
     const fileById = new Map(files.map((f) => [f.name, f]));
     let pulled = 0;
+    const failures = [];
+    let activeNoteUpdated = false;
+    const activeId = window.__npGetActiveId && window.__npGetActiveId();
     for (const r of remoteNotes) {
       const loc = localById.get(r.id);
       const remoteNewer = !loc || (r.updated || 0) > (loc.updated || 0);
@@ -461,49 +448,62 @@
         if (loc) {
           loc.deleted = r.deleted;
           loc.updated = r.updated;
+          if (r.id === activeId) activeNoteUpdated = true;
         }
         pulled++;
         continue;
       }
       const noteFile = fileById.get(`note-${r.id}.json`);
-      if (!noteFile) continue;
+      if (!noteFile) {
+        failures.push(r.id);
+        continue;
+      }
       try {
-        const fullNote = await downloadJson(noteFile.id);
+        const downloaded = await downloadJson(noteFile.id, allowRedirect);
+        const fullNote = window.__npNormalizeNote ? window.__npNormalizeNote(downloaded) : downloaded;
         fullNote.rev = noteFile.id;
         const idx = local.findIndex((n) => n.id === fullNote.id);
         if (idx >= 0) local[idx] = fullNote;
         else local.unshift(fullNote);
         pulled++;
+        if (fullNote.id === activeId) activeNoteUpdated = true;
       } catch (e) {
         console.warn('[cloud] pull note failed', r.id, e);
+        failures.push(r.id);
       }
     }
     if (pulled > 0) {
       // commit changes back into app state
       window.__npNotes = local;
-      window.__npSaveNotes && window.__npSaveNotes();
+      if (window.__npSaveNotes && window.__npSaveNotes() === false) {
+        throw new Error('Local storage save failed after cloud pull');
+      }
       window.__npRenderNoteList && window.__npRenderNoteList();
-      // Refresh active note in editor if it was changed remotely
-      const activeId = window.__npGetActiveId && window.__npGetActiveId();
-      if (activeId && remoteNotes.some((r) => r.id === activeId)) {
+      // Refresh active note in editor only if it was changed remotely
+      if (activeNoteUpdated) {
         window.__npLoadNote && window.__npLoadNote(activeId);
       }
     }
-    return { pulled };
+    return { pulled, failures };
   }
 
-  async function push() {
-    const files = await listAppData();
+  async function push(allowRedirect = false) {
+    const files = await listAppData(allowRedirect);
     const indexFile = findFile(files, 'notes-index.json');
-    const remoteIndex = indexFile ? await downloadJson(indexFile.id) : { version: 1, notes: [] };
+    const remoteIndex = indexFile ? await downloadJson(indexFile.id, allowRedirect) : { version: 1, notes: [] };
     const remoteMap = new Map((remoteIndex.notes || []).map((r) => [r.id, r]));
     const fileMap = new Map(files.map((f) => [f.name, f]));
     const local = notesArr();
     let pushed = 0;
+    const failures = [];
+    const syncedDeletedIds = new Set();
     for (const note of local) {
       const r = remoteMap.get(note.id);
       const localNewer = !r || (note.updated || 0) > (r.updated || 0);
-      if (!localNewer) continue;
+      if (!localNewer) {
+        if (note.deleted && r && r.deleted) syncedDeletedIds.add(note.id);
+        continue;
+      }
 
       const fname = `note-${note.id}.json`;
       const existing = fileMap.get(fname);
@@ -512,10 +512,12 @@
         // If note is deleted locally, delete the note file from Drive (if exists)
         if (existing) {
           try {
-            await deleteFile(existing.id);
+            await deleteFile(existing.id, allowRedirect);
             fileMap.delete(fname);
           } catch (e) {
             console.warn('[cloud] failed to delete note file from Drive', note.id, e);
+            failures.push(note.id);
+            continue;
           }
         }
         remoteMap.set(note.id, {
@@ -524,6 +526,7 @@
           deleted: note.deleted,
           rev: null,
         });
+        syncedDeletedIds.add(note.id);
         pushed++;
         continue;
       }
@@ -532,10 +535,11 @@
       const payload = JSON.stringify(note);
       if (payload.length > CFG.MAX_NOTE_BYTES) {
         console.warn('[cloud] note too large, skipping', note.id, payload.length);
+        failures.push(note.id);
         continue;
       }
       try {
-        const uploaded = await uploadJson(fname, note, existing ? existing.id : null);
+        const uploaded = await uploadJson(fname, note, existing ? existing.id : null, allowRedirect);
         note.rev = uploaded.id;
         remoteMap.set(note.id, {
           id: note.id,
@@ -546,6 +550,7 @@
         pushed++;
       } catch (e) {
         console.warn('[cloud] push note failed', note.id, e);
+        failures.push(note.id);
       }
     }
 
@@ -563,20 +568,16 @@
       lastSync: Date.now(),
       notes: Array.from(remoteMap.values()),
     };
-    try {
-      await uploadJson('notes-index.json', newIndex, indexFile ? indexFile.id : null);
-    } catch (e) {
-      console.warn('[cloud] push index failed', e);
-    }
+    await uploadJson('notes-index.json', newIndex, indexFile ? indexFile.id : null, allowRedirect);
 
     // Clean up local notes that are permanently deleted (deleted === 1) or older than 30 days
     let hasPurged = false;
     const cleanLocal = local.filter((note) => {
-      if (note.deleted === 1) {
+      if (note.deleted === 1 && syncedDeletedIds.has(note.id)) {
         hasPurged = true;
         return false;
       }
-      if (note.deleted && typeof note.deleted === 'number' && note.deleted < thirtyDaysAgo) {
+      if (note.deleted && typeof note.deleted === 'number' && note.deleted < thirtyDaysAgo && syncedDeletedIds.has(note.id)) {
         hasPurged = true;
         return false;
       }
@@ -588,18 +589,24 @@
     }
 
     // Persist rev IDs to local (and saves the cleaned list)
-    window.__npSaveNotes && window.__npSaveNotes();
-    return { pushed };
+    if (window.__npSaveNotes && window.__npSaveNotes() === false) {
+      throw new Error('Local storage save failed after cloud sync');
+    }
+    return { pushed, failures };
   }
 
-  async function syncNow() {
+  async function syncNow(allowRedirect = false) {
     if (!signedIn) return;
     if (inFlight) return;
     inFlight = true;
     setStatus('syncing', '');
     try {
-      const p1 = await pull();
-      const p2 = await push();
+      const p1 = await pull(allowRedirect);
+      const p2 = await push(allowRedirect);
+      const failures = [...p1.failures, ...p2.failures];
+      if (failures.length) {
+        throw new Error(`${failures.length} note(s) could not be synced`);
+      }
       dirtyIds.clear();
       localStorage.setItem(LS_LAST_SYNC, String(Date.now()));
       setStatus('ok', `Pulled ${p1.pulled}, pushed ${p2.pushed}`);
@@ -624,6 +631,11 @@
     clearInterval(pullTimer);
     pullTimer = setInterval(() => {
       if (!signedIn || !navigator.onLine || inFlight) return;
+      const lastInput = window.__npGetLastInputTime ? window.__npGetLastInputTime() : 0;
+      if (Date.now() - lastInput < 30000) {
+        console.log('[cloud] background pull deferred due to user activity');
+        return;
+      }
       syncNow().catch((e) => console.warn('[cloud] bg pull', e));
     }, CFG.PULL_INTERVAL_MS);
   }
@@ -645,7 +657,12 @@
       return;
     }
 
-    window.addEventListener('online', () => { if (signedIn) syncNow(); });
+    window.addEventListener('online', () => {
+      if (!signedIn) return;
+      const lastInput = window.__npGetLastInputTime ? window.__npGetLastInputTime() : 0;
+      if (Date.now() - lastInput < 30000) return;
+      syncNow();
+    });
 
     // 1. Returning from a redirect sign-in? Token is in the URL fragment.
     const cb = handleRedirectCallback();
@@ -660,13 +677,31 @@
       // fall through to allow popup client init for browsers
     }
 
-    // 2. Restore a cached token and verify it still works.
-    if (restoreToken()) {
+    // 2. Restore a cached token or try silent refresh if it's expired but we were signed in
+    let tokenRestored = restoreToken();
+    if (!tokenRestored && cb !== 'error' && userInfo && navigator.onLine) {
+      try {
+        setStatus('syncing', 'Restoring session...');
+        await refreshToken(true); // allow redirect since it is page load
+        tokenRestored = true;
+      } catch (err) {
+        console.warn('[cloud] silent token restore failed:', err);
+        // If silent refresh failed and we are not in redirect mode, attempt silent redirect
+        if (authMode !== 'redirect') {
+          console.log('[cloud] falling back to redirect silent auth...');
+          startRedirectAuth(true);
+          return;
+        }
+      }
+    }
+
+    if (tokenRestored) {
       signedIn = true;
       setStatus('ok', '');
       try {
-        await driveFetch('/about?fields=user'); // validates token
+        await driveFetch('/about?fields=user', null, true); // validates token, allow redirect
         await afterSignedIn();
+        return;
       } catch (e) {
         // refreshToken in redirect mode navigates away; only reaches here in popup mode on failure
         accessToken = null;
@@ -674,6 +709,11 @@
         signedIn = false;
         localStorage.removeItem(LS_TOKEN);
         setStatus('idle', 'Re-sign-in required');
+      }
+    } else {
+      // Set status to idle or whatever if not restoring, ensuring it doesn't get stuck in 'syncing'
+      if (status === 'syncing') {
+        setStatus('idle', cb === 'error' ? 'Re-sign-in required' : '');
       }
     }
 

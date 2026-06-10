@@ -17,39 +17,59 @@
   let notes = [];
   let activeId = null;
   let saveTimeout = null;
+  let lastSaveError = null;
   const ZOOM_KEY = 'notepad_zoom';
   const ZOOM_STEPS = [0.5, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2];
   let editorZoom = clampZoom(parseFloat(localStorage.getItem(ZOOM_KEY) || '1'));
 
   // --- Storage ---
-  function migrateNotesSchema(arr) {
-    // Backfill missing fields added for cloud-sync
-    for (const n of arr) {
-      if (typeof n.created !== 'number') n.created = n.updated || Date.now();
-      if (typeof n.version !== 'number') n.version = 1;
-      if (typeof n.deleted === 'undefined') n.deleted = null;
-      if (typeof n.rev === 'undefined') n.rev = null;
-    }
-    return arr;
+  function normalizeNote(raw, fallbackId) {
+    const now = Date.now();
+    const source = raw && typeof raw === 'object' ? raw : {};
+    const id = String(source.id || fallbackId || (now.toString(36) + Math.random().toString(36).slice(2, 6)));
+    const created = Number(source.created);
+    const updated = Number(source.updated);
+    const deleted = source.deleted === 1
+      ? 1
+      : (Number.isFinite(Number(source.deleted)) && Number(source.deleted) > 1 ? Number(source.deleted) : null);
+
+    return {
+      ...source,
+      id,
+      title: String(source.title || ''),
+      content: sanitizeHtml(String(source.content || '')),
+      pageSize: (source.pageSize === 'free' || PAGE_SIZES[source.pageSize]) ? source.pageSize : 'free',
+      pageOrientation: source.pageOrientation === 'landscape' ? 'landscape' : 'portrait',
+      created: Number.isFinite(created) && created > 0 ? created : (Number.isFinite(updated) && updated > 0 ? updated : now),
+      updated: Number.isFinite(updated) && updated > 0 ? updated : now,
+      deleted,
+      version: Number.isFinite(Number(source.version)) ? Math.max(1, Number(source.version)) : 1,
+      rev: typeof source.rev === 'string' && source.rev ? source.rev : null,
+      bgImage: isSafeEditorImageUrl(source.bgImage) ? String(source.bgImage) : '',
+      bgImageMode: source.bgImageMode === 'cover' ? 'cover' : 'fit'
+    };
   }
+
+  function migrateNotesSchema(arr) {
+    if (!Array.isArray(arr)) return [];
+    return arr.map((note, index) => normalizeNote(note, `recovered-${Date.now().toString(36)}-${index}`));
+  }
+
   function loadNotes() {
+    let storedNotesJson = '';
     try {
-      notes = migrateNotesSchema(JSON.parse(localStorage.getItem(STORAGE_KEY)) || []);
+      storedNotesJson = localStorage.getItem(STORAGE_KEY) || '';
+      notes = migrateNotesSchema(JSON.parse(storedNotesJson) || []);
     } catch {
       notes = [];
     }
 
-    // Prune old deleted notes on startup
+    // Keep cloud tombstones until a successful sync confirms the remote purge.
     const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
-    const isCloudConnected = window.__npCloud && window.__npCloud.isSignedIn();
-    notes = notes.filter(n => {
-      if (n.deleted === 1) {
-        return !!isCloudConnected; // Keep only if cloud can sync the purge
+    notes.forEach((note) => {
+      if (note.deleted && note.deleted !== 1 && note.deleted < thirtyDaysAgo) {
+        note.deleted = 1;
       }
-      if (n.deleted && typeof n.deleted === 'number' && n.deleted < thirtyDaysAgo) {
-        return false;
-      }
-      return true;
     });
 
     activeId = localStorage.getItem(ACTIVE_KEY);
@@ -58,6 +78,7 @@
       if (hasLaunchCreateRequest()) {
         activeId = null;
         renderNoteList();
+        if (JSON.stringify(notes) !== storedNotesJson) saveNotes();
         return;
       }
       createNote();
@@ -66,6 +87,7 @@
       if (!found) activeId = visible[0].id;
       renderNoteList();
       loadNote(activeId);
+      if (JSON.stringify(notes) !== storedNotesJson) saveNotes();
     }
   }
 
@@ -78,9 +100,32 @@
       params.has('url');
   }
 
-  function saveNotes() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
-    localStorage.setItem(ACTIVE_KEY, activeId);
+  function setSaveStatus(text, state = '') {
+    if (!saveStatusEl) return;
+    saveStatusEl.textContent = text;
+    saveStatusEl.dataset.state = state;
+    saveStatusEl.title = state === 'error' && lastSaveError ? lastSaveError.message : '';
+  }
+
+  function saveNotes(options = {}) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
+      localStorage.setItem(ACTIVE_KEY, activeId || '');
+      lastSaveError = null;
+      if (options.showStatus) {
+        setSaveStatus((typeof tr === 'function') ? tr('saved') : 'Saved', 'saved');
+      }
+      return true;
+    } catch (error) {
+      lastSaveError = error instanceof Error ? error : new Error(String(error));
+      const quota = lastSaveError.name === 'QuotaExceededError';
+      const message = quota
+        ? ((typeof tr === 'function') ? tr('storageFull') : 'Storage is full. Remove large images or export a backup.')
+        : ((typeof tr === 'function') ? tr('saveFailed') : 'Save failed.');
+      setSaveStatus(message, 'error');
+      console.error('[storage] save failed', lastSaveError);
+      return false;
+    }
   }
 
   // --- Notes CRUD ---
@@ -212,9 +257,11 @@
   function loadNote(id) {
     const note = notes.find(n => n.id === id);
     if (!note) return;
+    const safeContent = sanitizeHtml(String(note.content || ''));
+    if (safeContent !== note.content) note.content = safeContent;
     activeId = id;
     noteTitle.value = note.title;
-    editor.innerHTML = note.content;
+    editor.innerHTML = safeContent;
 
     // Handle deleted state (trash banner & read-only)
     const banner = $('#trashBanner');
@@ -228,7 +275,7 @@
 
     updateCounts();
     renderNoteList();
-    localStorage.setItem(ACTIVE_KEY, activeId);
+    try { localStorage.setItem(ACTIVE_KEY, activeId); } catch (_) {}
     if (typeof deselectImage === 'function') deselectImage();
     applyPageLayout(note);
     syncPageControls(note);
@@ -271,9 +318,10 @@
     return notes.find(n => n.id === activeId);
   }
 
-  function autoSave() {
+  function autoSave(options = {}) {
+    saveTimeout = null;
     const note = getActiveNote();
-    if (!note) return;
+    if (!note) return false;
     note.title = noteTitle.value;
     // Strip find-highlight marks before saving
     const tmp = editor.cloneNode(true);
@@ -281,7 +329,7 @@
       const txt = document.createTextNode(m.textContent);
       m.replaceWith(txt);
     });
-    note.content = tmp.innerHTML;
+    note.content = sanitizeHtml(tmp.innerHTML);
     note.updated = Date.now();
     note.version = (note.version || 0) + 1;
 
@@ -289,16 +337,22 @@
     notes = notes.filter(n => n.id !== note.id);
     notes.unshift(note);
 
-    saveNotes();
-    renderNoteList();
-    saveStatusEl.textContent = (typeof tr === 'function') ? tr('saved') : 'Saved';
-    if (window.__npCloud) window.__npCloud.markDirty(note.id);
+    const saved = saveNotes({ showStatus: true });
+    if (options.render !== false) renderNoteList();
+    if (saved && options.markDirty !== false && window.__npCloud) window.__npCloud.markDirty(note.id);
+    return saved;
   }
 
   function scheduleSave() {
-    saveStatusEl.textContent = (typeof tr === 'function') ? tr('saving') : 'Saving...';
+    setSaveStatus((typeof tr === 'function') ? tr('saving') : 'Saving...', 'saving');
     clearTimeout(saveTimeout);
-    saveTimeout = setTimeout(autoSave, 500);
+    saveTimeout = setTimeout(() => autoSave(), 500);
+  }
+
+  function flushPendingSave() {
+    if (saveTimeout === null) return;
+    clearTimeout(saveTimeout);
+    autoSave({ render: false });
   }
 
   // --- Render ---
@@ -486,6 +540,10 @@
 
   function isSafePdfDataUrl(value) {
     return /^data:application\/pdf;base64,[a-z0-9+/=]+$/i.test(value || '');
+  }
+
+  function isSafeEditorImageUrl(value) {
+    return /^(?:https?:|blob:|data:image\/(?:png|jpe?g|gif|webp|bmp|svg\+xml)(?:;base64)?,)/i.test(String(value || '').trim());
   }
 
   function externalClipFromPayload(payload = {}) {
@@ -922,11 +980,75 @@
     window.location.href = url;
   }
 
-  // Paste as plain text only (like a real notepad)
+  // Paste handler: parses tables if present in HTML, falls back to plain text
+  function sanitizeTableHtml(html) {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    doc.querySelectorAll('script,style,iframe,object,embed,link,meta,base,form,svg,math').forEach(el => el.remove());
+    const tables = doc.querySelectorAll('table');
+    if (!tables.length) return '';
+    
+    tables.forEach(table => {
+      table.classList.add('editor-table');
+      const cleanNode = (node) => {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          const allowedAttrs = ['colspan', 'rowspan'];
+          const attrs = Array.from(node.attributes);
+          for (const attr of attrs) {
+            if (!allowedAttrs.includes(attr.name.toLowerCase())) {
+              node.removeAttribute(attr.name);
+            }
+          }
+          Array.from(node.childNodes).forEach(cleanNode);
+        }
+      };
+      cleanNode(table);
+    });
+    
+    return Array.from(tables).map(t => t.outerHTML).join('<br>');
+  }
+
+  function insertHtmlAtCursor(html) {
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    range.deleteContents();
+    
+    const el = document.createElement('div');
+    el.innerHTML = html;
+    
+    const frag = document.createDocumentFragment();
+    let node, lastNode;
+    while ((node = el.firstChild)) {
+      lastNode = frag.appendChild(node);
+    }
+    range.insertNode(frag);
+    
+    if (lastNode) {
+      const newRange = range.cloneRange();
+      newRange.setStartAfter(lastNode);
+      newRange.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(newRange);
+    }
+  }
+
   editor.addEventListener('paste', (e) => {
     const cd = e.clipboardData || window.clipboardData;
     if (!cd) return;
-    // Prefer text if available (Excel/Sheets put both text and image in clipboard)
+
+    // 1. Check if HTML contains a table
+    const html = cd.getData('text/html');
+    if (html && /<table/i.test(html)) {
+      e.preventDefault();
+      const cleanTable = sanitizeTableHtml(html);
+      if (cleanTable) {
+        insertHtmlAtCursor(cleanTable + '<p><br></p>');
+        scheduleSave();
+        return;
+      }
+    }
+
+    // 2. Otherwise prefer plain text
     const text = cd.getData('text/plain');
     if (text && text.length > 0) {
       e.preventDefault();
@@ -1595,7 +1717,10 @@
     const card = e.target.closest && e.target.closest('.link-card-inline');
     if (card && editor.contains(card)) {
       const url = card.dataset.linkHref;
-      if (url) { e.preventDefault(); window.open(url, '_blank', 'noopener,noreferrer'); }
+      if (url && isSafeLinkUrl(url)) {
+        e.preventDefault();
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
       return;
     }
     const a = e.target.closest && e.target.closest('a[href]');
@@ -2126,10 +2251,34 @@
 
   // --- Find & Replace ---
   let findIdx = -1;
+  function getFindRegExp(needle, forReplace = false) {
+    if (!needle) return null;
+    const isRegex = $('#findRegex')?.checked;
+    const isMatchCase = $('#findMatchCase')?.checked;
+    const isWholeWord = $('#findWholeWord')?.checked;
+    
+    let pattern = needle;
+    if (!isRegex) {
+      pattern = needle.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    }
+    if (isWholeWord) {
+      pattern = '\\b' + pattern + '\\b';
+    }
+    const flags = isMatchCase ? 'g' : 'gi';
+    try {
+      return new RegExp(pattern, flags);
+    } catch (e) {
+      if (forReplace) {
+        throw new Error('Geçersiz Regex deseni: ' + e.message);
+      }
+      return null;
+    }
+  }
+
   function toggleFindReplace() {
     const dialog = $('#findReplaceDialog');
     const opening = dialog.style.display === 'none';
-    dialog.style.display = opening ? 'flex' : 'none';
+    dialog.style.display = opening ? 'block' : 'none';
     if (opening) {
       $('#findInput').focus();
     } else {
@@ -2150,36 +2299,51 @@
   function highlightAllMatches(needle) {
     clearFindMarks();
     if (!needle) return 0;
-    const lcNeedle = needle.toLowerCase();
+    
+    const re = getFindRegExp(needle);
+    if (!re) return 0;
+
     const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, {
       acceptNode: (n) => {
         if (!n.nodeValue) return NodeFilter.FILTER_REJECT;
         if (n.parentNode && n.parentNode.tagName === 'SCRIPT') return NodeFilter.FILTER_REJECT;
-        return n.nodeValue.toLowerCase().includes(lcNeedle) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+        re.lastIndex = 0;
+        return re.test(n.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
       }
     });
     const nodes = [];
     let n;
     while ((n = walker.nextNode())) nodes.push(n);
     let count = 0;
+    
     for (const node of nodes) {
       const text = node.nodeValue;
-      const lower = text.toLowerCase();
       const frag = document.createDocumentFragment();
-      let i = 0;
-      while (i < text.length) {
-        const idx = lower.indexOf(lcNeedle, i);
-        if (idx === -1) {
-          frag.appendChild(document.createTextNode(text.slice(i)));
-          break;
+      let lastIdx = 0;
+      re.lastIndex = 0;
+      let match;
+      
+      while ((match = re.exec(text)) !== null) {
+        const matchText = match[0];
+        if (matchText.length === 0) {
+          if (re.lastIndex === match.index) {
+            re.lastIndex++;
+          }
+          continue;
         }
-        if (idx > i) frag.appendChild(document.createTextNode(text.slice(i, idx)));
+        const index = match.index;
+        if (index > lastIdx) {
+          frag.appendChild(document.createTextNode(text.slice(lastIdx, index)));
+        }
         const mark = document.createElement('mark');
         mark.className = 'find-hit';
-        mark.textContent = text.slice(idx, idx + needle.length);
+        mark.textContent = matchText;
         frag.appendChild(mark);
         count++;
-        i = idx + needle.length;
+        lastIdx = re.lastIndex;
+      }
+      if (lastIdx < text.length) {
+        frag.appendChild(document.createTextNode(text.slice(lastIdx)));
       }
       node.replaceWith(frag);
     }
@@ -2230,10 +2394,20 @@
     const marks = editor.querySelectorAll('mark.find-hit');
     if (!marks.length) { findNext(); return; }
     const cur = marks[Math.max(0, findIdx)] || marks[0];
-    const tn = document.createTextNode(replaceWith);
+    
+    let replacement = replaceWith;
+    if ($('#findRegex')?.checked) {
+      const re = getFindRegExp(findText, true);
+      if (re) {
+        replacement = cur.textContent.replace(re, replaceWith);
+      }
+    }
+    
+    const tn = document.createTextNode(replacement);
     cur.replaceWith(tn);
     editor.normalize();
     scheduleSave();
+    
     // Re-highlight remaining and focus next
     const remaining = highlightAllMatches(findText);
     $('#findCount').textContent = remaining + ' eşleşme';
@@ -2246,28 +2420,33 @@
     const replaceWith = $('#replaceInput').value;
     if (!findText) return;
     clearFindMarks();
+    
+    let re;
+    try {
+      re = getFindRegExp(findText, true);
+    } catch (e) {
+      alert(e.message);
+      return;
+    }
+    if (!re) return;
+    
     const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, null);
     const nodes = [];
     let node;
     while ((node = walker.nextNode())) nodes.push(node);
-    const needle = findText.toLowerCase();
     let count = 0;
+    
     for (const n of nodes) {
       const hay = n.nodeValue;
-      const lower = hay.toLowerCase();
-      if (!lower.includes(needle)) continue;
-      let out = '';
-      let i = 0;
-      while (i < hay.length) {
-        if (lower.slice(i, i + needle.length) === needle) {
-          out += replaceWith;
-          i += needle.length;
-          count++;
-        } else {
-          out += hay[i++];
-        }
+      re.lastIndex = 0;
+      if (!re.test(hay)) continue;
+      
+      const matches = hay.match(re);
+      if (matches) {
+        count += matches.length;
       }
-      n.nodeValue = out;
+      re.lastIndex = 0;
+      n.nodeValue = hay.replace(re, replaceWith);
     }
     $('#findCount').textContent = count + ' değiştirildi';
     if (count > 0) scheduleSave();
@@ -2907,12 +3086,35 @@
   function sanitizeHtml(html) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
-    doc.querySelectorAll('script,style,iframe,object,embed,link,meta').forEach(el => el.remove());
+    doc.querySelectorAll('script,style,iframe,object,embed,link,meta,base,form,svg,math').forEach(el => el.remove());
     doc.querySelectorAll('*').forEach(el => {
       [...el.attributes].forEach(a => {
-        if (a.name.startsWith('on')) el.removeAttribute(a.name);
-        if (/^(href|src)$/i.test(a.name) && /^javascript:/i.test(a.value)) el.removeAttribute(a.name);
+        const name = a.name.toLowerCase();
+        const value = a.value.trim();
+        if (name.startsWith('on') || ['srcdoc', 'action', 'formaction', 'xlink:href'].includes(name)) {
+          el.removeAttribute(a.name);
+          return;
+        }
+        if (name === 'href') {
+          const safeHref = /^(?:https?:|mailto:|tel:|#|data:application\/pdf;base64,)/i.test(value);
+          if (!safeHref) el.removeAttribute(a.name);
+          return;
+        }
+        if (name === 'src') {
+          if (!isSafeEditorImageUrl(value)) el.removeAttribute(a.name);
+          return;
+        }
+        if (name === 'data-link-href') {
+          if (!isSafeLinkUrl(value)) el.removeAttribute(a.name);
+          return;
+        }
+        if (name === 'style' && /(?:expression\s*\(|javascript\s*:|vbscript\s*:|@import|-moz-binding|behavior\s*:)/i.test(value)) {
+          el.removeAttribute(a.name);
+        }
       });
+      if (el.getAttribute('target') === '_blank') {
+        el.setAttribute('rel', 'noopener noreferrer');
+      }
     });
     return doc.body.innerHTML;
   }
@@ -3076,7 +3278,7 @@
     // Escape closes find dialog
     if (e.key === 'Escape') {
       const dlg = $('#findReplaceDialog');
-      if (dlg.style.display === 'flex') toggleFindReplace();
+      if (dlg.style.display !== 'none') toggleFindReplace();
     }
   });
 
@@ -3188,7 +3390,11 @@
         if (!confirm(`Import ${data.notes.length} notes? This merges with existing notes.`)) return;
         const existingIds = new Set(notes.map(n => n.id));
         for (const n of data.notes) {
-          if (!n.id || !existingIds.has(n.id)) notes.push(n);
+          const normalized = normalizeNote(n);
+          if (!existingIds.has(normalized.id)) {
+            notes.push(normalized);
+            existingIds.add(normalized.id);
+          }
         }
         notes.sort((a, b) => (b.updated || 0) - (a.updated || 0));
         saveNotes();
@@ -3304,8 +3510,12 @@
         const existingIds = new Set(notes.map(n => n.id));
         let added = 0;
         for (const n of rows) {
-          if (!n.id) n.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-          if (!existingIds.has(n.id)) { notes.push(n); added++; }
+          const normalized = normalizeNote(n);
+          if (!existingIds.has(normalized.id)) {
+            notes.push(normalized);
+            existingIds.add(normalized.id);
+            added++;
+          }
         }
         notes.sort((a, b) => (b.updated || 0) - (a.updated || 0));
         saveNotes();
@@ -3319,11 +3529,54 @@
     e.target.value = '';
   });
 
-  // Click outside dialog to close
-  $('#findReplaceDialog').addEventListener('click', (e) => {
-    if (e.target === $('#findReplaceDialog')) {
-      toggleFindReplace();
+  // Make find replace dialog draggable
+  function makeDraggable(dialog, handle) {
+    let offsetX = 0, offsetY = 0, mouseX = 0, mouseY = 0;
+    handle.style.cursor = 'move';
+    handle.addEventListener('mousedown', dragMouseDown);
+    
+    function dragMouseDown(e) {
+      if (e.target.closest('button') || e.target.closest('input')) return;
+      e.preventDefault();
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+      document.addEventListener('mouseup', closeDragElement);
+      document.addEventListener('mousemove', elementDrag);
     }
+    
+    function elementDrag(e) {
+      e.preventDefault();
+      offsetX = mouseX - e.clientX;
+      offsetY = mouseY - e.clientY;
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+      const newTop = dialog.offsetTop - offsetY;
+      const newLeft = dialog.offsetLeft - offsetX;
+      dialog.style.top = Math.max(0, Math.min(window.innerHeight - dialog.offsetHeight, newTop)) + "px";
+      dialog.style.left = Math.max(0, Math.min(window.innerWidth - dialog.offsetWidth, newLeft)) + "px";
+    }
+    
+    function closeDragElement() {
+      document.removeEventListener('mouseup', closeDragElement);
+      document.removeEventListener('mousemove', elementDrag);
+    }
+  }
+
+  const findReplaceDialogEl = $('#findReplaceDialog .dialog');
+  const findReplaceHeaderEl = $('#findReplaceDialog .dialog-header');
+  if (findReplaceDialogEl && findReplaceHeaderEl) {
+    makeDraggable(findReplaceDialogEl, findReplaceHeaderEl);
+  }
+
+  // Live re-highlight when find options change
+  ['#findMatchCase', '#findWholeWord', '#findRegex'].forEach(sel => {
+    $(sel).addEventListener('change', () => {
+      const v = $('#findInput').value;
+      if (!v) { clearFindMarks(); $('#findCount').textContent = ''; return; }
+      const c = highlightAllMatches(v);
+      $('#findCount').textContent = c + ' eşleşme';
+      findIdx = -1;
+    });
   });
 
   // --- Init ---
@@ -3367,6 +3620,21 @@
   window.__npRenderNoteList = renderNoteList;
   window.__npGetActiveId = () => activeId;
   window.__npLoadNote = loadNote;
+  window.__npNormalizeNote = normalizeNote;
+
+  let lastInputTime = 0;
+  function recordUserActivity() {
+    lastInputTime = Date.now();
+  }
+  editor.addEventListener('input', recordUserActivity);
+  editor.addEventListener('keydown', recordUserActivity);
+  editor.addEventListener('mousedown', recordUserActivity);
+  if (noteTitle) {
+    noteTitle.addEventListener('input', recordUserActivity);
+    noteTitle.addEventListener('keydown', recordUserActivity);
+    noteTitle.addEventListener('mousedown', recordUserActivity);
+  }
+  window.__npGetLastInputTime = () => lastInputTime;
 
   // Initialize cloud sync (no-op if client ID not configured)
   if (window.__npCloud && typeof window.__npCloud.init === 'function') {
@@ -3451,6 +3719,16 @@
       btnSignOut.addEventListener('click', () => {
         if (confirm(tr('cloudConfirmSignOut'))) {
           window.__npCloud.signOut();
+        }
+      });
+    }
+    if (statusEl) {
+      statusEl.addEventListener('click', () => {
+        const state = window.__npCloud.getStatus();
+        if (state.signedIn) {
+          window.__npCloud.syncNow(true).catch(e => console.warn('[cloud] manual sync', e));
+        } else if (state.status !== 'setupNeeded') {
+          window.__npCloud.signIn().catch(e => console.warn('[cloud] signIn', e));
         }
       });
     }
@@ -4233,6 +4511,11 @@
   window.addEventListener('offline', updateOnlineStatus);
   updateOnlineStatus();
 
+  window.addEventListener('pagehide', flushPendingSave);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushPendingSave();
+  });
+
   // Handle PWA shortcut ?action=new, protocol handler ?note=, share_target ?title/text/url
   const __qp = new URLSearchParams(location.search);
   if (__qp.get('action') === 'new') {
@@ -4354,6 +4637,9 @@
       findAll: 'Tümünü Bul',
       replaceOne: 'Değiştir',
       replaceAll: 'Tümünü Değiştir',
+      matchCase: 'Büyük/Küçük Harf Duyarlı',
+      wholeWord: 'Tam Sözcük',
+      useRegex: 'Düzenli İfade (Regex)',
       saveTxt: '.txt olarak kaydet',
       savePdf: 'PDF olarak kaydet',
       saveWord: 'Word olarak kaydet',
@@ -4413,6 +4699,8 @@
       chars: 'Karakter',
       saved: 'Kaydedildi',
       saving: 'Kaydediliyor...',
+      saveFailed: 'Kaydetme başarısız.',
+      storageFull: 'Depolama dolu. Büyük görselleri kaldırın veya yedek alın.',
       about: 'Hakkında',
       rights: 'Tüm hakları saklıdır',
       otherTools: 'Diğer araçlar:',
@@ -4536,6 +4824,9 @@
       findAll: 'Find All',
       replaceOne: 'Replace',
       replaceAll: 'Replace All',
+      matchCase: 'Match Case',
+      wholeWord: 'Whole Word',
+      useRegex: 'Regular Expression (Regex)',
       saveTxt: 'Save as .txt',
       savePdf: 'Save as PDF',
       saveWord: 'Save as Word',
@@ -4595,6 +4886,8 @@
       chars: 'Characters',
       saved: 'Saved',
       saving: 'Saving...',
+      saveFailed: 'Save failed.',
+      storageFull: 'Storage is full. Remove large images or export a backup.',
       about: 'About',
       rights: 'All rights reserved',
       otherTools: 'Other tools:',

@@ -14,7 +14,7 @@
   <title>Notepad — Local-Only Text Editor</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
-  <link rel="stylesheet" href="style.css?v=76">
+  <link rel="stylesheet" href="style.css?v=83">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -729,6 +729,20 @@
         <input type="text" id="findInput">
         <label data-i18n="replaceWith">Şununla değiştir:</label>
         <input type="text" id="replaceInput">
+        <div class="find-options">
+          <label class="find-option-label">
+            <input type="checkbox" id="findMatchCase">
+            <span data-i18n="matchCase">Büyük/Küçük Harf Duyarlı</span>
+          </label>
+          <label class="find-option-label">
+            <input type="checkbox" id="findWholeWord">
+            <span data-i18n="wholeWord">Tam Sözcük</span>
+          </label>
+          <label class="find-option-label">
+            <input type="checkbox" id="findRegex">
+            <span data-i18n="useRegex">Düzenli İfade (Regex)</span>
+          </label>
+        </div>
       </div>
       <div class="dialog-footer find-footer">
         <button id="btnFindAll" data-i18n="findAll">Tümünü Bul</button>
@@ -756,15 +770,15 @@
 
   <script src="./vendor/html2pdf.bundle.min.js"></script>
   <script src="./vendor/html-docx.js"></script>
-  <script src="js/cloud-config.js?v=76"></script>
-  <script src="js/cloud-sync.js?v=76"></script>
-  <script src="app.js?v=76"></script>
+  <script src="js/cloud-config.js?v=83"></script>
+  <script src="js/cloud-sync.js?v=83"></script>
+  <script src="app.js?v=83"></script>
   <script>
     // Register service worker for PWA install + offline shell.
     // SW uses network-first for HTML/JS so updates roll out without manual refresh.
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=76').catch((err) => {
+        navigator.serviceWorker.register('./sw.js?v=83').catch((err) => {
           console.warn('[sw] register failed', err);
         });
       });
