@@ -840,6 +840,7 @@
     open: () => openFilePicker(),
     toggleSaveMenu: () => toggleSaveDropdown(),
     saveTxt: () => { closeSaveDropdown(); downloadNote(); },
+    saveMd: () => { closeSaveDropdown(); downloadAsMarkdown(); },
     savePdf: () => { closeSaveDropdown(); downloadAsPdf(); },
     saveWord: () => { closeSaveDropdown(); downloadAsWord(); },
     toggleShareMenu: () => toggleShareDropdown(),
@@ -2248,6 +2249,137 @@
     a.click();
     URL.revokeObjectURL(a.href);
   }
+
+  function htmlToMarkdown(html) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    
+    function convertNode(node) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        return node.nodeValue;
+      }
+      if (node.nodeType !== Node.ELEMENT_NODE) {
+        return '';
+      }
+      
+      const tagName = node.tagName.toLowerCase();
+      let childrenContent = '';
+      node.childNodes.forEach(child => {
+        childrenContent += convertNode(child);
+      });
+      
+      switch (tagName) {
+        case 'h1': return `\n# ${childrenContent.trim()}\n`;
+        case 'h2': return `\n## ${childrenContent.trim()}\n`;
+        case 'h3': return `\n### ${childrenContent.trim()}\n`;
+        case 'h4': return `\n#### ${childrenContent.trim()}\n`;
+        case 'h5': return `\n##### ${childrenContent.trim()}\n`;
+        case 'h6': return `\n###### ${childrenContent.trim()}\n`;
+        case 'strong':
+        case 'b':
+          return `**${childrenContent}**`;
+        case 'em':
+        case 'i':
+          return `*${childrenContent}*`;
+        case 'u':
+          return `<u>${childrenContent}</u>`;
+        case 'p':
+        case 'div':
+          return `\n${childrenContent}\n`;
+        case 'br':
+          return '\n';
+        case 'hr':
+          return '\n---\n';
+        case 'li': {
+          const parent = node.parentNode;
+          if (parent && parent.tagName.toLowerCase() === 'ol') {
+            const index = Array.from(parent.children).indexOf(node) + 1;
+            return `${index}. ${childrenContent.trim()}\n`;
+          }
+          return `- ${childrenContent.trim()}\n`;
+        }
+        case 'ul':
+        case 'ol':
+          return `\n${childrenContent}\n`;
+        case 'a': {
+          const href = node.getAttribute('href') || '';
+          return `[${childrenContent}](${href})`;
+        }
+        case 'img': {
+          const src = node.getAttribute('src') || '';
+          const alt = node.getAttribute('alt') || 'image';
+          return `![${alt}](${src})`;
+        }
+        case 'table':
+          return `\n${childrenContent}\n`;
+        case 'thead':
+        case 'tbody':
+        case 'tfoot':
+          return childrenContent;
+        case 'tr': {
+          let row = '|';
+          let separator = '';
+          let isHeader = false;
+          let hasCells = false;
+          node.childNodes.forEach(child => {
+            if (child.nodeType === Node.ELEMENT_NODE) {
+              const childTag = child.tagName.toLowerCase();
+              if (childTag === 'th' || childTag === 'td') {
+                if (childTag === 'th') isHeader = true;
+                hasCells = true;
+                const cellText = convertNode(child).replace(/\n/g, ' ').trim();
+                row += ` ${cellText} |`;
+              }
+            }
+          });
+          if (!hasCells) return '';
+          row += '\n';
+          
+          if (isHeader || (node.previousElementSibling === null && node.parentNode.tagName.toLowerCase() === 'table')) {
+            separator = '|';
+            node.childNodes.forEach(child => {
+              if (child.nodeType === Node.ELEMENT_NODE) {
+                const childTag = child.tagName.toLowerCase();
+                if (childTag === 'th' || childTag === 'td') {
+                  separator += ' --- |';
+                }
+              }
+            });
+            separator += '\n';
+          }
+          return row + separator;
+        }
+        case 'td':
+        case 'th':
+          return childrenContent;
+        default:
+          return childrenContent;
+      }
+    }
+    
+    let result = '';
+    doc.body.childNodes.forEach(child => {
+      result += convertNode(child);
+    });
+    
+    return result
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  }
+
+  function downloadAsMarkdown() {
+    const note = getActiveNote();
+    if (!note) return;
+    const title = note.title || 'untitled';
+    const markdown = htmlToMarkdown(editor.innerHTML);
+    const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = title + '.md';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
 
   // --- Find & Replace ---
   let findIdx = -1;
@@ -4641,6 +4773,7 @@
       wholeWord: 'Tam Sözcük',
       useRegex: 'Düzenli İfade (Regex)',
       saveTxt: '.txt olarak kaydet',
+      saveMd: 'Markdown (.md) olarak kaydet',
       savePdf: 'PDF olarak kaydet',
       saveWord: 'Word olarak kaydet',
       shareDevice: 'Cihazdan Paylaş (dosya)',
@@ -4828,6 +4961,7 @@
       wholeWord: 'Whole Word',
       useRegex: 'Regular Expression (Regex)',
       saveTxt: 'Save as .txt',
+      saveMd: 'Save as Markdown (.md)',
       savePdf: 'Save as PDF',
       saveWord: 'Save as Word',
       shareDevice: 'Share via device',
