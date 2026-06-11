@@ -245,9 +245,48 @@ async function getNotepadNotes() {
     return { notes: [] };
   }
 
-  // 1. Try high-speed isolated world read (completely avoids background tab frozen hangs!)
-  try {
-    const results = await executeScriptIsolated(tab.id, () => {
+  const tryRead = async () => {
+    // 1. Try high-speed isolated world read (completely avoids background tab frozen hangs!)
+    try {
+      const results = await executeScriptIsolated(tab.id, () => {
+        try {
+          const rawNotes = localStorage.getItem('notepad_notes');
+          const notes = JSON.parse(rawNotes) || [];
+          const activeId = localStorage.getItem('notepad_active');
+          
+          const stripHtml = (html) => {
+            const tmp = document.createElement('div');
+            tmp.innerHTML = html || '';
+            return tmp.textContent || '';
+          };
+          
+          const mappedNotes = notes.map(note => ({
+            id: note.id,
+            title: (note.title && note.title.trim()) || 'İsimsiz Not',
+            preview: stripHtml(note.content || '').slice(0, 140),
+            updated: note.updated || 0,
+            active: note.id === activeId
+          }));
+          
+          return { ok: true, notes: mappedNotes };
+        } catch (e) {
+          return { ok: false, error: e.message };
+        }
+      });
+
+      const payload = results?.[0]?.result || {};
+      if (payload.ok) {
+        return {
+          notes: payload.notes || [],
+          notepadTabId: tab.id
+        };
+      }
+    } catch (error) {
+      console.warn('[notepad-clipper] isolated world read bypassed/failed, falling back', error);
+    }
+
+    // 2. Main world fallback if isolated world fails
+    const results = await executeWhenNotepadReady(tab.id, () => {
       try {
         const rawNotes = localStorage.getItem('notepad_notes');
         const notes = JSON.parse(rawNotes) || [];
@@ -269,53 +308,34 @@ async function getNotepadNotes() {
         
         return { ok: true, notes: mappedNotes };
       } catch (e) {
-        return { ok: false, error: e.message };
+        return { ok: false, notes: [], error: e.message };
       }
     });
-
     const payload = results?.[0]?.result || {};
+
     if (payload.ok) {
       return {
         notes: payload.notes || [],
         notepadTabId: tab.id
       };
     }
-  } catch (error) {
-    console.warn('[notepad-clipper] isolated world read bypassed/failed, falling back', error);
-  }
-
-  // 2. Main world fallback if isolated world fails
-  const results = await executeWhenNotepadReady(tab.id, () => {
-    try {
-      const rawNotes = localStorage.getItem('notepad_notes');
-      const notes = JSON.parse(rawNotes) || [];
-      const activeId = localStorage.getItem('notepad_active');
-      
-      const stripHtml = (html) => {
-        const tmp = document.createElement('div');
-        tmp.innerHTML = html || '';
-        return tmp.textContent || '';
-      };
-      
-      const mappedNotes = notes.map(note => ({
-        id: note.id,
-        title: (note.title && note.title.trim()) || 'İsimsiz Not',
-        preview: stripHtml(note.content || '').slice(0, 140),
-        updated: note.updated || 0,
-        active: note.id === activeId
-      }));
-      
-      return { ready: true, notes: mappedNotes };
-    } catch (e) {
-      return { ready: false, notes: [], error: e.message };
-    }
-  });
-  const payload = results?.[0]?.result || {};
-
-  return {
-    notes: payload.notes || [],
-    notepadTabId: tab.id
+    throw new Error(payload.error || 'Main world read failed');
   };
+
+  try {
+    return await tryRead();
+  } catch (err) {
+    console.warn('[notepad-clipper] read notes failed, reloading tab to wake it up...', err);
+    try {
+      await chrome.tabs.reload(tab.id);
+      await delay(500);
+      await waitForTabComplete(tab.id);
+      return await tryRead();
+    } catch (retryErr) {
+      console.error('[notepad-clipper] retry notes read failed', retryErr);
+      throw retryErr;
+    }
+  }
 }
 
 async function getNotepadUrl() {
@@ -396,6 +416,17 @@ async function findOpenNotepadTab(baseUrl) {
 async function ensureNotepadTab(baseUrl, options = {}) {
   const existing = await findOpenNotepadTab(baseUrl);
   if (existing?.id) {
+    if (existing.discarded) {
+      console.log('[notepad-clipper] reloading discarded tab', existing.id);
+      await chrome.tabs.reload(existing.id);
+      await delay(300);
+      await waitForTabComplete(existing.id);
+    } else {
+      const current = await chrome.tabs.get(existing.id);
+      if (current.status !== 'complete') {
+        await waitForTabComplete(existing.id);
+      }
+    }
     return existing;
   }
 
