@@ -1283,6 +1283,31 @@
     }
   });
 
+  // Focus editor when wrapper or zoom surface is clicked
+  const editorWrapperEl = document.querySelector('.editor-wrapper');
+  const zoomSurfaceEl = document.getElementById('editorZoomSurface');
+  if (editorWrapperEl) {
+    editorWrapperEl.addEventListener('click', (e) => {
+      if (e.target === editorWrapperEl || e.target === zoomSurfaceEl) {
+        const rect = editorWrapperEl.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        const clickY = e.clientY - rect.top;
+        if (clickX > editorWrapperEl.clientWidth || clickY > editorWrapperEl.clientHeight) {
+          return;
+        }
+        editor.focus();
+        const selection = window.getSelection();
+        if (selection) {
+          const range = document.createRange();
+          range.selectNodeContents(editor);
+          range.collapse(false);
+          selection.removeAllRanges();
+          selection.addRange(range);
+        }
+      }
+    });
+  }
+
   // Reposition popup on scroll/resize
   ['scroll', 'resize'].forEach(ev => window.addEventListener(ev, () => {
     if (selectedTextBox && !tbPopup.hidden) positionTbPopup(selectedTextBox);
