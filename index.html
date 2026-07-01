@@ -14,7 +14,7 @@
   <title>Notepad — Local-Only Text Editor</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
-  <link rel="stylesheet" href="style.css?v=93">
+  <link rel="stylesheet" href="style.css?v=94">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -386,7 +386,6 @@
     <button data-ctx="rename" data-i18n="rename">Adını Değiştir</button>
     <button data-ctx="duplicate" data-i18n="duplicate">Çoğalt</button>
     <button data-ctx="copyText" data-i18n="copyText">Metni Kopyala</button>
-    <button data-ctx="copyNote" data-i18n="copyNoteJson">Not Verisini Kopyala</button>
     <button data-ctx="color" data-i18n="noteColor">Renk</button>
     <button data-ctx="group" data-i18n="sendToGroup">Gruba Gönder</button>
     <button data-ctx="delete" class="ctx-danger" data-i18n="delete">Sil</button>
@@ -786,15 +785,15 @@
 
   <script src="./vendor/html2pdf.bundle.min.js"></script>
   <script src="./vendor/html-docx.js"></script>
-  <script src="js/cloud-config.js?v=93"></script>
-  <script src="js/cloud-sync.js?v=93"></script>
-  <script src="app.js?v=93"></script>
+  <script src="js/cloud-config.js?v=94"></script>
+  <script src="js/cloud-sync.js?v=94"></script>
+  <script src="app.js?v=94"></script>
   <script>
     // Register service worker for PWA install + offline shell.
     // SW uses network-first for HTML/JS so updates roll out without manual refresh.
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=93').catch((err) => {
+        navigator.serviceWorker.register('./sw.js?v=94').catch((err) => {
           console.warn('[sw] register failed', err);
         });
       });

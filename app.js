@@ -2918,9 +2918,6 @@
         return `# ${t}\n\n${body}`;
       }).join('\n\n---\n\n');
       await copyTextToClipboard(text);
-    } else if (action === 'copyNote') {
-      const payload = JSON.stringify(targets, null, 2);
-      await copyTextToClipboard(payload);
     } else if (action === 'color') {
       if (ctxIsMulti) {
         openColorPalette(null);
@@ -4954,7 +4951,6 @@
       noteGroup: 'Grup',
       sendToGroup: 'Gruba Gönder',
       copyText: 'Metni Kopyala',
-      copyNoteJson: 'Not Verisini Kopyala',
       selectAll: 'Tümünü Seç',
       androidApp: 'Android İndir',
       androidAppTip: 'Android uygulaması olarak indir',
@@ -5155,7 +5151,6 @@
       noteGroup: 'Group',
       sendToGroup: 'Send to Group',
       copyText: 'Copy Text',
-      copyNoteJson: 'Copy Note Data',
       selectAll: 'Select All',
       androidApp: 'Android App',
       androidAppTip: 'Download as Android app',
