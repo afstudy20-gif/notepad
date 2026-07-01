@@ -896,18 +896,19 @@ body.has-image-panel .editor-area {
   }
 
   .toolbar .toolbar-labeled {
-    width: 32px;
-    min-width: 32px;
-    padding: 0;
-    gap: 0;
+    height: 30px;
+    min-width: 0;
+    padding: 0 7px;
+    gap: 4px;
   }
 
   .toolbar .toolbar-labeled span {
-    display: none;
+    display: inline;
+    font-size: 11px;
   }
 
   .toolbar-tools {
-    gap: 2px;
+    gap: 3px;
   }
 }
 
