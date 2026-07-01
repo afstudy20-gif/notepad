@@ -852,6 +852,44 @@ body.has-image-panel .editor-area {
   color: #333;
 }
 
+.toolbar button.is-active {
+  background: #eef2ff;
+  color: #2947c6;
+  box-shadow: inset 0 0 0 1px #b8c4ff;
+}
+
+.format-marks-btn {
+  font-size: 20px !important;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.toolbar .toolbar-labeled {
+  width: auto;
+  min-width: 32px;
+  padding: 0 10px;
+  gap: 6px;
+  border: 1px solid #e6e8ee;
+  background: #f8f9fb;
+  font-weight: 500;
+}
+
+.toolbar .toolbar-labeled span {
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.toolbar .toolbar-labeled:hover {
+  border-color: #cfd4dc;
+  background: #eef2ff;
+  color: #2947c6;
+}
+
+.toolbar-tools {
+  gap: 6px;
+}
+
 /* Save Dropdown */
 .save-dropdown-wrap {
   position: relative;
@@ -1009,6 +1047,8 @@ body.has-image-panel .editor-area {
   padding: 20px 24px;
   font-size: 15px;
   line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
   outline: none;
   color: #333;
 }
@@ -1016,6 +1056,32 @@ body.has-image-panel .editor-area {
 #editor:empty::before {
   content: 'Start typing your note... (paste images too)';
   color: #bbb;
+}
+
+#editor.show-format-marks {
+  tab-size: 4;
+}
+
+#editor.show-format-marks p::after,
+#editor.show-format-marks li::after,
+#editor.show-format-marks > div:not(.text-box):not(.mini-sheet):not(.link-block)::after,
+#editor.show-format-marks h1::after,
+#editor.show-format-marks h2::after,
+#editor.show-format-marks h3::after,
+#editor.show-format-marks h4::after,
+#editor.show-format-marks h5::after,
+#editor.show-format-marks h6::after {
+  content: ' ¶';
+  color: #94a3b8;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+#editor.show-format-marks br::after {
+  content: '↵';
+  color: #94a3b8;
+  font-weight: 700;
+  pointer-events: none;
 }
 
 #editor .pasted-image,
@@ -2509,6 +2575,10 @@ body.has-image-panel .image-panel {
     width: 30px;
     height: 30px;
   }
+  .toolbar .toolbar-labeled {
+    height: 30px;
+    padding: 0 8px;
+  }
   .toolbar select {
     padding: 3px 6px;
     font-size: 12px;
@@ -2633,6 +2703,18 @@ body.has-image-panel .image-panel {
   }
   .toolbar button { width: 28px; height: 28px; }
   .toolbar button svg { width: 14px; height: 14px; }
+  .toolbar .toolbar-labeled {
+    width: 28px;
+    min-width: 28px;
+    padding: 0;
+    gap: 0;
+  }
+  .toolbar .toolbar-labeled span {
+    display: none;
+  }
+  .toolbar-tools {
+    gap: 2px;
+  }
   .toolbar select { font-size: 11px; padding: 2px 4px; max-width: 90px; }
   .toolbar-divider { display: none; }
   .image-panel {

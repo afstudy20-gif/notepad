@@ -19,8 +19,10 @@
   let saveTimeout = null;
   let lastSaveError = null;
   const ZOOM_KEY = 'notepad_zoom';
+  const FORMAT_MARKS_KEY = 'notepad_format_marks';
   const ZOOM_STEPS = [0.5, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2];
   let editorZoom = clampZoom(parseFloat(localStorage.getItem(ZOOM_KEY) || '1'));
+  let formatMarksVisible = localStorage.getItem(FORMAT_MARKS_KEY) === '1';
 
   // --- Storage ---
   function normalizeNote(raw, fallbackId) {
@@ -522,6 +524,62 @@
     return escapeHtml(text || '').replace(/\r?\n/g, '<br>');
   }
 
+  function normalizeReviewRubricText(text) {
+    const responseRe = /^(?:must be improved|can be improved|adequate|acceptable|good|excellent|poor|fair|yes|no|not applicable|n\/a)$/i;
+    const lines = String(text || '').replace(/\r\n?/g, '\n').split('\n');
+    const out = [];
+    for (const line of lines) {
+      const trimmed = line.trim();
+      const prev = out[out.length - 1] || '';
+      if (trimmed && responseRe.test(trimmed) && /\?\s*$/.test(prev)) {
+        out[out.length - 1] = prev + '\t' + trimmed;
+      } else {
+        out.push(line);
+      }
+    }
+    return out.join('\n');
+  }
+
+  function isNodeInsideEditor(node) {
+    if (!node) return false;
+    const el = node.nodeType === Node.ELEMENT_NODE ? node : node.parentNode;
+    return el === editor || (el && editor.contains(el));
+  }
+
+  function isEditorSelection(sel) {
+    return !!(sel && sel.rangeCount > 0 && isNodeInsideEditor(sel.anchorNode) && isNodeInsideEditor(sel.focusNode));
+  }
+
+  function rangeContainsPoint(range, x, y) {
+    return Array.from(range.getClientRects()).some(rect =>
+      x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom
+    );
+  }
+
+  function selectedFragmentToText(fragment) {
+    let text = '';
+    const walk = (node) => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        text += node.nodeValue || '';
+        return;
+      }
+      if (node.nodeType !== Node.ELEMENT_NODE && node.nodeType !== Node.DOCUMENT_FRAGMENT_NODE) return;
+      const tag = node.nodeType === Node.ELEMENT_NODE ? node.tagName : '';
+      if (tag === 'BR') {
+        text += '\n';
+        return;
+      }
+      const isBlock = /^(DIV|P|LI|TR|H[1-6])$/.test(tag);
+      const isCell = /^(TD|TH)$/.test(tag);
+      const before = text.length;
+      Array.from(node.childNodes).forEach(walk);
+      if (isCell && !text.endsWith('\t')) text += '\t';
+      if (isBlock && text.length > before && !text.endsWith('\n')) text += '\n';
+    };
+    walk(fragment);
+    return text.replace(/\t+\n/g, '\n').replace(/\n+$/g, '');
+  }
+
   function escapeAttribute(str) {
     return escapeHtml(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
@@ -814,6 +872,22 @@
     if (zoomSelect) zoomSelect.value = ZOOM_STEPS[nearestZoomIndex(editorZoom)].toString();
   }
 
+  function applyFormatMarksState() {
+    editor.classList.toggle('show-format-marks', formatMarksVisible);
+    const btn = document.querySelector('button[data-action="toggleFormatMarks"]');
+    if (btn) {
+      btn.classList.toggle('is-active', formatMarksVisible);
+      btn.setAttribute('aria-pressed', formatMarksVisible ? 'true' : 'false');
+    }
+    localStorage.setItem(FORMAT_MARKS_KEY, formatMarksVisible ? '1' : '0');
+  }
+
+  function toggleFormatMarks() {
+    formatMarksVisible = !formatMarksVisible;
+    applyFormatMarksState();
+    editor.focus();
+  }
+
   function stepEditorZoom(direction) {
     const current = nearestZoomIndex(editorZoom);
     const next = Math.min(ZOOM_STEPS.length - 1, Math.max(0, current + direction));
@@ -852,6 +926,7 @@
     print: () => window.print(),
     undo: () => execCmd('undo'),
     redo: () => execCmd('redo'),
+    toggleFormatMarks: () => toggleFormatMarks(),
     bold: () => execCmd('bold'),
     italic: () => execCmd('italic'),
     underline: () => execCmd('underline'),
@@ -1049,11 +1124,12 @@
       }
     }
 
-    // 2. Otherwise prefer plain text
+    // 2. Otherwise prefer plain text, preserving copied line breaks.
     const text = cd.getData('text/plain');
     if (text && text.length > 0) {
       e.preventDefault();
-      document.execCommand('insertText', false, text);
+      insertHtmlAtCursor(textToNoteHtml(normalizeReviewRubricText(text)));
+      scheduleSave();
       return;
     }
     // No text — check for images in clipboard
@@ -1071,6 +1147,24 @@
         return;
       }
     }
+  });
+
+  editor.addEventListener('copy', (e) => {
+    if (!e.clipboardData) return;
+    const sel = window.getSelection();
+    if (!isEditorSelection(sel) || sel.isCollapsed) return;
+
+    const range = sel.getRangeAt(0);
+    const fragment = range.cloneContents();
+    const wrap = document.createElement('div');
+    wrap.appendChild(fragment.cloneNode(true));
+    const html = sanitizeHtml(wrap.innerHTML);
+    const text = selectedFragmentToText(fragment) || sel.toString();
+
+    if (!text && !html) return;
+    e.preventDefault();
+    e.clipboardData.setData('text/plain', text);
+    e.clipboardData.setData('text/html', html);
   });
 
   // Download image: data: URLs direct, http(s) URLs via fetch+blob to keep filename.
@@ -2994,11 +3088,27 @@
   // --- Editor context menu ---
   const editorCtx = $('#editorContextMenu');
   let savedRange = null;
+  let lastEditorSelectionRange = null;
 
-  function saveSelection() {
+  document.addEventListener('selectionchange', () => {
     const sel = window.getSelection();
-    if (sel && sel.rangeCount > 0 && editor.contains(sel.anchorNode)) {
-      savedRange = sel.getRangeAt(0).cloneRange();
+    if (isEditorSelection(sel) && !sel.isCollapsed) {
+      lastEditorSelectionRange = sel.getRangeAt(0).cloneRange();
+    }
+  });
+
+  function saveSelection(x, y) {
+    const sel = window.getSelection();
+    if (isEditorSelection(sel)) {
+      if (!sel.isCollapsed) {
+        savedRange = sel.getRangeAt(0).cloneRange();
+      } else if (lastEditorSelectionRange && x != null && y != null && rangeContainsPoint(lastEditorSelectionRange, x, y)) {
+        savedRange = lastEditorSelectionRange.cloneRange();
+      } else {
+        savedRange = sel.getRangeAt(0).cloneRange();
+      }
+    } else if (lastEditorSelectionRange && rangeContainsPoint(lastEditorSelectionRange, x, y)) {
+      savedRange = lastEditorSelectionRange.cloneRange();
     }
   }
   function restoreSelection() {
@@ -3030,7 +3140,7 @@
     editorCtx.querySelectorAll('.ectx-table-only').forEach(b => { b.hidden = !td; });
     e.preventDefault();
     e.stopPropagation();
-    saveSelection();
+    saveSelection(e.clientX, e.clientY);
     const vw = window.innerWidth, vh = window.innerHeight;
     const mw = 220, mh = 220;
     editorCtx.hidden = false;
@@ -3058,7 +3168,8 @@
       } else if (action === 'paste') {
         if (navigator.clipboard && navigator.clipboard.readText) {
           const txt = await navigator.clipboard.readText();
-          document.execCommand('insertText', false, txt);
+          insertHtmlAtCursor(textToNoteHtml(normalizeReviewRubricText(txt)));
+          scheduleSave();
         } else {
           alert('Tarayıcı pano okumayı desteklemiyor. Ctrl+V kullanın.');
         }
@@ -3765,6 +3876,7 @@
   }
 
   applyEditorZoom(editorZoom);
+  applyFormatMarksState();
   loadNotes();
 
   // Expose globals needed by cloud-sync module
@@ -4778,7 +4890,7 @@
       reset: 'Sıfırla',
       delete: 'Sil',
       rename: 'Adını Değiştir',
-      duplicate: 'Kopyala',
+      duplicate: 'Çoğalt',
       cut: 'Kes',
       copy: 'Kopyala',
       paste: 'Yapıştır',
@@ -4812,6 +4924,7 @@
       pageSize: 'Sayfa Boyutu',
       pageFree: 'Serbest',
       orientation: 'Sayfa Yönü',
+      formatMarks: 'Biçimlendirme İşaretleri',
       newNoteTip: 'Yeni Not (Ctrl+Alt+N)',
       openTip: 'Aç (Ctrl+O)',
       saveTip: 'Kaydet (Ctrl+S)',
@@ -4825,11 +4938,23 @@
       insertTable: 'Tablo Ekle',
       calculator: 'Hesap Makinesi',
       insertSheet: 'Mini Tablo (Formüllü)',
+      orientationShort: 'Yön',
+      findShort: 'Bul',
+      imageShort: 'Resim',
+      textBoxShort: 'Metin',
+      shapeShort: 'Şekil',
+      tableShort: 'Tablo',
+      linkShort: 'Link',
+      gridShort: 'Izgara',
+      calcShort: 'Hesap',
+      sheetShort: 'Formül',
+      dateShort: 'Tarih',
+      screenShort: 'Ekran',
       noteColor: 'Renk',
       noteGroup: 'Grup',
       sendToGroup: 'Gruba Gönder',
-      copyText: 'Kopyala',
-      copyNoteJson: 'Notu Kopyala',
+      copyText: 'Metni Kopyala',
+      copyNoteJson: 'Not Verisini Kopyala',
       selectAll: 'Tümünü Seç',
       androidApp: 'Android İndir',
       androidAppTip: 'Android uygulaması olarak indir',
@@ -5000,6 +5125,7 @@
       pageSize: 'Page Size',
       pageFree: 'Free',
       orientation: 'Page Orientation',
+      formatMarks: 'Formatting Marks',
       newNoteTip: 'New Note (Ctrl+Alt+N)',
       openTip: 'Open (Ctrl+O)',
       saveTip: 'Save (Ctrl+S)',
@@ -5013,11 +5139,23 @@
       insertTable: 'Insert Table',
       calculator: 'Calculator',
       insertSheet: 'Mini Sheet (Formulas)',
+      orientationShort: 'Orient',
+      findShort: 'Find',
+      imageShort: 'Image',
+      textBoxShort: 'Text',
+      shapeShort: 'Shape',
+      tableShort: 'Table',
+      linkShort: 'Link',
+      gridShort: 'Grid',
+      calcShort: 'Calc',
+      sheetShort: 'Sheet',
+      dateShort: 'Date',
+      screenShort: 'Screen',
       noteColor: 'Color',
       noteGroup: 'Group',
       sendToGroup: 'Send to Group',
-      copyText: 'Copy',
-      copyNoteJson: 'Copy Note',
+      copyText: 'Copy Text',
+      copyNoteJson: 'Copy Note Data',
       selectAll: 'Select All',
       androidApp: 'Android App',
       androidAppTip: 'Download as Android app',

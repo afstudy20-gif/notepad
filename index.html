@@ -14,7 +14,7 @@
   <title>Notepad — Local-Only Text Editor</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
-  <link rel="stylesheet" href="style.css?v=87">
+  <link rel="stylesheet" href="style.css?v=92">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -211,6 +211,9 @@
         <button title="Redo (Ctrl+Y)" data-action="redo">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.13-9.36L23 10"/></svg>
         </button>
+        <button class="format-marks-btn" title="Biçimlendirme İşaretleri" data-i18n-title="formatMarks" data-action="toggleFormatMarks" aria-pressed="false">
+          ¶
+        </button>
       </div>
       <div class="toolbar-divider"></div>
       <div class="toolbar-group">
@@ -292,44 +295,56 @@
           <option value="letter">Letter</option>
           <option value="legal">Legal</option>
         </select>
-        <button id="btnOrientation" title="Sayfa Yönü" data-i18n-title="orientation" data-action="toggleOrientation">
+        <button id="btnOrientation" class="toolbar-labeled" title="Sayfa Yönü" data-i18n-title="orientation" data-action="toggleOrientation">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="3" width="12" height="18" rx="1"/></svg>
+          <span data-i18n="orientationShort">Yön</span>
         </button>
       </div>
       <div class="toolbar-divider"></div>
-      <div class="toolbar-group">
-        <button title="Bul ve Değiştir (Ctrl+H)" data-i18n-title="findReplaceTip" data-action="findReplace">
+      <div class="toolbar-group toolbar-tools">
+        <button class="toolbar-labeled" title="Bul ve Değiştir (Ctrl+H)" data-i18n-title="findReplaceTip" data-action="findReplace">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <span data-i18n="findShort">Bul</span>
         </button>
-        <button title="Resim Ekle" data-i18n-title="insertImage" data-action="insertImage">
+        <button class="toolbar-labeled" title="Resim Ekle" data-i18n-title="insertImage" data-action="insertImage">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          <span data-i18n="imageShort">Resim</span>
         </button>
-        <button title="Metin Kutusu Ekle" data-i18n-title="insertTextBox" data-action="insertTextBox">
+        <button class="toolbar-labeled" title="Metin Kutusu Ekle" data-i18n-title="insertTextBox" data-action="insertTextBox">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="12" rx="1"/><line x1="7" y1="12" x2="17" y2="12"/></svg>
+          <span data-i18n="textBoxShort">Metin</span>
         </button>
-        <button title="Şekil/İkon Ekle" data-i18n-title="insertShape" data-action="insertShape">
+        <button class="toolbar-labeled" title="Şekil/İkon Ekle" data-i18n-title="insertShape" data-action="insertShape">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7" cy="7" r="4"/><rect x="13" y="3" width="8" height="8"/><polygon points="7 14 3 22 11 22"/><polygon points="17 13 21 17 17 21 13 17"/></svg>
+          <span data-i18n="shapeShort">Şekil</span>
         </button>
-        <button title="Tablo Ekle" data-i18n-title="insertTable" data-action="insertTable">
+        <button class="toolbar-labeled" title="Tablo Ekle" data-i18n-title="insertTable" data-action="insertTable">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="1"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+          <span data-i18n="tableShort">Tablo</span>
         </button>
-        <button title="Bağlantı Ekle" data-i18n-title="insertLink" data-action="insertLink">
+        <button class="toolbar-labeled" title="Bağlantı Ekle" data-i18n-title="insertLink" data-action="insertLink">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          <span data-i18n="linkShort">Link</span>
         </button>
-        <button title="Cetvel/Izgara" data-i18n-title="toggleRulers" data-action="toggleRulers">
+        <button class="toolbar-labeled" title="Cetvel/Izgara" data-i18n-title="toggleRulers" data-action="toggleRulers">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+          <span data-i18n="gridShort">Izgara</span>
         </button>
-        <button title="Hesap Makinesi" data-i18n-title="calculator" data-action="toggleCalc">
+        <button class="toolbar-labeled" title="Hesap Makinesi" data-i18n-title="calculator" data-action="toggleCalc">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="11" x2="8.01" y2="11"/><line x1="12" y1="11" x2="12.01" y2="11"/><line x1="16" y1="11" x2="16.01" y2="11"/><line x1="8" y1="15" x2="8.01" y2="15"/><line x1="12" y1="15" x2="12.01" y2="15"/><line x1="16" y1="15" x2="16.01" y2="15"/></svg>
+          <span data-i18n="calcShort">Hesap</span>
         </button>
-        <button title="Mini Tablo (Formüllü)" data-i18n-title="insertSheet" data-action="insertSheet">
+        <button class="toolbar-labeled" title="Mini Tablo (Formüllü)" data-i18n-title="insertSheet" data-action="insertSheet">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="1"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/><text x="6" y="7" font-size="3" fill="currentColor" stroke="none">fx</text></svg>
+          <span data-i18n="sheetShort">Sheet</span>
         </button>
-        <button title="Tarih/Saat Ekle" data-i18n-title="insertDateTime" data-action="insertDateTime">
+        <button class="toolbar-labeled" title="Tarih/Saat Ekle" data-i18n-title="insertDateTime" data-action="insertDateTime">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span data-i18n="dateShort">Tarih</span>
         </button>
-        <button title="Tam Ekran" data-i18n-title="fullscreen" data-action="fullscreen">
+        <button class="toolbar-labeled" title="Tam Ekran" data-i18n-title="fullscreen" data-action="fullscreen">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+          <span data-i18n="screenShort">Ekran</span>
         </button>
       </div>
     </div>
@@ -369,9 +384,9 @@
   <!-- Note Context Menu -->
   <div class="context-menu" id="noteContextMenu" hidden>
     <button data-ctx="rename" data-i18n="rename">Adını Değiştir</button>
-    <button data-ctx="duplicate" data-i18n="duplicate">Duplicate</button>
-    <button data-ctx="copyText" data-i18n="copyText">Kopyala</button>
-    <button data-ctx="copyNote" data-i18n="copyNoteJson">Notu Kopyala</button>
+    <button data-ctx="duplicate" data-i18n="duplicate">Çoğalt</button>
+    <button data-ctx="copyText" data-i18n="copyText">Metni Kopyala</button>
+    <button data-ctx="copyNote" data-i18n="copyNoteJson">Not Verisini Kopyala</button>
     <button data-ctx="color" data-i18n="noteColor">Renk</button>
     <button data-ctx="group" data-i18n="sendToGroup">Gruba Gönder</button>
     <button data-ctx="delete" class="ctx-danger" data-i18n="delete">Sil</button>
@@ -771,15 +786,15 @@
 
   <script src="./vendor/html2pdf.bundle.min.js"></script>
   <script src="./vendor/html-docx.js"></script>
-  <script src="js/cloud-config.js?v=87"></script>
-  <script src="js/cloud-sync.js?v=87"></script>
-  <script src="app.js?v=87"></script>
+  <script src="js/cloud-config.js?v=92"></script>
+  <script src="js/cloud-sync.js?v=92"></script>
+  <script src="app.js?v=92"></script>
   <script>
     // Register service worker for PWA install + offline shell.
     // SW uses network-first for HTML/JS so updates roll out without manual refresh.
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=87').catch((err) => {
+        navigator.serviceWorker.register('./sw.js?v=92').catch((err) => {
           console.warn('[sw] register failed', err);
         });
       });
