@@ -3084,8 +3084,12 @@
 
   // --- Editor context menu ---
   const editorCtx = $('#editorContextMenu');
+  const translatePopup = $('#translatePopup');
   let savedRange = null;
   let lastEditorSelectionRange = null;
+  let editorCtxPoint = null;
+  let lastTranslateText = '';
+  let lastTranslatedText = '';
 
   document.addEventListener('selectionchange', () => {
     const sel = window.getSelection();
@@ -3117,6 +3121,88 @@
     }
   }
 
+  function getSavedSelectionText() {
+    if (savedRange && !savedRange.collapsed) return savedRange.toString().trim();
+    const sel = window.getSelection();
+    if (isEditorSelection(sel) && !sel.isCollapsed) return sel.toString().trim();
+    return '';
+  }
+
+  function positionTranslatePopup(x, y) {
+    if (!translatePopup) return;
+    const w = 320;
+    const h = 160;
+    translatePopup.style.left = Math.max(8, Math.min(x, window.innerWidth - w - 8)) + 'px';
+    translatePopup.style.top = Math.max(8, Math.min(y, window.innerHeight - h - 8)) + 'px';
+  }
+
+  function hideTranslatePopup() {
+    if (!translatePopup) return;
+    translatePopup.hidden = true;
+    lastTranslateText = '';
+    lastTranslatedText = '';
+    const result = $('#translateResult');
+    const langSelect = $('#translateLangSelect');
+    const badge = $('#translateBadge');
+    if (result) { result.textContent = ''; result.className = ''; }
+    if (langSelect) langSelect.className = '';
+    if (badge) badge.textContent = '';
+  }
+
+  function showTranslatePopup(text, x, y) {
+    if (!translatePopup || !text) return;
+    lastTranslateText = text;
+    lastTranslatedText = '';
+    $('#translatePreview').textContent = text.length > 46 ? text.slice(0, 46) + '...' : text;
+    $('#translateBadge').textContent = '';
+    const result = $('#translateResult');
+    const langSelect = $('#translateLangSelect');
+    if (result) { result.textContent = ''; result.className = ''; }
+    if (langSelect) langSelect.className = '';
+    positionTranslatePopup(x, y);
+    translatePopup.hidden = false;
+    translateSelectionText();
+  }
+
+  async function translateSelectionText(forceSl, forceTl) {
+    const text = lastTranslateText;
+    const result = $('#translateResult');
+    const badge = $('#translateBadge');
+    const langSelect = $('#translateLangSelect');
+    if (!text || !result) return;
+    result.textContent = tr('translating');
+    result.className = 'show loading';
+    if (badge) badge.textContent = '';
+    if (langSelect) langSelect.className = '';
+    try {
+      const sl = forceSl || 'auto';
+      const tl = forceTl || 'tr';
+      const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sl}&tl=${tl}&dt=t&q=${encodeURIComponent(text)}`;
+      const response = await fetch(url);
+      const data = await response.json();
+      const detected = data[2] || forceSl || null;
+      if (!forceSl && detected === 'tr') {
+        await translateSelectionText('tr', 'en');
+        return;
+      }
+      if (!forceSl && (!detected || detected === 'und')) {
+        result.textContent = '';
+        result.className = '';
+        if (langSelect) langSelect.className = 'show';
+        return;
+      }
+      const translatedText = (data[0] || []).map(chunk => chunk[0]).join('');
+      lastTranslatedText = translatedText;
+      result.textContent = translatedText;
+      result.className = 'show';
+      if (badge) badge.textContent = `${(forceSl || detected || 'auto').toUpperCase()} → ${(forceTl || 'tr').toUpperCase()}`;
+    } catch (err) {
+      result.textContent = tr('translateFailed');
+      result.className = 'show';
+      if (langSelect) langSelect.className = 'show';
+    }
+  }
+
   document.addEventListener('contextmenu', (e) => {
     const inEditor = e.target === editor || (editor.contains && editor.contains(e.target));
     console.log('[editorCtx] contextmenu target=', e.target, 'inEditor=', inEditor);
@@ -3135,9 +3221,12 @@
     const td = e.target.closest && e.target.closest('#editor table.editor-table td');
     __ctxTableCell = td || null;
     editorCtx.querySelectorAll('.ectx-table-only').forEach(b => { b.hidden = !td; });
+    saveSelection(e.clientX, e.clientY);
+    editorCtxPoint = { x: e.clientX, y: e.clientY };
+    const selectedText = getSavedSelectionText();
+    editorCtx.querySelectorAll('.ectx-text-only').forEach(b => { b.hidden = !selectedText; });
     e.preventDefault();
     e.stopPropagation();
-    saveSelection(e.clientX, e.clientY);
     const vw = window.innerWidth, vh = window.innerHeight;
     const mw = 220, mh = 220;
     editorCtx.hidden = false;
@@ -3162,6 +3251,12 @@
         document.execCommand('cut');
       } else if (action === 'copy') {
         document.execCommand('copy');
+      } else if (action === 'translateSelection') {
+        const text = getSavedSelectionText();
+        if (text) {
+          const p = editorCtxPoint || { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+          showTranslatePopup(text, p.x + 4, p.y + 4);
+        }
       } else if (action === 'paste') {
         if (navigator.clipboard && navigator.clipboard.readText) {
           const txt = await navigator.clipboard.readText();
@@ -3223,11 +3318,30 @@
 
   document.addEventListener('click', (e) => {
     if (!e.target.closest('#editorContextMenu')) editorCtx.hidden = true;
+    if (translatePopup && !e.target.closest('#translatePopup') && !e.target.closest('#editorContextMenu')) {
+      hideTranslatePopup();
+    }
   });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') editorCtx.hidden = true;
+    if (e.key === 'Escape') {
+      editorCtx.hidden = true;
+      hideTranslatePopup();
+    }
   });
   window.addEventListener('blur', () => editorCtx.hidden = true);
+
+  $('#translateClose')?.addEventListener('click', hideTranslatePopup);
+  $('#translateCopy')?.addEventListener('click', async () => {
+    const text = lastTranslatedText || lastTranslateText;
+    if (!text) return;
+    await copyTextToClipboard(text);
+  });
+  $('#translateLangSelect')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-translate-pair]');
+    if (!btn) return;
+    const [sl, tl] = btn.dataset.translatePair.split('-');
+    translateSelectionText(sl, tl);
+  });
 
   // Delete note
   $('#btnDelete').addEventListener('click', () => {
@@ -4891,6 +5005,10 @@
       cut: 'Kes',
       copy: 'Kopyala',
       paste: 'Yapıştır',
+      translateText: 'Çevir',
+      translating: 'Çevriliyor...',
+      translateFailed: 'Çeviri başarısız.',
+      selectLanguage: 'Dil seç:',
       pasteImage: 'Panodan Resim Yapıştır',
       uploadImage: 'Resim Yükle (Diskten)',
       saveImage: 'Resmi Kaydet',
@@ -5091,6 +5209,10 @@
       cut: 'Cut',
       copy: 'Copy',
       paste: 'Paste',
+      translateText: 'Translate',
+      translating: 'Translating...',
+      translateFailed: 'Translation failed.',
+      selectLanguage: 'Select language:',
       pasteImage: 'Paste Image from Clipboard',
       uploadImage: 'Upload Image (from disk)',
       saveImage: 'Save Image',

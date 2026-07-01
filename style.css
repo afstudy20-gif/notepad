@@ -686,6 +686,99 @@ body.has-image-panel .editor-area {
   margin-right: 4px;
 }
 
+.translate-popup {
+  position: fixed;
+  z-index: 220;
+  width: 320px;
+  max-width: calc(100vw - 16px);
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 10px 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+}
+.translate-popup[hidden] { display: none !important; }
+.translate-popup-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+#translatePreview {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: #666;
+}
+#translateBadge {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  color: #4361ee;
+  background: #eef2ff;
+  border-radius: 5px;
+  padding: 2px 7px;
+}
+#translateCopy,
+#translateClose,
+#translateLangSelect button {
+  border: 1px solid #ddd;
+  background: #f8f9fa;
+  color: #333;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+#translateCopy { padding: 5px 9px; }
+#translateClose {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  padding: 0;
+}
+#translateCopy:hover,
+#translateClose:hover,
+#translateLangSelect button:hover {
+  background: #eef2ff;
+  border-color: #cfd7ff;
+  color: #2947c6;
+}
+#translateResult {
+  display: none;
+  border-top: 1px solid #eee;
+  margin-top: 8px;
+  padding-top: 8px;
+  max-height: 150px;
+  overflow-y: auto;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #333;
+  word-break: break-word;
+}
+#translateResult.show { display: block; }
+#translateResult.loading { color: #777; font-style: italic; }
+#translateLangSelect {
+  display: none;
+  border-top: 1px solid #eee;
+  margin-top: 8px;
+  padding-top: 8px;
+  align-items: center;
+  gap: 6px;
+}
+#translateLangSelect.show { display: flex; }
+#translateLangSelect span {
+  flex: 1;
+  font-size: 12px;
+  color: #666;
+}
+#translateLangSelect button {
+  flex-shrink: 0;
+  padding: 5px 10px;
+  font-weight: 600;
+}
+
 /* Color Palette popup */
 .color-palette {
   position: fixed;

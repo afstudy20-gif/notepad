@@ -1,8 +1,8 @@
-# Notepad — Local-Only Online Editor
+# Not — Browser-First Online Editor
 
 Live: **https://not.drtr.uk/**
 
-A browser-based rich-text notepad. All notes live in `localStorage` — nothing is ever uploaded. Works offline as a PWA.
+A browser-based rich-text note app. Notes live in `localStorage` by default, with optional Google Drive sync. Works offline as a PWA.
 
 ---
 

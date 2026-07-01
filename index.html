@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Local-only online note app. All notes stored in your browser. Nothing uploaded.">
+  <meta name="description" content="Browser-first note app with optional Google Drive sync. Notes stay local unless sync is enabled.">
   <meta name="theme-color" content="#1a1a2e">
   <!-- iOS PWA support -->
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -11,10 +11,10 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Not">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <title>Not — Local-Only Text Editor</title>
+  <title>Not — Browser-First Text Editor</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
-  <link rel="stylesheet" href="style.css?v=97">
+  <link rel="stylesheet" href="style.css?v=99">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -446,6 +446,7 @@
   <div class="context-menu" id="editorContextMenu" hidden>
     <button data-ectx="cut" data-i18n="cut">Kes</button>
     <button data-ectx="copy" data-i18n="copy">Kopyala</button>
+    <button data-ectx="translateSelection" class="ectx-text-only" data-i18n="translateText" hidden>Çevir</button>
     <button data-ectx="paste" data-i18n="paste">Yapıştır</button>
     <button data-ectx="pasteImage" data-i18n="pasteImage">Panodan Resim Yapıştır</button>
     <button data-ectx="uploadImage" data-i18n="uploadImage">Resim Yükle (Diskten)</button>
@@ -463,6 +464,21 @@
     <button data-ectx="tableDeleteRow" class="ctx-danger ectx-table-only" hidden>Satırı Sil</button>
     <button data-ectx="tableDeleteCol" class="ctx-danger ectx-table-only" hidden>Sütunu Sil</button>
     <button data-ectx="tableDelete" class="ctx-danger ectx-table-only" hidden>Tabloyu Sil</button>
+  </div>
+
+  <div class="translate-popup" id="translatePopup" hidden>
+    <div class="translate-popup-head">
+      <span id="translatePreview"></span>
+      <span id="translateBadge"></span>
+      <button id="translateCopy" type="button" data-i18n="copy">Kopyala</button>
+      <button id="translateClose" type="button">✕</button>
+    </div>
+    <div id="translateResult"></div>
+    <div id="translateLangSelect">
+      <span data-i18n="selectLanguage">Dil seç:</span>
+      <button type="button" data-translate-pair="en-tr">EN → TR</button>
+      <button type="button" data-translate-pair="tr-en">TR → EN</button>
+    </div>
   </div>
 
   <!-- Web clip target picker -->
@@ -785,15 +801,15 @@
 
   <script src="./vendor/html2pdf.bundle.min.js"></script>
   <script src="./vendor/html-docx.js"></script>
-  <script src="js/cloud-config.js?v=97"></script>
-  <script src="js/cloud-sync.js?v=97"></script>
-  <script src="app.js?v=97"></script>
+  <script src="js/cloud-config.js?v=99"></script>
+  <script src="js/cloud-sync.js?v=99"></script>
+  <script src="app.js?v=99"></script>
   <script>
     // Register service worker for PWA install + offline shell.
     // SW uses network-first for HTML/JS so updates roll out without manual refresh.
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=97').catch((err) => {
+        navigator.serviceWorker.register('./sw.js?v=99').catch((err) => {
           console.warn('[sw] register failed', err);
         });
       });

@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "Not — Local-Only Text Editor",
+  "name": "Not — Browser-First Text Editor",
   "short_name": "Not",
-  "description": "Local-only online note app. All notes stored in your browser. Nothing uploaded.",
+  "description": "Browser-first note app with optional Google Drive sync. Notes stay local unless sync is enabled.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
