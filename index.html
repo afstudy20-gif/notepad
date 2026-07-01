@@ -14,7 +14,7 @@
   <title>Not — Browser-First Text Editor</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
-  <link rel="stylesheet" href="style.css?v=99">
+  <link rel="stylesheet" href="style.css?v=100">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -221,6 +221,12 @@
         <button title="Italic (Ctrl+I)" data-action="italic"><i>I</i></button>
         <button title="Underline (Ctrl+U)" data-action="underline"><u>U</u></button>
         <button title="Strikethrough" data-action="strikeThrough"><s>S</s></button>
+        <button title="Biçimi Temizle" data-i18n-title="clearFormat" data-action="clearFormat">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h10v3"/><path d="M9 20h1"/><path d="M9 4v16"/><path d="m15 15 5 5"/><path d="m20 15-5 5"/></svg>
+        </button>
+        <button id="btnCopyFormat" title="Biçimi Kopyala" data-i18n-title="copyFormat" data-action="copyFormat" aria-pressed="false">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16"/><path d="M6 16h4"/><path d="M8 16V4"/><path d="M5 4h6"/><path d="M15 5h3a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-3z"/><path d="M15 11v9"/></svg>
+        </button>
       </div>
       <div class="toolbar-divider"></div>
       <div class="toolbar-group">
@@ -801,15 +807,15 @@
 
   <script src="./vendor/html2pdf.bundle.min.js"></script>
   <script src="./vendor/html-docx.js"></script>
-  <script src="js/cloud-config.js?v=99"></script>
-  <script src="js/cloud-sync.js?v=99"></script>
-  <script src="app.js?v=99"></script>
+  <script src="js/cloud-config.js?v=100"></script>
+  <script src="js/cloud-sync.js?v=100"></script>
+  <script src="app.js?v=100"></script>
   <script>
     // Register service worker for PWA install + offline shell.
     // SW uses network-first for HTML/JS so updates roll out without manual refresh.
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=99').catch((err) => {
+        navigator.serviceWorker.register('./sw.js?v=100').catch((err) => {
           console.warn('[sw] register failed', err);
         });
       });

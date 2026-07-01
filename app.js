@@ -18,6 +18,8 @@
   let activeId = null;
   let saveTimeout = null;
   let lastSaveError = null;
+  let copiedFormat = null;
+  let formatPainterActive = false;
   const ZOOM_KEY = 'notepad_zoom';
   const FORMAT_MARKS_KEY = 'notepad_format_marks';
   const ZOOM_STEPS = [0.5, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2];
@@ -888,6 +890,97 @@
     editor.focus();
   }
 
+  function getActiveEditorRange() {
+    const sel = window.getSelection();
+    if (isEditorSelection(sel) && sel.rangeCount > 0 && !sel.isCollapsed) {
+      return sel.getRangeAt(0).cloneRange();
+    }
+    return null;
+  }
+
+  function getFormatSourceElement(range) {
+    if (!range) return null;
+    let node = range.startContainer;
+    if (node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+    if (node === editor && range.startContainer.childNodes.length) {
+      node = range.startContainer.childNodes[range.startOffset] || node;
+      if (node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+    }
+    return node && node.nodeType === Node.ELEMENT_NODE ? node : null;
+  }
+
+  function captureSelectionFormat() {
+    const range = getActiveEditorRange();
+    const source = getFormatSourceElement(range);
+    if (!source) return null;
+    const styles = window.getComputedStyle(source);
+    const backgroundColor = styles.backgroundColor;
+    return {
+      color: styles.color,
+      backgroundColor: backgroundColor && backgroundColor !== 'rgba(0, 0, 0, 0)' ? backgroundColor : '',
+      fontFamily: styles.fontFamily,
+      fontSize: styles.fontSize,
+      fontWeight: styles.fontWeight,
+      fontStyle: styles.fontStyle,
+      textDecorationLine: styles.textDecorationLine,
+      textDecorationStyle: styles.textDecorationStyle,
+      textDecorationColor: styles.textDecorationColor
+    };
+  }
+
+  function applyFormatToSelection(format) {
+    const range = getActiveEditorRange();
+    if (!range || !format) return false;
+    const span = document.createElement('span');
+    span.style.color = format.color || '';
+    span.style.backgroundColor = format.backgroundColor || '';
+    span.style.fontFamily = format.fontFamily || '';
+    span.style.fontSize = format.fontSize || '';
+    span.style.fontWeight = format.fontWeight || '';
+    span.style.fontStyle = format.fontStyle || '';
+    if (format.textDecorationLine && format.textDecorationLine !== 'none') {
+      span.style.textDecorationLine = format.textDecorationLine;
+      span.style.textDecorationStyle = format.textDecorationStyle || '';
+      span.style.textDecorationColor = format.textDecorationColor || '';
+    }
+    span.appendChild(range.extractContents());
+    range.insertNode(span);
+    const sel = window.getSelection();
+    const nextRange = document.createRange();
+    nextRange.selectNodeContents(span);
+    sel.removeAllRanges();
+    sel.addRange(nextRange);
+    scheduleSave();
+    return true;
+  }
+
+  function setFormatPainterActive(active) {
+    formatPainterActive = active;
+    const btn = $('#btnCopyFormat');
+    if (btn) {
+      btn.classList.toggle('is-active', active);
+      btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    }
+  }
+
+  function copyOrApplyFormat() {
+    if (formatPainterActive && copiedFormat && applyFormatToSelection(copiedFormat)) {
+      setFormatPainterActive(false);
+      return;
+    }
+    copiedFormat = captureSelectionFormat();
+    if (copiedFormat) {
+      setFormatPainterActive(true);
+      setSaveStatus(tr('formatCopied'), 'saved');
+    }
+  }
+
+  function clearSelectionFormat() {
+    editor.focus();
+    document.execCommand('removeFormat');
+    scheduleSave();
+  }
+
   function stepEditorZoom(direction) {
     const current = nearestZoomIndex(editorZoom);
     const next = Math.min(ZOOM_STEPS.length - 1, Math.max(0, current + direction));
@@ -931,6 +1024,8 @@
     italic: () => execCmd('italic'),
     underline: () => execCmd('underline'),
     strikeThrough: () => execCmd('strikeThrough'),
+    clearFormat: () => clearSelectionFormat(),
+    copyFormat: () => copyOrApplyFormat(),
     justifyLeft: () => execCmd('justifyLeft'),
     justifyCenter: () => execCmd('justifyCenter'),
     justifyRight: () => execCmd('justifyRight'),
@@ -2711,6 +2806,13 @@
     if (!btn) return;
     const action = btn.dataset.action;
     if (toolbarActions[action]) toolbarActions[action]();
+  });
+
+  document.addEventListener('mouseup', (e) => {
+    if (!formatPainterActive || !copiedFormat || !editor.contains(e.target)) return;
+    setTimeout(() => {
+      if (applyFormatToSelection(copiedFormat)) setFormatPainterActive(false);
+    }, 0);
   });
 
   // Font selects
@@ -5040,6 +5142,9 @@
       pageFree: 'Serbest',
       orientation: 'Sayfa Yönü',
       formatMarks: 'Biçimlendirme İşaretleri',
+      clearFormat: 'Biçimi Temizle',
+      copyFormat: 'Biçimi Kopyala',
+      formatCopied: 'Biçim kopyalandı',
       newNoteTip: 'Yeni Not (Ctrl+Alt+N)',
       openTip: 'Aç (Ctrl+O)',
       saveTip: 'Kaydet (Ctrl+S)',
@@ -5244,6 +5349,9 @@
       pageFree: 'Free',
       orientation: 'Page Orientation',
       formatMarks: 'Formatting Marks',
+      clearFormat: 'Clear Formatting',
+      copyFormat: 'Copy Formatting',
+      formatCopied: 'Format copied',
       newNoteTip: 'New Note (Ctrl+Alt+N)',
       openTip: 'Open (Ctrl+O)',
       saveTip: 'Save (Ctrl+S)',
