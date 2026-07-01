@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "Notepad — Local-Only Text Editor",
-  "short_name": "Notepad",
-  "description": "Local-only online notepad. All notes stored in your browser. Nothing uploaded.",
+  "name": "Not — Local-Only Text Editor",
+  "short_name": "Not",
+  "description": "Local-only online note app. All notes stored in your browser. Nothing uploaded.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
@@ -81,7 +81,7 @@
       "sizes": "1280x720",
       "type": "image/png",
       "form_factor": "wide",
-      "label": "Notepad masaüstü görünümü"
+      "label": "Not masaüstü görünümü"
     },
     {
       "src": "screenshots/mobile-narrow.png",
