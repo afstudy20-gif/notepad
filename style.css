@@ -890,6 +890,27 @@ body.has-image-panel .editor-area {
   gap: 6px;
 }
 
+@media (max-width: 1800px) {
+  .toolbar {
+    row-gap: 4px;
+  }
+
+  .toolbar .toolbar-labeled {
+    width: 32px;
+    min-width: 32px;
+    padding: 0;
+    gap: 0;
+  }
+
+  .toolbar .toolbar-labeled span {
+    display: none;
+  }
+
+  .toolbar-tools {
+    gap: 2px;
+  }
+}
+
 /* Save Dropdown */
 .save-dropdown-wrap {
   position: relative;
@@ -953,6 +974,18 @@ body.has-image-panel .editor-area {
 .toolbar .zoom-select {
   width: 74px;
   min-width: 74px;
+}
+
+#fontFamily {
+  width: 160px;
+}
+
+#fontSize {
+  width: 74px;
+}
+
+#pageSize {
+  width: 120px;
 }
 
 #btnOrientation svg {
