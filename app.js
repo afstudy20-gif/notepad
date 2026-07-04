@@ -5069,15 +5069,24 @@
   // Tools & Settings Accordion toggle
   const btnToolsToggle = $('#btnToolsToggle');
   const toolsContent = $('#toolsContent');
+  function setToolsOpen(open) {
+    if (!btnToolsToggle || !toolsContent) return;
+    toolsContent.style.display = open ? 'block' : 'none';
+    btnToolsToggle.classList.toggle('active', open);
+    const arrow = btnToolsToggle.querySelector('.accordion-arrow');
+    if (arrow) arrow.textContent = open ? '▴' : '▾';
+  }
   if (btnToolsToggle && toolsContent) {
-    btnToolsToggle.addEventListener('click', () => {
-      const isHidden = toolsContent.style.display === 'none';
-      toolsContent.style.display = isHidden ? 'block' : 'none';
-      btnToolsToggle.classList.toggle('active', isHidden);
-      const arrow = btnToolsToggle.querySelector('.accordion-arrow');
-      if (arrow) {
-        arrow.textContent = isHidden ? '▴' : '▾';
-      }
+    btnToolsToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      setToolsOpen(toolsContent.style.display === 'none');
+    });
+    // Close when clicking anywhere outside the accordion (editor, note list, etc.)
+    document.addEventListener('click', (e) => {
+      if (toolsContent.style.display === 'none') return;
+      if (e.target.closest('#toolsContent')) return;
+      if (e.target.closest('#btnToolsToggle')) return;
+      setToolsOpen(false);
     });
   }
 
