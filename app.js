@@ -1070,6 +1070,9 @@
     toggleCalc: () => {
       toggleCalculator();
     },
+    toggleCal: () => {
+      toggleCalendar();
+    },
     insertSheet: () => {
       insertMiniSheet();
     },
@@ -2092,6 +2095,156 @@
       calcPanel.style.left = (e.clientX - dx) + 'px';
       calcPanel.style.top = (e.clientY - dy) + 'px';
       calcPanel.style.right = 'auto';
+    });
+    document.addEventListener('mouseup', () => { dragging = false; });
+  })();
+
+  // ===== Mini Calendar =====
+  const calPanel = $('#calPanel');
+  const calGrid = $('#calGrid');
+  const calTitle = $('#calTitle');
+  const calInsertBtn = $('#calInsert');
+  // View (the month being browsed) and selection (the picked day)
+  let calViewYear = new Date().getFullYear();
+  let calViewMonth = new Date().getMonth();
+  let calSelected = null; // Date object or null
+
+  // Day-of-week headers, starting Monday
+  const CAL_DOW = ['Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct', 'Pz'];
+
+  function isSameDay(a, b) {
+    return a.getFullYear() === b.getFullYear() &&
+      a.getMonth() === b.getMonth() &&
+      a.getDate() === b.getDate();
+  }
+
+  function calMonthLabel(year, month) {
+    const months = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
+      'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+    return months[month] + ' ' + year;
+  }
+
+  function calRender() {
+    calTitle.textContent = calMonthLabel(calViewYear, calViewMonth);
+    calGrid.innerHTML = '';
+    CAL_DOW.forEach(d => {
+      const el = document.createElement('div');
+      el.className = 'cal-dow';
+      el.textContent = d;
+      calGrid.appendChild(el);
+    });
+    const first = new Date(calViewYear, calViewMonth, 1);
+    // Make Monday=0 ... Sunday=6
+    const lead = (first.getDay() + 6) % 7;
+    const daysInMonth = new Date(calViewYear, calViewMonth + 1, 0).getDate();
+    const daysInPrev = new Date(calViewYear, calViewMonth, 0).getDate();
+    const today = new Date();
+
+    // Leading days from previous month (greyed)
+    for (let i = lead - 1; i >= 0; i--) {
+      const d = new Date(calViewYear, calViewMonth - 1, daysInPrev - i);
+      calGrid.appendChild(calMakeCell(d, true, today));
+    }
+    // Current month days
+    for (let day = 1; day <= daysInMonth; day++) {
+      const d = new Date(calViewYear, calViewMonth, day);
+      calGrid.appendChild(calMakeCell(d, false, today));
+    }
+    // Trailing days to fill the grid (6 rows = 42 cells)
+    const filled = lead + daysInMonth;
+    const trail = (filled % 7 === 0) ? 0 : 7 - (filled % 7);
+    for (let i = 1; i <= trail; i++) {
+      const d = new Date(calViewYear, calViewMonth + 1, i);
+      calGrid.appendChild(calMakeCell(d, true, today));
+    }
+    calInsertBtn.disabled = !calSelected;
+  }
+
+  function calMakeCell(d, other, today) {
+    const cell = document.createElement('div');
+    cell.className = 'cal-cell' + (other ? ' cal-other' : '');
+    if (isSameDay(d, today)) cell.classList.add('cal-today');
+    if (calSelected && isSameDay(d, calSelected)) cell.classList.add('cal-selected');
+    cell.textContent = d.getDate();
+    cell.addEventListener('click', () => {
+      calSelected = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      // If user clicks a greyed-out neighbour, jump the view to that month too
+      if (other) {
+        calViewYear = d.getFullYear();
+        calViewMonth = d.getMonth();
+      }
+      calRender();
+    });
+    return cell;
+  }
+
+  function calFormat(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
+  function openCal() {
+    calPanel.hidden = false;
+    calPanel.style.display = '';
+    const now = new Date();
+    calViewYear = now.getFullYear();
+    calViewMonth = now.getMonth();
+    calSelected = null;
+    calRender();
+  }
+  function closeCal() {
+    calPanel.hidden = true;
+    calPanel.style.display = 'none';
+  }
+  function toggleCalendar() {
+    if (calPanel.hidden) openCal(); else closeCal();
+  }
+  $('#calClose').addEventListener('click', closeCal);
+  $('#calPrev').addEventListener('click', () => {
+    calViewMonth--;
+    if (calViewMonth < 0) { calViewMonth = 11; calViewYear--; }
+    calRender();
+  });
+  $('#calNext').addEventListener('click', () => {
+    calViewMonth++;
+    if (calViewMonth > 11) { calViewMonth = 0; calViewYear++; }
+    calRender();
+  });
+  $('#calToday').addEventListener('click', () => {
+    const now = new Date();
+    calViewYear = now.getFullYear();
+    calViewMonth = now.getMonth();
+    calSelected = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    calRender();
+  });
+  $('#calInsert').addEventListener('click', () => {
+    if (!calSelected) return;
+    editor.focus();
+    execCmd('insertText', calFormat(calSelected));
+  });
+  // Esc closes the calendar
+  document.addEventListener('keydown', (e) => {
+    if (!calPanel.hidden && e.key === 'Escape') closeCal();
+  });
+  // Draggable header
+  (() => {
+    const header = calPanel.querySelector('.cal-header');
+    if (!header) return;
+    let dragging = false, dx = 0, dy = 0;
+    header.addEventListener('mousedown', (e) => {
+      if (e.target.closest('.cal-close') || e.target.closest('.cal-nav')) return;
+      dragging = true;
+      const r = calPanel.getBoundingClientRect();
+      dx = e.clientX - r.left; dy = e.clientY - r.top;
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove', (e) => {
+      if (!dragging) return;
+      calPanel.style.left = (e.clientX - dx) + 'px';
+      calPanel.style.top = (e.clientY - dy) + 'px';
+      calPanel.style.right = 'auto';
     });
     document.addEventListener('mouseup', () => { dragging = false; });
   })();
@@ -5157,6 +5310,7 @@
       insertLink: 'Bağlantı Ekle',
       insertTable: 'Tablo Ekle',
       calculator: 'Hesap Makinesi',
+      calendar: 'Takvim',
       insertSheet: 'Mini Tablo (Formüllü)',
       orientationShort: 'Yön',
       findShort: 'Bul',
@@ -5167,6 +5321,9 @@
       linkShort: 'Link',
       gridShort: 'Izgara',
       calcShort: 'Hesap',
+      calShort: 'Takvim',
+      calToday: 'Bugün',
+      calInsertDate: 'Tarihi Ekle',
       sheetShort: 'Formül',
       dateShort: 'Tarih',
       screenShort: 'Ekran',
@@ -5364,6 +5521,7 @@
       insertLink: 'Insert Link',
       insertTable: 'Insert Table',
       calculator: 'Calculator',
+      calendar: 'Calendar',
       insertSheet: 'Mini Sheet (Formulas)',
       orientationShort: 'Orient',
       findShort: 'Find',
@@ -5374,6 +5532,9 @@
       linkShort: 'Link',
       gridShort: 'Grid',
       calcShort: 'Calc',
+      calShort: 'Cal',
+      calToday: 'Today',
+      calInsertDate: 'Insert Date',
       sheetShort: 'Sheet',
       dateShort: 'Date',
       screenShort: 'Screen',
