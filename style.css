@@ -935,6 +935,49 @@ body.has-image-panel .editor-area {
   line-height: 1;
 }
 
+/* Undo / Redo — round, prominent, with hover rotate */
+.undo-redo-group { gap: 6px; }
+.undo-btn,
+.redo-btn {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  box-shadow: 0 1px 3px rgba(67, 97, 238, 0.35);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.15s, filter 0.15s;
+}
+.undo-btn {
+  background: linear-gradient(135deg, #6b7280, #4b5563);
+}
+.redo-btn {
+  background: linear-gradient(135deg, #4361ee, #3a86ff);
+}
+.undo-btn svg,
+.redo-btn svg {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.undo-btn:hover {
+  filter: brightness(1.08);
+  box-shadow: 0 3px 8px rgba(75, 85, 99, 0.45);
+}
+.redo-btn:hover {
+  filter: brightness(1.08);
+  box-shadow: 0 3px 8px rgba(67, 97, 238, 0.5);
+}
+/* Undo arrow rotates counterclockwise, redo clockwise on hover */
+.undo-btn:hover svg { transform: rotate(-25deg); }
+.redo-btn:hover svg { transform: rotate(25deg); }
+/* Active press — subtle scale + snap-back rotation */
+.undo-btn:active svg { transform: rotate(-45deg) scale(0.9); }
+.redo-btn:active svg { transform: rotate(45deg) scale(0.9); }
+
 .toolbar .toolbar-labeled {
   width: auto;
   min-width: 32px;

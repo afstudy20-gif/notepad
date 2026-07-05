@@ -3903,6 +3903,16 @@
             toggleFindReplace();
           }
           break;
+        case 'z':
+          // Ctrl/Cmd+Z = undo, Ctrl/Cmd+Shift+Z = redo (Mac convention)
+          e.preventDefault();
+          if (e.shiftKey) execCmd('redo'); else execCmd('undo');
+          break;
+        case 'y':
+          // Ctrl/Cmd+Y = redo (Windows convention)
+          e.preventDefault();
+          execCmd('redo');
+          break;
       }
     }
     if (e.ctrlKey && e.altKey && e.key.toLowerCase() === 'n') {

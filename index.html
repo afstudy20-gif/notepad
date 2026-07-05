@@ -14,7 +14,7 @@
   <title>Not — Browser-First Text Editor</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
-  <link rel="stylesheet" href="style.css?v=103">
+  <link rel="stylesheet" href="style.css?v=104">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -198,11 +198,11 @@
         </button>
       </div>
       <div class="toolbar-divider"></div>
-      <div class="toolbar-group">
-        <button title="Undo (Ctrl+Z)" data-action="undo">
+      <div class="toolbar-group undo-redo-group">
+        <button class="undo-btn" title="Undo (Ctrl+Z)" data-action="undo">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
         </button>
-        <button title="Redo (Ctrl+Y)" data-action="redo">
+        <button class="redo-btn" title="Redo (Ctrl+Y)" data-action="redo">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.13-9.36L23 10"/></svg>
         </button>
         <button class="format-marks-btn" title="Biçimlendirme İşaretleri" data-i18n-title="formatMarks" data-action="toggleFormatMarks" aria-pressed="false">
@@ -826,15 +826,15 @@
 
   <script src="./vendor/html2pdf.bundle.min.js"></script>
   <script src="./vendor/html-docx.js"></script>
-  <script src="js/cloud-config.js?v=103"></script>
-  <script src="js/cloud-sync.js?v=103"></script>
-  <script src="app.js?v=103"></script>
+  <script src="js/cloud-config.js?v=104"></script>
+  <script src="js/cloud-sync.js?v=104"></script>
+  <script src="app.js?v=104"></script>
   <script>
     // Register service worker for PWA install + offline shell.
     // SW uses network-first for HTML/JS so updates roll out without manual refresh.
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=103').catch((err) => {
+        navigator.serviceWorker.register('./sw.js?v=104').catch((err) => {
           console.warn('[sw] register failed', err);
         });
       });
