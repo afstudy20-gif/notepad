@@ -17,12 +17,19 @@ chrome.runtime.onInstalled.addListener(async () => {
   if (!stored[NOTEPAD_URL_KEY]) {
     await chrome.storage.sync.set({ [NOTEPAD_URL_KEY]: DEFAULT_NOTEPAD_URL });
   }
+  ensureContextMenus();
+});
 
-  // Create context menus
+// Rebuild on browser startup as well.
+chrome.runtime.onStartup.addListener(ensureContextMenus);
+
+// Rebuild context menus on every service-worker wakeup so edits show up even
+// after a plain "Reload" without depending solely on onInstalled.
+function ensureContextMenus() {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
       id: 'notepad-parent',
-      title: "Notepad'e Ekle",
+      title: "Not'a Ekle",
       contexts: ['page', 'link', 'selection']
     });
 
@@ -60,8 +67,17 @@ chrome.runtime.onInstalled.addListener(async () => {
       title: 'Tüm Sayfa İçeriği (TXT)',
       contexts: ['page', 'link', 'selection']
     });
+
+    chrome.contextMenus.create({
+      id: 'clip-color',
+      parentId: 'notepad-parent',
+      title: '🎨 Renk Seç (EyeDropper)',
+      contexts: ['page']
+    });
   });
-});
+}
+
+ensureContextMenus();
 
 chrome.action.onClicked.addListener(async (tab) => {
   try {
@@ -78,6 +94,19 @@ chrome.action.onClicked.addListener(async (tab) => {
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (!tab) return;
+
+  // Color picker: handled entirely in the content script, not the clip pipeline.
+  if (info.menuItemId === 'clip-color') {
+    try {
+      await flashBadge(tab.id, '...', '#4361ee');
+      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] });
+      await chrome.tabs.sendMessage(tab.id, { action: 'pickColor' });
+    } catch (error) {
+      console.warn('[notepad-clipper] color picker failed', error);
+      await flashBadge(tab.id, '!', '#c53030');
+    }
+    return;
+  }
 
   let optionType = 'scroll';
   if (info.menuItemId === 'clip-url') optionType = 'url';
@@ -126,8 +155,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       if (message.type === 'get-notes') {
         const result = await withTimeout(
           getNotepadNotes(),
-          3500,
-          'Notepad bağlantı zaman aşımı. Lütfen sekmeyi yenileyin veya aktif edin.'
+          10000,
+          'Notepad sekmesi yanıt vermedi. not.drtr.uk sekmesini açıp yenileyin, sonra tekrar deneyin.'
         );
         sendResponse({ ok: true, ...result });
         return;
@@ -238,6 +267,33 @@ async function executeScriptIsolated(tabId, func, args = []) {
   });
 }
 
+// Reads localStorage notes from the notepad page. Injected into the page world.
+const READ_NOTES_INJECTED = () => {
+  try {
+    const rawNotes = localStorage.getItem('notepad_notes');
+    const notes = JSON.parse(rawNotes) || [];
+    const activeId = localStorage.getItem('notepad_active');
+
+    const stripHtml = (html) => {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = html || '';
+      return tmp.textContent || '';
+    };
+
+    const mappedNotes = notes.map(note => ({
+      id: note.id,
+      title: (note.title && note.title.trim()) || 'İsimsiz Not',
+      preview: stripHtml(note.content || '').slice(0, 140),
+      updated: note.updated || 0,
+      active: note.id === activeId
+    }));
+
+    return { ok: true, notes: mappedNotes };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+};
+
 async function getNotepadNotes() {
   const notepadUrl = await getNotepadUrl();
   const tab = await ensureNotepadTab(notepadUrl, { active: true });
@@ -248,32 +304,7 @@ async function getNotepadNotes() {
   const tryRead = async () => {
     // 1. Try high-speed isolated world read (completely avoids background tab frozen hangs!)
     try {
-      const results = await executeScriptIsolated(tab.id, () => {
-        try {
-          const rawNotes = localStorage.getItem('notepad_notes');
-          const notes = JSON.parse(rawNotes) || [];
-          const activeId = localStorage.getItem('notepad_active');
-          
-          const stripHtml = (html) => {
-            const tmp = document.createElement('div');
-            tmp.innerHTML = html || '';
-            return tmp.textContent || '';
-          };
-          
-          const mappedNotes = notes.map(note => ({
-            id: note.id,
-            title: (note.title && note.title.trim()) || 'İsimsiz Not',
-            preview: stripHtml(note.content || '').slice(0, 140),
-            updated: note.updated || 0,
-            active: note.id === activeId
-          }));
-          
-          return { ok: true, notes: mappedNotes };
-        } catch (e) {
-          return { ok: false, error: e.message };
-        }
-      });
-
+      const results = await executeScriptIsolated(tab.id, READ_NOTES_INJECTED);
       const payload = results?.[0]?.result || {};
       if (payload.ok) {
         return {
@@ -286,31 +317,7 @@ async function getNotepadNotes() {
     }
 
     // 2. Main world fallback if isolated world fails
-    const results = await executeWhenNotepadReady(tab.id, () => {
-      try {
-        const rawNotes = localStorage.getItem('notepad_notes');
-        const notes = JSON.parse(rawNotes) || [];
-        const activeId = localStorage.getItem('notepad_active');
-        
-        const stripHtml = (html) => {
-          const tmp = document.createElement('div');
-          tmp.innerHTML = html || '';
-          return tmp.textContent || '';
-        };
-        
-        const mappedNotes = notes.map(note => ({
-          id: note.id,
-          title: (note.title && note.title.trim()) || 'İsimsiz Not',
-          preview: stripHtml(note.content || '').slice(0, 140),
-          updated: note.updated || 0,
-          active: note.id === activeId
-        }));
-        
-        return { ok: true, notes: mappedNotes };
-      } catch (e) {
-        return { ok: false, notes: [], error: e.message };
-      }
-    });
+    const results = await executeWhenNotepadReady(tab.id, READ_NOTES_INJECTED);
     const payload = results?.[0]?.result || {};
 
     if (payload.ok) {
@@ -322,14 +329,16 @@ async function getNotepadNotes() {
     throw new Error(payload.error || 'Main world read failed');
   };
 
+  // The notepad tab is often frozen/discarded by Chrome when in the background.
+  // A reload may be needed to wake it up; keep both attempts quick and bounded.
   try {
     return await tryRead();
   } catch (err) {
     console.warn('[notepad-clipper] read notes failed, reloading tab to wake it up...', err);
     try {
       await chrome.tabs.reload(tab.id);
-      await delay(500);
       await waitForTabComplete(tab.id);
+      await delay(300);
       return await tryRead();
     } catch (retryErr) {
       console.error('[notepad-clipper] retry notes read failed', retryErr);

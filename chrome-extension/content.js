@@ -144,6 +144,188 @@ if (window._scrdwnInjected) {
       restorePage();
     };
 
+    // ===== Color picker (EyeDropper) =====
+    async function pickColor() {
+      if (typeof EyeDropper === 'undefined') {
+        showColorPanel({ error: 'Eyedropper bu tarayıcıda desteklenmiyor (Chrome 95+ / Edge gerekir).' });
+        return;
+      }
+      try {
+        const result = await new EyeDropper().open();
+        if (result?.sRGBHex) showColorPanel({ hex: result.sRGBHex });
+      } catch (err) {
+        // User cancelled — stay silent.
+        if (err?.name === 'AbortError') return;
+        // No user gesture carried over from the context-menu click: inject a
+        // clickable trigger so a genuine gesture can launch the picker.
+        if (err?.name === 'NotAllowedError' || /gesture|activation/i.test(err?.message || '')) {
+          injectColorPickerTrigger();
+          return;
+        }
+        showColorPanel({ error: err?.message || 'Renk seçilemedi.' });
+      }
+    }
+
+    function injectColorPickerTrigger() {
+      removeColorPickerTrigger();
+      const btn = document.createElement('button');
+      btn.id = 'np-color-trigger';
+      btn.type = 'button';
+      btn.textContent = '🎨 Renk seçmek için tıkla';
+      btn.addEventListener('click', async () => {
+        removeColorPickerTrigger();
+        try {
+          const result = await new EyeDropper().open();
+          if (result?.sRGBHex) showColorPanel({ hex: result.sRGBHex });
+        } catch (err) {
+          if (err?.name === 'AbortError') return;
+          showColorPanel({ error: err?.message || 'Renk seçilemedi.' });
+        }
+      });
+      document.body.appendChild(btn);
+      // Auto-dismiss the trigger if the user ignores it.
+      setTimeout(removeColorPickerTrigger, 15000);
+    }
+
+    function removeColorPickerTrigger() {
+      document.getElementById('np-color-trigger')?.remove();
+    }
+
+    function hexToRgb(hex) {
+      const clean = String(hex || '').replace('#', '').trim();
+      const full = clean.length === 3
+        ? clean.split('').map((c) => c + c).join('')
+        : clean;
+      const num = parseInt(full, 16);
+      if (!Number.isFinite(num) || full.length !== 6) return null;
+      return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
+    }
+
+    function rgbToHsl(r, g, b) {
+      const rn = r / 255, gn = g / 255, bn = b / 255;
+      const max = Math.max(rn, gn, bn), min = Math.min(rn, gn, bn);
+      const l = (max + min) / 2;
+      let h = 0, s = 0;
+      if (max !== min) {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+          case rn: h = (gn - bn) / d + (gn < bn ? 6 : 0); break;
+          case gn: h = (bn - rn) / d + 2; break;
+          default: h = (rn - gn) / d + 4;
+        }
+        h *= 60;
+      }
+      return { h: Math.round(h), s: Math.round(s * 100), l: Math.round(l * 100) };
+    }
+
+    function showColorPanel({ hex, error }) {
+      removeColorPanel();
+      removeColorPickerTrigger();
+
+      ensureColorPanelStyles();
+
+      const overlay = document.createElement('div');
+      overlay.id = 'np-color-overlay';
+
+      const card = document.createElement('div');
+      card.id = 'np-color-card';
+      card.setAttribute('role', 'dialog');
+      card.setAttribute('aria-label', 'Seçilen renk');
+
+      if (error) {
+        card.innerHTML = `
+          <div class="np-color-header">
+            <strong>🎨 Renk Seçici</strong>
+            <button type="button" class="np-color-close" aria-label="Kapat">&times;</button>
+          </div>
+          <div class="np-color-error"></div>`;
+        card.querySelector('.np-color-error').textContent = error;
+      } else {
+        const rgb = hexToRgb(hex) || { r: 0, g: 0, b: 0 };
+        const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+        const rgbStr = `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+        const hslStr = `hsl(${hsl.h}, ${hsl.s}%, ${hsl.l}%)`;
+        const rows = [
+          { label: 'HEX', value: hex.toLowerCase() },
+          { label: 'RGB', value: rgbStr },
+          { label: 'HSL', value: hslStr }
+        ];
+        card.innerHTML = `
+          <div class="np-color-header">
+            <strong>🎨 Seçilen Renk</strong>
+            <button type="button" class="np-color-close" aria-label="Kapat">&times;</button>
+          </div>
+          <div class="np-color-swatch"></div>
+          <div class="np-color-rows"></div>`;
+        card.querySelector('.np-color-swatch').style.background = hex;
+        const rowsEl = card.querySelector('.np-color-rows');
+        for (const row of rows) {
+          const el = document.createElement('button');
+          el.type = 'button';
+          el.className = 'np-color-row';
+          el.innerHTML = `<span class="np-color-label"></span><span class="np-color-value"></span><span class="np-color-cue">Kopyala</span>`;
+          el.querySelector('.np-color-label').textContent = row.label;
+          el.querySelector('.np-color-value').textContent = row.value;
+          el.addEventListener('click', async () => {
+            const cue = el.querySelector('.np-color-cue');
+            try {
+              await navigator.clipboard.writeText(row.value);
+              cue.textContent = '✓ Kopyalandı';
+            } catch (_) {
+              cue.textContent = 'Kopyalanamadı';
+            }
+            setTimeout(() => { cue.textContent = 'Kopyala'; }, 1500);
+          });
+          rowsEl.appendChild(el);
+        }
+      }
+
+      overlay.appendChild(card);
+      overlay.addEventListener('click', (ev) => { if (ev.target === overlay) removeColorPanel(); });
+      card.querySelector('.np-color-close').addEventListener('click', removeColorPanel);
+      document.body.appendChild(overlay);
+    }
+
+    function ensureColorPanelStyles() {
+      if (document.getElementById('np-color-styles')) return;
+      const style = document.createElement('style');
+      style.id = 'np-color-styles';
+      style.textContent = `
+        #np-color-trigger{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);
+          z-index:2147483646;padding:10px 16px;border:0;border-radius:10px;cursor:pointer;
+          font:600 13px/1.2 system-ui,-apple-system,sans-serif;color:#fff;
+          background:linear-gradient(135deg,#4361ee,#3a0ca3);box-shadow:0 6px 18px rgba(67,97,238,.35);}
+        #np-color-overlay{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;
+          justify-content:center;background:rgba(2,6,23,.5);backdrop-filter:blur(2px);}
+        #np-color-card{width:280px;max-width:calc(100vw - 24px);background:#0f172a;color:#f8fafc;
+          border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:14px;
+          box-shadow:0 24px 60px rgba(0,0,0,.5);font:13px/1.4 system-ui,-apple-system,sans-serif;}
+        .np-color-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+        .np-color-header strong{font-size:13px;font-weight:800;letter-spacing:.3px;}
+        .np-color-close{background:transparent;border:0;color:#94a3b8;font-size:20px;line-height:1;
+          cursor:pointer;padding:0 4px;border-radius:6px;}
+        .np-color-close:hover{color:#f8fafc;background:rgba(255,255,255,.08);}
+        .np-color-swatch{height:64px;border-radius:10px;margin-bottom:10px;
+          border:1px solid rgba(255,255,255,.12);box-shadow:inset 0 0 0 1px rgba(0,0,0,.2);}
+        .np-color-rows{display:flex;flex-direction:column;gap:6px;}
+        .np-color-row{display:grid;grid-template-columns:38px 1fr auto;align-items:center;gap:8px;
+          padding:8px 10px;border:1px solid rgba(255,255,255,.06);border-radius:8px;cursor:pointer;
+          background:rgba(30,41,59,.4);color:#f1f5f9;text-align:left;transition:all .15s;font:inherit;}
+        .np-color-row:hover{background:rgba(30,41,59,.7);border-color:rgba(67,97,238,.5);}
+        .np-color-label{font-size:10px;font-weight:800;letter-spacing:.6px;color:#64748b;text-transform:uppercase;}
+        .np-color-value{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;}
+        .np-color-cue{font-size:11px;font-weight:700;color:#93c5fd;}
+        .np-color-error{padding:10px;border-radius:8px;background:rgba(239,68,68,.12);
+          border:1px solid rgba(239,68,68,.3);color:#fca5a5;font-size:12px;}
+      `;
+      document.head.appendChild(style);
+    }
+
+    function removeColorPanel() {
+      document.getElementById('np-color-overlay')?.remove();
+    }
+
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       try {
         switch (message.action) {
@@ -163,6 +345,10 @@ if (window._scrdwnInjected) {
           case 'restore':
             restorePage();
             sendResponse({ success: true });
+            break;
+          case 'pickColor':
+            sendResponse({ success: true });
+            pickColor();
             break;
           default:
             sendResponse({ success: false, error: 'Unknown action' });
