@@ -252,7 +252,7 @@ body.has-image-panel .editor-area {
 .sidebar-footer-row {
   display: flex;
   gap: 4px;
-  padding: 4px 8px;
+  padding: 3px 8px;
   border-top: 1px solid rgba(255,255,255,0.08);
 }
 .accordion-toggle {
@@ -260,7 +260,7 @@ body.has-image-panel .editor-area {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 10px;
+  padding: 4px 10px;
   background: rgba(255,255,255,0.05);
   color: rgba(255,255,255,0.85);
   border: 1px solid rgba(255,255,255,0.1);
@@ -307,7 +307,7 @@ body.has-image-panel .editor-area {
 
 .dropup-wrap > button {
   width: 100%;
-  padding: 5px 8px;
+  padding: 4px 8px;
   background: rgba(255,255,255,0.06);
   color: rgba(255,255,255,0.85);
   border: 1px solid rgba(255,255,255,0.12);
@@ -374,7 +374,7 @@ body.has-image-panel .editor-area {
   align-items: center;
   justify-content: center;
   gap: 5px;
-  padding: 6px 10px;
+  padding: 4px 10px;
   background: linear-gradient(135deg, #4ade80 0%, #16a34a 100%);
   color: #fff;
   border: none;
