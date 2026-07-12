@@ -163,18 +163,44 @@
     return await r.blob();
   }
 
+  function partIdsOf(entry) {
+    return entry.chunked ? entry.partIds : [entry.fileId || entry.id];
+  }
+
+  // In-memory reassembly → single Blob. Used as the fallback save path on browsers
+  // without the File System Access API (Firefox / Safari).
   async function download(entry, onProgress) {
-    if (!entry.chunked) {
-      if (onProgress) onProgress(1, 1);
-      return await fetchBlob(entry.fileId || entry.id);
-    }
     if (entry.incomplete) throw new Error('incomplete');
+    const ids = partIdsOf(entry);
+    if (ids.length === 1) {
+      if (onProgress) onProgress(1, 1);
+      return await fetchBlob(ids[0]);
+    }
     const blobs = [];
-    for (let i = 0; i < entry.partIds.length; i++) {
-      if (onProgress) onProgress(i + 1, entry.partIds.length);
-      blobs.push(await fetchBlob(entry.partIds[i]));
+    for (let i = 0; i < ids.length; i++) {
+      if (onProgress) onProgress(i + 1, ids.length);
+      blobs.push(await fetchBlob(ids[i]));
     }
     return new Blob(blobs, { type: entry.mimeType || 'application/octet-stream' });
+  }
+
+  // Stream each part straight to a FileSystemWritableFileStream so the save dialog
+  // appears immediately and nothing large is held in memory. Caller supplies the
+  // writable (opened inside the click gesture via showSaveFilePicker).
+  async function downloadTo(entry, writable, onProgress) {
+    if (entry.incomplete) throw new Error('incomplete');
+    const ids = partIdsOf(entry);
+    try {
+      for (let i = 0; i < ids.length; i++) {
+        if (onProgress) onProgress(i + 1, ids.length);
+        const blob = await fetchBlob(ids[i]);
+        await writable.write(blob);
+      }
+      await writable.close();
+    } catch (e) {
+      try { await writable.abort(); } catch (_) {}
+      throw e;
+    }
   }
 
   async function remove(entry) {
@@ -187,5 +213,5 @@
     }
   }
 
-  window.__npBriefcase = { list, upload, download, remove, CHUNK_BYTES };
+  window.__npBriefcase = { list, upload, download, downloadTo, remove, CHUNK_BYTES };
 })();

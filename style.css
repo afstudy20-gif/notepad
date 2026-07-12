@@ -2792,6 +2792,30 @@ body.has-image-panel .image-panel {
   background: #fff;
 }
 
+.briefcase-item.downloading {
+  background: #eef4ff;
+}
+
+/* Swap the download icon for a spinner while a transfer is in progress */
+.briefcase-item.downloading .briefcase-item-actions button:first-child {
+  opacity: 1;
+}
+.briefcase-item.downloading .briefcase-item-actions button:first-child svg {
+  display: none;
+}
+.briefcase-item.downloading .briefcase-item-actions button:first-child::after {
+  content: '';
+  width: 13px;
+  height: 13px;
+  border: 2px solid #c7d2fe;
+  border-top-color: #4361ee;
+  border-radius: 50%;
+  animation: briefcaseSpin 0.7s linear infinite;
+}
+@keyframes briefcaseSpin {
+  to { transform: rotate(360deg); }
+}
+
 .briefcase-item-actions .briefcase-delete-btn:hover {
   background: #fef2f2;
   border-color: #fecaca;

@@ -4443,7 +4443,7 @@
         dlBtn.title = tr('shareDevice');
         dlBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12"/><polyline points="7 10 12 15 17 10"/><path d="M5 21h14"/></svg>';
         dlBtn.disabled = !!f.incomplete;
-        dlBtn.addEventListener('click', () => downloadFile(f));
+        dlBtn.addEventListener('click', () => downloadFile(f, li));
         const delBtn = document.createElement('button');
         delBtn.className = 'briefcase-delete-btn';
         delBtn.title = tr('delete');
@@ -4469,26 +4469,52 @@
     }
 
     function progressLabel(prefix, name, cur, total) {
-      return total > 1 ? `${prefix}${name} (${cur}/${total})` : `${prefix}${name}`;
+      return total > 1 ? `${prefix}${name} — ${cur}/${total}` : `${prefix}${name}`;
     }
 
-    async function downloadFile(f) {
+    function setItemBusy(li, busy) {
+      if (!li) return;
+      li.classList.toggle('downloading', busy);
+      li.querySelectorAll('.briefcase-item-actions button').forEach((b) => { b.disabled = busy; });
+    }
+
+    async function downloadFile(f, li) {
       if (f.incomplete) return;
+      const onProgress = (cur, total) =>
+        setStatus(progressLabel(tr('briefcaseDownloading'), f.name, cur, total));
+
+      // Preferred path: stream parts straight to disk. The save dialog must be
+      // opened synchronously inside this click gesture, before any await.
+      let writable = null;
+      if (typeof window.showSaveFilePicker === 'function') {
+        try {
+          const handle = await window.showSaveFilePicker({ suggestedName: f.name });
+          writable = await handle.createWritable();
+        } catch (e) {
+          if (e && e.name === 'AbortError') return; // user cancelled the save dialog
+          writable = null; // API present but failed → fall back to in-memory save
+        }
+      }
+
+      setItemBusy(li, true);
+      onProgress(0, f.chunked ? f.totalParts : 1);
       try {
-        setStatus(progressLabel(tr('briefcaseDownloading'), f.name, 0, f.chunked ? f.totalParts : 1));
-        const blob = await window.__npBriefcase.download(f, (cur, total) => {
-          setStatus(progressLabel(tr('briefcaseDownloading'), f.name, cur, total));
-        });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = f.name;
-        a.click();
-        URL.revokeObjectURL(a.href);
+        if (writable) {
+          await window.__npBriefcase.downloadTo(f, writable, onProgress);
+        } else {
+          const blob = await window.__npBriefcase.download(f, onProgress);
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = f.name;
+          a.click();
+          URL.revokeObjectURL(a.href);
+        }
       } catch (e) {
         console.warn('[briefcase] download', e);
         alert(tr('briefcaseDownloadFailed'));
       } finally {
         setStatus('');
+        setItemBusy(li, false);
       }
     }
 
