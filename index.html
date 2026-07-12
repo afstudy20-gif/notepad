@@ -14,7 +14,7 @@
   <title>Not — Browser-First Text Editor</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
-  <link rel="stylesheet" href="style.css?v=104">
+  <link rel="stylesheet" href="style.css?v=105">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -105,6 +105,12 @@
       </div>
       <input type="file" id="backupInput" accept=".json" style="display:none">
       <input type="file" id="sqlInput" accept=".sql" style="display:none">
+    </div>
+    <div class="sidebar-footer-row" style="border-top:none;padding-top:0">
+      <button class="install-btn briefcase-btn" id="btnBriefcase" data-i18n-title="briefcaseTip" title="Evrak Çantası">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><line x1="2" y1="13" x2="22" y2="13"/></svg>
+        <span data-i18n="briefcase">Evrak Çantası</span>
+      </button>
     </div>
     <div class="sidebar-footer-row" style="border-top:none;padding-top:0">
       <button class="accordion-toggle" id="btnToolsToggle">
@@ -810,6 +816,33 @@
     </div>
   </div>
 
+  <!-- Briefcase Dialog: cross-device file transfer via Google Drive -->
+  <div class="dialog-overlay" id="briefcaseDialog" hidden style="display:none">
+    <div class="dialog briefcase-dialog">
+      <div class="dialog-header">
+        <h3 data-i18n="briefcase">Evrak Çantası</h3>
+        <button class="dialog-close" id="briefcaseDialogClose">&times;</button>
+      </div>
+      <div class="dialog-body briefcase-body">
+        <div class="briefcase-signin" id="briefcaseSignin" hidden>
+          <p data-i18n="briefcaseSignInNeeded">Dosya göndermek ve almak için Google ile bağlanın. Dosyalarınız kişisel Google Drive hesabınızda saklanır ve aynı hesapla girdiğiniz diğer cihazlarda görünür.</p>
+          <button class="cloud-signin-btn" id="briefcaseSignInBtn" data-i18n="signInGoogle">Google ile Bağla</button>
+        </div>
+        <div class="briefcase-content" id="briefcaseContent" hidden>
+          <div class="briefcase-dropzone" id="briefcaseDropzone">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg>
+            <p data-i18n="briefcaseDropHint">Dosyaları buraya sürükleyin ya da</p>
+            <button id="briefcaseChooseBtn" data-i18n="briefcaseChooseFile">Dosya Seç</button>
+            <input type="file" id="briefcaseFileInput" multiple style="display:none">
+          </div>
+          <p class="briefcase-status" id="briefcaseStatus" hidden></p>
+          <ul class="briefcase-list" id="briefcaseList" hidden></ul>
+          <p class="briefcase-empty" id="briefcaseEmpty" data-i18n="briefcaseEmpty" hidden>Henüz dosya yok.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Hidden file input for Open -->
   <input type="file" id="fileInput" accept=".txt,.md,.html,.docx,.xlsx,.xls,.csv,.pdf,.jpg,.jpeg,.png,.gif,.bmp,.webp" style="display:none">
 
@@ -826,15 +859,16 @@
 
   <script src="./vendor/html2pdf.bundle.min.js"></script>
   <script src="./vendor/html-docx.js"></script>
-  <script src="js/cloud-config.js?v=104"></script>
-  <script src="js/cloud-sync.js?v=104"></script>
-  <script src="app.js?v=104"></script>
+  <script src="js/cloud-config.js?v=105"></script>
+  <script src="js/cloud-sync.js?v=105"></script>
+  <script src="js/briefcase.js?v=105"></script>
+  <script src="app.js?v=105"></script>
   <script>
     // Register service worker for PWA install + offline shell.
     // SW uses network-first for HTML/JS so updates roll out without manual refresh.
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=104').catch((err) => {
+        navigator.serviceWorker.register('./sw.js?v=105').catch((err) => {
           console.warn('[sw] register failed', err);
         });
       });

@@ -739,5 +739,8 @@
     isSignedIn: () => signedIn,
     getStatus,
     onChange,
+    // Authenticated Drive REST call, shared with other modules (e.g. briefcase.js)
+    // so they don't need their own OAuth flow or token storage.
+    driveRequest: driveFetch,
   };
 })();

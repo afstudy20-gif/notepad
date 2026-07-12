@@ -2655,6 +2655,151 @@ body.has-image-panel .image-panel {
   text-align: center;
 }
 
+/* Briefcase Dialog */
+.briefcase-dialog {
+  width: min(460px, 94vw);
+}
+
+.briefcase-signin {
+  text-align: center;
+  padding: 8px 0 4px;
+}
+
+.briefcase-signin p {
+  color: #555;
+  font-size: 13px;
+  line-height: 1.5;
+  margin-bottom: 14px;
+}
+
+.briefcase-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 22px 12px;
+  border: 2px dashed #d0d5dd;
+  border-radius: 10px;
+  color: #667085;
+  text-align: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.briefcase-dropzone.dragover {
+  background: #eef4ff;
+  border-color: #4361ee;
+  color: #4361ee;
+}
+
+.briefcase-dropzone p {
+  font-size: 13px;
+  margin: 0;
+}
+
+.briefcase-dropzone button {
+  padding: 6px 14px;
+  border: 1px solid #4361ee;
+  border-radius: 6px;
+  background: #4361ee;
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.briefcase-dropzone button:hover {
+  background: #3a56d4;
+}
+
+.briefcase-status {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: #4361ee;
+  text-align: center;
+}
+
+.briefcase-list {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  max-height: min(300px, 42vh);
+  overflow: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.briefcase-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-bottom: 1px solid #eef0f5;
+}
+
+.briefcase-item:last-child {
+  border-bottom: 0;
+}
+
+.briefcase-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.briefcase-item-name {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.briefcase-item-meta {
+  display: block;
+  font-size: 11px;
+  color: #667085;
+}
+
+.briefcase-item-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.briefcase-item-actions button {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #fff;
+  color: #555;
+  cursor: pointer;
+}
+
+.briefcase-item-actions button:hover {
+  background: #f5f5f5;
+}
+
+.briefcase-item-actions .briefcase-delete-btn:hover {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #dc2626;
+}
+
+.briefcase-empty {
+  padding: 20px 0 4px;
+  color: #667085;
+  font-size: 13px;
+  text-align: center;
+}
+
+.briefcase-btn {
+  background: linear-gradient(135deg, #4361ee 0%, #3730a3 100%) !important;
+}
+
 /* Import Overlay */
 .import-overlay {
   position: fixed;

@@ -4381,6 +4381,177 @@
     render(window.__npCloud.getStatus());
   }
 
+  // ===== Briefcase (cross-device file transfer via Google Drive) =====
+  function initBriefcaseUI() {
+    const btnOpen = $('#btnBriefcase');
+    const dialog = $('#briefcaseDialog');
+    if (!btnOpen || !dialog || !window.__npBriefcase) return;
+
+    const signinBox = $('#briefcaseSignin');
+    const signInBtn = $('#briefcaseSignInBtn');
+    const contentBox = $('#briefcaseContent');
+    const dropzone = $('#briefcaseDropzone');
+    const chooseBtn = $('#briefcaseChooseBtn');
+    const fileInput = $('#briefcaseFileInput');
+    const statusEl = $('#briefcaseStatus');
+    const listEl = $('#briefcaseList');
+    const emptyEl = $('#briefcaseEmpty');
+
+    function formatSize(bytes) {
+      bytes = parseInt(bytes, 10) || 0;
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    function setStatus(msg) {
+      if (!msg) { statusEl.hidden = true; statusEl.textContent = ''; return; }
+      statusEl.hidden = false;
+      statusEl.textContent = msg;
+    }
+
+    function renderList(files) {
+      listEl.innerHTML = '';
+      if (!files.length) {
+        listEl.hidden = true;
+        emptyEl.hidden = false;
+        return;
+      }
+      emptyEl.hidden = true;
+      listEl.hidden = false;
+      for (const f of files) {
+        const li = document.createElement('li');
+        li.className = 'briefcase-item';
+        const info = document.createElement('div');
+        info.className = 'briefcase-item-info';
+        const name = document.createElement('span');
+        name.className = 'briefcase-item-name';
+        name.textContent = f.name;
+        name.title = f.name;
+        const meta = document.createElement('span');
+        meta.className = 'briefcase-item-meta';
+        meta.textContent = `${formatSize(f.size)} · ${new Date(f.modifiedTime).toLocaleString()}`;
+        info.appendChild(name);
+        info.appendChild(meta);
+
+        const actions = document.createElement('div');
+        actions.className = 'briefcase-item-actions';
+        const dlBtn = document.createElement('button');
+        dlBtn.title = tr('shareDevice');
+        dlBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12"/><polyline points="7 10 12 15 17 10"/><path d="M5 21h14"/></svg>';
+        dlBtn.addEventListener('click', () => downloadFile(f));
+        const delBtn = document.createElement('button');
+        delBtn.className = 'briefcase-delete-btn';
+        delBtn.title = tr('delete');
+        delBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+        delBtn.addEventListener('click', () => deleteFile(f, li));
+        actions.appendChild(dlBtn);
+        actions.appendChild(delBtn);
+
+        li.appendChild(info);
+        li.appendChild(actions);
+        listEl.appendChild(li);
+      }
+    }
+
+    async function refreshList() {
+      try {
+        const files = await window.__npBriefcase.list();
+        renderList(files);
+      } catch (e) {
+        console.warn('[briefcase] list', e);
+        setStatus(tr('briefcaseListFailed'));
+      }
+    }
+
+    async function downloadFile(f) {
+      try {
+        const blob = await window.__npBriefcase.download(f.id);
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = f.name;
+        a.click();
+        URL.revokeObjectURL(a.href);
+      } catch (e) {
+        console.warn('[briefcase] download', e);
+        alert(tr('briefcaseDownloadFailed'));
+      }
+    }
+
+    async function deleteFile(f, li) {
+      if (!confirm(tr('briefcaseDeleteConfirm'))) return;
+      try {
+        await window.__npBriefcase.remove(f.id);
+        li.remove();
+        if (!listEl.children.length) { listEl.hidden = true; emptyEl.hidden = false; }
+      } catch (e) {
+        console.warn('[briefcase] delete', e);
+        alert(tr('briefcaseDeleteFailed'));
+      }
+    }
+
+    async function uploadFiles(files) {
+      for (const file of files) {
+        if (file.size > window.__npBriefcase.MAX_BYTES) {
+          alert(tr('briefcaseTooLarge') + file.name);
+          continue;
+        }
+        setStatus(tr('briefcaseUploading') + file.name);
+        try {
+          await window.__npBriefcase.upload(file);
+        } catch (e) {
+          console.warn('[briefcase] upload', e);
+          alert(tr('briefcaseUploadFailed') + file.name);
+        }
+      }
+      setStatus('');
+      refreshList();
+    }
+
+    function renderAuthState() {
+      const signedIn = window.__npCloud && window.__npCloud.isSignedIn();
+      signinBox.hidden = !!signedIn;
+      contentBox.hidden = !signedIn;
+      if (signedIn) refreshList();
+    }
+
+    function openDialog() {
+      dialog.hidden = false;
+      dialog.style.display = '';
+      renderAuthState();
+    }
+    function closeDialog() {
+      dialog.hidden = true;
+      dialog.style.display = 'none';
+    }
+
+    btnOpen.addEventListener('click', openDialog);
+    $('#briefcaseDialogClose').addEventListener('click', closeDialog);
+    dialog.addEventListener('click', (e) => { if (e.target === dialog) closeDialog(); });
+    if (signInBtn) {
+      signInBtn.addEventListener('click', () => {
+        window.__npCloud.signIn().catch(e => console.warn('[cloud] signIn', e));
+      });
+    }
+    if (window.__npCloud) {
+      window.__npCloud.onChange(() => { if (!dialog.hidden) renderAuthState(); });
+    }
+
+    chooseBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files.length) uploadFiles(Array.from(fileInput.files));
+      fileInput.value = '';
+    });
+    dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('dragover');
+      if (e.dataTransfer.files.length) uploadFiles(Array.from(e.dataTransfer.files));
+    });
+  }
+  initBriefcaseUI();
+
   function defaultImgState() {
     return {
       filters: { brightness: 1, contrast: 1, saturate: 1, 'hue-rotate': 0, blur: 0, grayscale: 0, sepia: 0, invert: 0 },
@@ -5403,7 +5574,20 @@
       cloudSetupNeeded: 'Google OAuth Client ID eksik (cloud-config.js)',
       cloudSetupHelp: 'Google Drive senkronizasyonu için OAuth Client ID gerekli.\n\nKurulum (uygulama sahibi yapar):\n1. console.cloud.google.com → yeni proje\n2. Google Drive API\'yi etkinleştir\n3. OAuth consent screen + scope: drive.appdata\n4. Credentials → OAuth client ID (Web)\n   - JS origins: https://not.drtr.uk\n   - Redirect URIs: https://not.drtr.uk/ (sonunda slash)\n5. Client ID\'yi js/cloud-config.js içine yapıştır\n6. Yeniden yükle\n\nDetaylar cloud-config.js dosyasının başında.',
       cloudConfirmSignOut: 'Google hesabınızdan çıkış yapılacak. Yerel notlar korunur. Devam edilsin mi?',
-      lastSync: 'Son senkron: '
+      lastSync: 'Son senkron: ',
+      briefcase: 'Evrak Çantası',
+      briefcaseTip: 'Dosyalarınızı buraya yükleyip başka bir cihazdan indirin',
+      briefcaseSignInNeeded: 'Dosya göndermek ve almak için Google ile bağlanın. Dosyalarınız kişisel Google Drive hesabınızda saklanır ve aynı hesapla girdiğiniz diğer cihazlarda görünür.',
+      briefcaseDropHint: 'Dosyaları buraya sürükleyin ya da',
+      briefcaseChooseFile: 'Dosya Seç',
+      briefcaseEmpty: 'Henüz dosya yok.',
+      briefcaseUploading: 'Yükleniyor: ',
+      briefcaseUploadFailed: 'Yükleme başarısız: ',
+      briefcaseTooLarge: 'Dosya çok büyük (100MB üzeri desteklenmiyor): ',
+      briefcaseListFailed: 'Dosya listesi alınamadı.',
+      briefcaseDeleteConfirm: 'Bu dosya silinsin mi?',
+      briefcaseDeleteFailed: 'Silme başarısız.',
+      briefcaseDownloadFailed: 'İndirme başarısız.'
     },
     en: {
       notes: 'Notes',
@@ -5615,7 +5799,20 @@
       cloudSetupNeeded: 'Google OAuth Client ID missing (cloud-config.js)',
       cloudSetupHelp: 'Google Drive sync needs an OAuth Client ID.\n\nSetup (app owner):\n1. console.cloud.google.com → new project\n2. Enable Google Drive API\n3. OAuth consent screen + scope: drive.appdata\n4. Credentials → OAuth client ID (Web)\n   - JS origins: https://not.drtr.uk\n   - Redirect URIs: https://not.drtr.uk/ (trailing slash)\n5. Paste the Client ID into js/cloud-config.js\n6. Reload\n\nFull steps at the top of cloud-config.js.',
       cloudConfirmSignOut: 'Sign out from your Google account? Local notes will be kept.',
-      lastSync: 'Last sync: '
+      lastSync: 'Last sync: ',
+      briefcase: 'Briefcase',
+      briefcaseTip: 'Upload files here and download them on another device',
+      briefcaseSignInNeeded: 'Sign in with Google to send and receive files. Your files are stored in your personal Google Drive account and appear on any other device signed into the same account.',
+      briefcaseDropHint: 'Drag files here or',
+      briefcaseChooseFile: 'Choose File',
+      briefcaseEmpty: 'No files yet.',
+      briefcaseUploading: 'Uploading: ',
+      briefcaseUploadFailed: 'Upload failed: ',
+      briefcaseTooLarge: 'File too large (100MB limit): ',
+      briefcaseListFailed: 'Could not load file list.',
+      briefcaseDeleteConfirm: 'Delete this file?',
+      briefcaseDeleteFailed: 'Delete failed.',
+      briefcaseDownloadFailed: 'Download failed.'
     }
   };
 
