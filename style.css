@@ -2834,8 +2834,22 @@ body.has-image-panel .image-panel {
   text-align: center;
 }
 
-.briefcase-btn {
-  background: linear-gradient(135deg, #4361ee 0%, #3730a3 100%) !important;
+/* Match the flat sibling footer buttons (Import/Backup/Tools); keep a subtle
+   blue accent so it's still recognizable, but no gradient/shadow/bold weight. */
+.install-btn.briefcase-btn {
+  padding: 3px 10px;
+  border: 1px solid rgba(67,97,238,0.45);
+  border-radius: 6px;
+  background: rgba(67,97,238,0.18);
+  color: #c7d2fe;
+  font-weight: 500;
+  box-shadow: none;
+}
+.install-btn.briefcase-btn:hover {
+  background: rgba(67,97,238,0.30);
+  color: #fff;
+  transform: none;
+  box-shadow: none;
 }
 
 /* Import Overlay */
