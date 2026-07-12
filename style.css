@@ -123,13 +123,10 @@ body.has-image-panel .editor-area {
   border: none;
   font-size: 14px;
   cursor: pointer;
-  padding: 0 4px;
+  padding: 0 2px;
   line-height: 1;
-}
-.cloud-switch-btn {
   display: inline-flex;
   align-items: center;
-  padding: 0 2px;
 }
 .cloud-signout-btn:hover,
 .cloud-switch-btn:hover {
