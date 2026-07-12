@@ -252,7 +252,7 @@ body.has-image-panel .editor-area {
 .sidebar-footer-row {
   display: flex;
   gap: 4px;
-  padding: 3px 8px;
+  padding: 2px 8px;
   border-top: 1px solid rgba(255,255,255,0.08);
 }
 .accordion-toggle {
@@ -260,16 +260,17 @@ body.has-image-panel .editor-area {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
+  padding: 3px 10px;
   background: rgba(255,255,255,0.05);
   color: rgba(255,255,255,0.85);
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: 6px;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 500;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
 }
+.accordion-toggle svg { width: 11px; height: 11px; }
 .accordion-toggle:hover {
   background: rgba(255,255,255,0.12);
   color: #fff;
@@ -307,12 +308,12 @@ body.has-image-panel .editor-area {
 
 .dropup-wrap > button {
   width: 100%;
-  padding: 4px 8px;
+  padding: 3px 8px;
   background: rgba(255,255,255,0.06);
   color: rgba(255,255,255,0.85);
   border: 1px solid rgba(255,255,255,0.12);
   border-radius: 5px;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 500;
   cursor: pointer;
   transition: background 0.15s;
@@ -374,18 +375,18 @@ body.has-image-panel .editor-area {
   align-items: center;
   justify-content: center;
   gap: 5px;
-  padding: 4px 10px;
+  padding: 3px 10px;
   background: linear-gradient(135deg, #4ade80 0%, #16a34a 100%);
   color: #fff;
   border: none;
   border-radius: 5px;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   cursor: pointer;
   box-shadow: 0 1px 4px rgba(34,197,94,0.25);
   transition: transform 0.1s, box-shadow 0.15s;
 }
-.install-btn svg { width: 12px; height: 12px; }
+.install-btn svg { width: 11px; height: 11px; }
 .install-btn:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(34,197,94,0.45);
