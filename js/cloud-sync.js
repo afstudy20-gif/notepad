@@ -223,7 +223,7 @@
 
   // ---------- Redirect (implicit) flow — universal, works on iOS standalone & TWA ----------
   // Full-page navigation to Google, returns with #access_token=... in URL fragment.
-  function buildAuthUrl(silent) {
+  function buildAuthUrl(silent, select) {
     const state = randomState();
     try { sessionStorage.setItem(SS_STATE, state); } catch (_) {}
     const params = new URLSearchParams({
@@ -235,15 +235,18 @@
       state: state,
     });
     if (silent) params.set('prompt', 'none');
-    if (userInfo && userInfo.email) params.set('login_hint', userInfo.email);
+    else if (select) params.set('prompt', 'select_account'); // force the account chooser
+    // Pin to the current account for silent/normal auth; omit for switch so the
+    // chooser is free to pick a different one.
+    if (!select && userInfo && userInfo.email) params.set('login_hint', userInfo.email);
     return AUTH_ENDPOINT + '?' + params.toString();
   }
 
-  function startRedirectAuth(silent) {
+  function startRedirectAuth(silent, select) {
     if (!CFG.GOOGLE_CLIENT_ID) { setStatus('setupNeeded', ''); return; }
     authMode = 'redirect';
     localStorage.setItem(LS_MODE, 'redirect');
-    location.href = buildAuthUrl(!!silent);
+    location.href = buildAuthUrl(!!silent, !!select);
   }
 
   // Parse #access_token / #error from the URL after a redirect return.
@@ -278,21 +281,26 @@
   }
 
   // ---------- Sign in / out ----------
-  async function signIn() {
+  // opts.switchAccount: force Google's account chooser so the user can move to a
+  // different account without signing out first.
+  async function signIn(opts) {
+    opts = opts || {};
     if (!CFG.GOOGLE_CLIENT_ID) {
       setStatus('setupNeeded', 'OAuth client ID not configured in cloud-config.js');
       return;
     }
     // Route platforms with broken popups straight to redirect
-    if (preferRedirect()) { startRedirectAuth(false); return; }
+    if (preferRedirect()) { startRedirectAuth(false, opts.switchAccount); return; }
     try {
       if (!tokenClient) await initTokenClient();
-      // GIS prompts for consent on first call; silent thereafter
-      tokenClient.requestAccessToken({ prompt: signedIn ? '' : 'consent' });
+      // GIS prompts for consent on first call; silent thereafter.
+      // select_account forces the chooser for an account switch.
+      const prompt = opts.switchAccount ? 'select_account' : (signedIn ? '' : 'consent');
+      tokenClient.requestAccessToken({ prompt });
     } catch (e) {
       // GIS unavailable (offline lib, blocked) → fall back to redirect
       console.warn('[cloud] popup auth unavailable, using redirect', e);
-      startRedirectAuth(false);
+      startRedirectAuth(false, opts.switchAccount);
     }
   }
 

@@ -14,7 +14,7 @@
   <title>Not — Browser-First Text Editor</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
-  <link rel="stylesheet" href="style.css?v=109">
+  <link rel="stylesheet" href="style.css?v=110">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -45,6 +45,9 @@
         <div class="cloud-user" id="cloudUser" hidden>
           <img class="cloud-avatar" id="cloudAvatar" alt="" referrerpolicy="no-referrer">
           <span class="cloud-email" id="cloudEmail"></span>
+          <button class="cloud-switch-btn" id="btnSwitchAccount" data-i18n-title="switchAccount" title="Hesap değiştir">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+          </button>
           <button class="cloud-signout-btn" id="btnSignOut" data-i18n="signOut" title="Çıkış">⎋</button>
         </div>
         <span class="cloud-status" id="cloudSyncStatus" title="">⚪</span>
@@ -859,16 +862,16 @@
 
   <script src="./vendor/html2pdf.bundle.min.js"></script>
   <script src="./vendor/html-docx.js"></script>
-  <script src="js/cloud-config.js?v=109"></script>
-  <script src="js/cloud-sync.js?v=109"></script>
-  <script src="js/briefcase.js?v=109"></script>
-  <script src="app.js?v=109"></script>
+  <script src="js/cloud-config.js?v=110"></script>
+  <script src="js/cloud-sync.js?v=110"></script>
+  <script src="js/briefcase.js?v=110"></script>
+  <script src="app.js?v=110"></script>
   <script>
     // Register service worker for PWA install + offline shell.
     // SW uses network-first for HTML/JS so updates roll out without manual refresh.
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=109').catch((err) => {
+        navigator.serviceWorker.register('./sw.js?v=110').catch((err) => {
           console.warn('[sw] register failed', err);
         });
       });

@@ -116,7 +116,8 @@ body.has-image-panel .editor-area {
   white-space: nowrap;
   max-width: 130px;
 }
-.cloud-signout-btn {
+.cloud-signout-btn,
+.cloud-switch-btn {
   background: transparent;
   color: rgba(255,255,255,0.7);
   border: none;
@@ -125,7 +126,13 @@ body.has-image-panel .editor-area {
   padding: 0 4px;
   line-height: 1;
 }
-.cloud-signout-btn:hover {
+.cloud-switch-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 2px;
+}
+.cloud-signout-btn:hover,
+.cloud-switch-btn:hover {
   color: #fff;
 }
 .cloud-status {

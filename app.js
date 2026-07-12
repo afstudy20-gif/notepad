@@ -4367,6 +4367,14 @@
         }
       });
     }
+    const btnSwitch = $('#btnSwitchAccount');
+    if (btnSwitch) {
+      btnSwitch.addEventListener('click', () => {
+        if (confirm(tr('cloudConfirmSwitch'))) {
+          window.__npCloud.signIn({ switchAccount: true }).catch(e => console.warn('[cloud] switch', e));
+        }
+      });
+    }
     if (statusEl) {
       statusEl.addEventListener('click', () => {
         const state = window.__npCloud.getStatus();
@@ -5612,6 +5620,8 @@
       cloudSetupNeeded: 'Google OAuth Client ID eksik (cloud-config.js)',
       cloudSetupHelp: 'Google Drive senkronizasyonu için OAuth Client ID gerekli.\n\nKurulum (uygulama sahibi yapar):\n1. console.cloud.google.com → yeni proje\n2. Google Drive API\'yi etkinleştir\n3. OAuth consent screen + scope: drive.appdata\n4. Credentials → OAuth client ID (Web)\n   - JS origins: https://not.drtr.uk\n   - Redirect URIs: https://not.drtr.uk/ (sonunda slash)\n5. Client ID\'yi js/cloud-config.js içine yapıştır\n6. Yeniden yükle\n\nDetaylar cloud-config.js dosyasının başında.',
       cloudConfirmSignOut: 'Google hesabınızdan çıkış yapılacak. Yerel notlar korunur. Devam edilsin mi?',
+      switchAccount: 'Hesap değiştir',
+      cloudConfirmSwitch: 'Farklı bir Google hesabına geçilecek. Çıkış yapmanıza gerek yok — hesap seçme ekranı açılacak. Not: yerel notlarınız seçtiğiniz hesabın Drive\'ıyla eşitlenir. Devam edilsin mi?',
       lastSync: 'Son senkron: ',
       briefcase: 'Evrak Çantası',
       briefcaseTip: 'Dosyalarınızı buraya yükleyip başka bir cihazdan indirin',
@@ -5840,6 +5850,8 @@
       cloudSetupNeeded: 'Google OAuth Client ID missing (cloud-config.js)',
       cloudSetupHelp: 'Google Drive sync needs an OAuth Client ID.\n\nSetup (app owner):\n1. console.cloud.google.com → new project\n2. Enable Google Drive API\n3. OAuth consent screen + scope: drive.appdata\n4. Credentials → OAuth client ID (Web)\n   - JS origins: https://not.drtr.uk\n   - Redirect URIs: https://not.drtr.uk/ (trailing slash)\n5. Paste the Client ID into js/cloud-config.js\n6. Reload\n\nFull steps at the top of cloud-config.js.',
       cloudConfirmSignOut: 'Sign out from your Google account? Local notes will be kept.',
+      switchAccount: 'Switch account',
+      cloudConfirmSwitch: 'Switch to a different Google account. No need to sign out first — the account chooser will open. Note: your local notes will sync with the selected account\'s Drive. Continue?',
       lastSync: 'Last sync: ',
       briefcase: 'Briefcase',
       briefcaseTip: 'Upload files here and download them on another device',
