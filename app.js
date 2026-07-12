@@ -4430,7 +4430,10 @@
         name.title = f.name;
         const meta = document.createElement('span');
         meta.className = 'briefcase-item-meta';
-        meta.textContent = `${formatSize(f.size)} · ${new Date(f.modifiedTime).toLocaleString()}`;
+        let metaText = `${formatSize(f.size)} · ${new Date(f.modifiedTime).toLocaleString()}`;
+        if (f.chunked) metaText += ` · ${f.totalParts} ${tr('briefcaseParts')}`;
+        if (f.incomplete) metaText += ` · ⚠ ${tr('briefcaseIncomplete')}`;
+        meta.textContent = metaText;
         info.appendChild(name);
         info.appendChild(meta);
 
@@ -4439,6 +4442,7 @@
         const dlBtn = document.createElement('button');
         dlBtn.title = tr('shareDevice');
         dlBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12"/><polyline points="7 10 12 15 17 10"/><path d="M5 21h14"/></svg>';
+        dlBtn.disabled = !!f.incomplete;
         dlBtn.addEventListener('click', () => downloadFile(f));
         const delBtn = document.createElement('button');
         delBtn.className = 'briefcase-delete-btn';
@@ -4464,9 +4468,17 @@
       }
     }
 
+    function progressLabel(prefix, name, cur, total) {
+      return total > 1 ? `${prefix}${name} (${cur}/${total})` : `${prefix}${name}`;
+    }
+
     async function downloadFile(f) {
+      if (f.incomplete) return;
       try {
-        const blob = await window.__npBriefcase.download(f.id);
+        setStatus(progressLabel(tr('briefcaseDownloading'), f.name, 0, f.chunked ? f.totalParts : 1));
+        const blob = await window.__npBriefcase.download(f, (cur, total) => {
+          setStatus(progressLabel(tr('briefcaseDownloading'), f.name, cur, total));
+        });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
         a.download = f.name;
@@ -4475,13 +4487,15 @@
       } catch (e) {
         console.warn('[briefcase] download', e);
         alert(tr('briefcaseDownloadFailed'));
+      } finally {
+        setStatus('');
       }
     }
 
     async function deleteFile(f, li) {
       if (!confirm(tr('briefcaseDeleteConfirm'))) return;
       try {
-        await window.__npBriefcase.remove(f.id);
+        await window.__npBriefcase.remove(f);
         li.remove();
         if (!listEl.children.length) { listEl.hidden = true; emptyEl.hidden = false; }
       } catch (e) {
@@ -4492,13 +4506,11 @@
 
     async function uploadFiles(files) {
       for (const file of files) {
-        if (file.size > window.__npBriefcase.MAX_BYTES) {
-          alert(tr('briefcaseTooLarge') + file.name);
-          continue;
-        }
         setStatus(tr('briefcaseUploading') + file.name);
         try {
-          await window.__npBriefcase.upload(file);
+          await window.__npBriefcase.upload(file, (cur, total) => {
+            setStatus(progressLabel(tr('briefcaseUploading'), file.name, cur, total));
+          });
         } catch (e) {
           console.warn('[briefcase] upload', e);
           alert(tr('briefcaseUploadFailed') + file.name);
@@ -5587,7 +5599,10 @@
       briefcaseListFailed: 'Dosya listesi alınamadı.',
       briefcaseDeleteConfirm: 'Bu dosya silinsin mi?',
       briefcaseDeleteFailed: 'Silme başarısız.',
-      briefcaseDownloadFailed: 'İndirme başarısız.'
+      briefcaseDownloadFailed: 'İndirme başarısız.',
+      briefcaseDownloading: 'İndiriliyor: ',
+      briefcaseParts: 'parça',
+      briefcaseIncomplete: 'Eksik parça — indirilemez'
     },
     en: {
       notes: 'Notes',
@@ -5812,7 +5827,10 @@
       briefcaseListFailed: 'Could not load file list.',
       briefcaseDeleteConfirm: 'Delete this file?',
       briefcaseDeleteFailed: 'Delete failed.',
-      briefcaseDownloadFailed: 'Download failed.'
+      briefcaseDownloadFailed: 'Download failed.',
+      briefcaseDownloading: 'Downloading: ',
+      briefcaseParts: 'parts',
+      briefcaseIncomplete: 'Missing parts — cannot download'
     }
   };
 

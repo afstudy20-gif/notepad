@@ -2783,6 +2783,15 @@ body.has-image-panel .image-panel {
   background: #f5f5f5;
 }
 
+.briefcase-item-actions button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.briefcase-item-actions button:disabled:hover {
+  background: #fff;
+}
+
 .briefcase-item-actions .briefcase-delete-btn:hover {
   background: #fef2f2;
   border-color: #fecaca;
