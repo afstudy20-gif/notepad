@@ -444,7 +444,7 @@
       if (useGroupHeaders) {
         const isCollapsed = collapsed.has(g);
         const label = g || 'Grupsuz';
-        html += `<div class="note-group-header${isCollapsed ? ' collapsed' : ''}" data-group="${escapeHtml(g)}">
+        html += `<div class="note-group-header${isCollapsed ? ' collapsed' : ''}" data-group="${escapeAttribute(g)}">
           <span>${escapeHtml(label)} (${groupsMap.get(g).length})</span>
           <span class="ngh-arrow">▼</span>
         </div>`;
@@ -454,15 +454,15 @@
         const preview = stripHtml(n.content).slice(0, 80) || 'Empty note';
         const title = n.title || 'Untitled Note';
         const time = formatTime(n.updated);
-        const colorAttr = n.color ? ` data-color="${escapeHtml(n.color)}" style="--note-color:${escapeHtml(n.color)}"` : '';
+        const colorAttr = n.color ? ` data-color="${escapeAttribute(n.color)}" style="--note-color:${escapeAttribute(n.color)}"` : '';
         const groupTag = n.group ? `<span class="note-item-tag">${escapeHtml(n.group)}</span>` : '';
         const isSelected = selectedNoteIds.has(n.id);
         const classes = ['note-item'];
         if (n.id === activeId) classes.push('active');
         if (isSelected) classes.push('selected');
         html += `
-          <div class="${classes.join(' ')}" data-id="${n.id}"${colorAttr}>
-            <input type="checkbox" class="note-check" data-check-id="${n.id}"${isSelected ? ' checked' : ''}>
+          <div class="${classes.join(' ')}" data-id="${escapeAttribute(n.id)}"${colorAttr}>
+            <input type="checkbox" class="note-check" data-check-id="${escapeAttribute(n.id)}"${isSelected ? ' checked' : ''}>
             <div class="note-item-title">${escapeHtml(title)}</div>
             <div class="note-item-preview">${escapeHtml(preview)}</div>
             <div>${groupTag}<span class="note-item-time">${time}</span></div>
@@ -519,7 +519,9 @@
   function escapeHtml(str) {
     const div = document.createElement('div');
     div.textContent = str;
-    return div.innerHTML;
+    // textContent->innerHTML escapes <>& but NOT quotes; encode them too so the
+    // result is safe in both text and double/single-quoted attribute contexts.
+    return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
   function textToNoteHtml(text) {
@@ -583,7 +585,8 @@
   }
 
   function escapeAttribute(str) {
-    return escapeHtml(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    // escapeHtml already encodes quotes; kept as a named alias for attribute sites.
+    return escapeHtml(str);
   }
 
   function isSafeLinkUrl(url) {
@@ -3278,7 +3281,7 @@
   function renderGroupPickerList() {
     const q = groupPickerInput.value.toLowerCase();
     const groups = getAllGroups().filter(g => !q || g.toLowerCase().includes(q));
-    groupPickerList.innerHTML = groups.map(g => `<button data-grp="${escapeHtml(g)}">${escapeHtml(g)}</button>`).join('') ||
+    groupPickerList.innerHTML = groups.map(g => `<button data-grp="${escapeAttribute(g)}">${escapeHtml(g)}</button>`).join('') ||
       '<div style="font-size:11px;color:#888;padding:4px 9px">Henüz grup yok</div>';
   }
   function setNoteGroup(noteId, group) {
