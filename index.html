@@ -2,6 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <!-- Content Security Policy: script-src is strict (no 'unsafe-inline'/'unsafe-eval')
+       so an injected <script> or event-handler cannot execute. style-src keeps
+       'unsafe-inline' because the app sets inline style attributes (e.g. --note-color);
+       inline styles cannot run script. connect/worker/img hosts cover Google Drive
+       sync, translate, and the OCR/convert CDNs + their model files.
+       Note: frame-ancestors is header-only and must be set server-side. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://accounts.google.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://www.googleapis.com https://accounts.google.com https://translate.googleapis.com https://cdn.jsdelivr.net https://tessdata.projectnaptha.com https://*.bcebos.com; worker-src 'self' blob:; frame-src https://accounts.google.com; object-src 'none'; base-uri 'self'; form-action 'self' https://accounts.google.com">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Browser-first note app with optional Google Drive sync. Notes stay local unless sync is enabled.">
   <meta name="theme-color" content="#1a1a2e">
@@ -854,16 +861,6 @@
   <script src="js/cloud-sync.js?v=114"></script>
   <script src="js/briefcase.js?v=114"></script>
   <script src="app.js?v=114"></script>
-  <script>
-    // Register service worker for PWA install + offline shell.
-    // SW uses network-first for HTML/JS so updates roll out without manual refresh.
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=114').catch((err) => {
-          console.warn('[sw] register failed', err);
-        });
-      });
-    }
-  </script>
+  <script src="js/sw-register.js?v=114"></script>
 </body>
 </html>

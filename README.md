@@ -27,7 +27,11 @@ A browser-based rich-text note app. Notes live in `localStorage` by default, wit
 
 ## Privacy
 
-No notes or images are uploaded. All OCR and format conversions run client-side. Only the CDN libraries (mammoth, xlsx, pdf.js, tesseract, paddleocr, html2pdf, html-docx-js) are fetched once over the network.
+By default notes and images stay in your browser's local storage — nothing is uploaded. OCR and format conversions run client-side; only the CDN libraries (mammoth, xlsx, pdf.js, tesseract, paddleocr, html2pdf, html-docx-js) and, for OCR, their model files are fetched over the network.
+
+**If you enable Google Drive sync**, your notes are uploaded to your own Google Drive (the app's private `appDataFolder`) so they sync across devices. The app requests only the `drive.appdata` scope plus your basic profile/email — it cannot see the rest of your Drive. Leave sync off to keep everything local.
+
+**The optional Chrome extension**, when you click it on a page, sends that page's URL, selected text, screenshot, and any detected PDF into Notepad. It only acts on the tab you invoke it on.
 
 ## Run locally
 
