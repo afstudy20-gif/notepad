@@ -4317,7 +4317,13 @@
       }
 
       const lastSync = state.lastSync ? new Date(state.lastSync).toLocaleString() : '-';
-      statusEl.title = `${tr(state.status === 'ok' ? 'syncOk' : state.status === 'syncing' ? 'syncing' : state.status === 'error' ? 'syncError' : state.status === 'setupNeeded' ? 'cloudSetupNeeded' : 'syncIdle')}\n${tr('lastSync')}${lastSync}${state.message ? '\n' + state.message : ''}`;
+      // The header text line was removed to save space — fold its meaning into
+      // the status tick's tooltip (hover the ✅/⚪ to see it).
+      const stateLine = state.signedIn
+        ? ((CURRENT_LANG === 'en') ? 'Cloud sync active — backed up' : 'Bulut eşitleme aktif — yedekleniyor')
+        : tr('privacy');
+      const syncLabel = tr(state.status === 'ok' ? 'syncOk' : state.status === 'syncing' ? 'syncing' : state.status === 'error' ? 'syncError' : state.status === 'setupNeeded' ? 'cloudSetupNeeded' : 'syncIdle');
+      statusEl.title = `${stateLine}\n${syncLabel}\n${tr('lastSync')}${lastSync}${state.message ? '\n' + state.message : ''}`;
       if (state.signedIn) {
         btnSignIn.hidden = true;
         userBox.hidden = false;
@@ -4336,21 +4342,6 @@
       btnSignIn.disabled = false;
       btnSignIn.title = state.status === 'setupNeeded' ? tr('cloudSetupNeeded') : '';
       btnSignIn.classList.toggle('needs-setup', state.status === 'setupNeeded');
-
-      // Update privacy note dynamically based on cloud state
-      const privacyTextEl = $('#privacyNoteText');
-      const privacyNoteEl = $('#privacyNoteEl');
-      if (privacyTextEl && privacyNoteEl) {
-        if (state.signedIn) {
-          privacyTextEl.textContent = (CURRENT_LANG === 'en') ? 'Cloud sync active — backed up' : 'Bulut eşitleme aktif — yedekleniyor';
-          privacyNoteEl.title = (CURRENT_LANG === 'en') 
-            ? 'Notes are synced and backed up to your personal Google Drive app folder.' 
-            : 'Notlar kişisel Google Drive uygulama klasörünüzle senkronize edilir ve yedeklenir.';
-        } else {
-          privacyTextEl.textContent = tr('privacy');
-          privacyNoteEl.title = tr('privacyTooltip');
-        }
-      }
     }
 
     btnSignIn.addEventListener('click', () => {
@@ -4387,6 +4378,9 @@
     }
     window.__npCloud.onChange(render);
     render(window.__npCloud.getStatus());
+    // Let language changes (and the post-init i18n pass) refresh the status
+    // tooltip, which is now the only place the sync/privacy text lives.
+    window.__npRefreshCloudUI = () => render(window.__npCloud.getStatus());
   }
 
   // ===== Briefcase (cross-device file transfer via Google Drive) =====
@@ -5890,6 +5884,7 @@
     document.documentElement.lang = CURRENT_LANG;
     // Refresh dynamic strings
     updateCounts();
+    if (window.__npRefreshCloudUI) window.__npRefreshCloudUI();
     if (saveStatusEl && (saveStatusEl.textContent === 'Saved' || saveStatusEl.textContent === 'Kaydedildi' || saveStatusEl.textContent === 'Saving...' || saveStatusEl.textContent === 'Kaydediliyor...')) {
       saveStatusEl.textContent = t.saved;
     }
