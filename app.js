@@ -18,6 +18,7 @@
   let activeId = null;
   let saveTimeout = null;
   let lastSaveError = null;
+let quotaAlerted = false;
   let copiedFormat = null;
   let formatPainterActive = false;
   const ZOOM_KEY = 'notepad_zoom';
@@ -116,6 +117,7 @@
       localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
       localStorage.setItem(ACTIVE_KEY, activeId || '');
       lastSaveError = null;
+      quotaAlerted = false;
       if (options.showStatus) {
         setSaveStatus((typeof tr === 'function') ? tr('saved') : 'Saved', 'saved');
       }
@@ -128,6 +130,12 @@
         : ((typeof tr === 'function') ? tr('saveFailed') : 'Save failed.');
       setSaveStatus(message, 'error');
       console.error('[storage] save failed', lastSaveError);
+      // On mobile the status line is easy to miss — surface quota once as an alert
+      // so the user understands why the image/note didn't stick.
+      if (quota && !quotaAlerted) {
+        quotaAlerted = true;
+        setTimeout(() => alert(message), 0);
+      }
       return false;
     }
   }
@@ -1239,12 +1247,9 @@
         e.preventDefault();
         const file = item.getAsFile();
         if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          insertImage(ev.target.result);
-          scheduleSave();
-        };
-        reader.readAsDataURL(file);
+        insertImageFromFile(file)
+          .then(() => scheduleSave())
+          .catch(err => console.error('[image] paste failed', err));
         return;
       }
     }
@@ -1327,6 +1332,72 @@
     };
     if (img.complete && img.naturalWidth) apply();
     else img.addEventListener('load', apply, { once: true });
+  }
+
+  // Downscale + re-encode an image file before it goes into a note. Notes live in
+  // localStorage (~5MB total on mobile Safari), so a raw phone photo's base64 blows
+  // the quota and the save silently fails. Cap the largest side and re-encode to
+  // keep each image small. SVG stays vector; tiny images pass through untouched.
+  const IMG_MAX_DIM = 1600;      // px, longest side
+  const IMG_PASSTHRU_BYTES = 400 * 1024; // below this, don't bother re-encoding
+  function fileToDisplayDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      if (file.type === 'image/svg+xml') {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result);
+        r.onerror = reject;
+        r.readAsDataURL(file);
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const original = reader.result;
+        const img = new Image();
+        img.onload = () => {
+          const { width, height } = img;
+          const withinDim = width <= IMG_MAX_DIM && height <= IMG_MAX_DIM;
+          if (withinDim && file.size < IMG_PASSTHRU_BYTES) {
+            resolve(original); // already small enough
+            return;
+          }
+          try {
+            const scale = Math.min(1, IMG_MAX_DIM / Math.max(width, height));
+            const w = Math.max(1, Math.round(width * scale));
+            const h = Math.max(1, Math.round(height * scale));
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            // PNG preserves transparency (screenshots/logos); fall back to JPEG if
+            // the PNG is still heavy. Photos (jpeg source) always go JPEG.
+            let out;
+            if (file.type === 'image/png') {
+              out = canvas.toDataURL('image/png');
+              if (out.length > 1_200_000) out = canvas.toDataURL('image/jpeg', 0.85);
+            } else {
+              out = canvas.toDataURL('image/jpeg', 0.82);
+            }
+            // Never make it worse than the original.
+            resolve(out.length < original.length ? out : original);
+          } catch (err) {
+            resolve(original); // canvas failed (e.g. tainted) — use original
+          }
+        };
+        img.onerror = () => resolve(original); // undecodable (e.g. HEIC) — use original
+        img.src = original;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // Compress a file then insert it. Returns a promise so callers can sequence saves.
+  function insertImageFromFile(file) {
+    return fileToDisplayDataUrl(file).then((dataUrl) => {
+      insertImage(dataUrl);
+      return dataUrl;
+    });
   }
 
   function insertImage(src) {
@@ -2562,12 +2633,9 @@
     if (!imgs.length) return;
     e.preventDefault();
     imgs.forEach(file => {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        insertImage(ev.target.result);
-        scheduleSave();
-      };
-      reader.readAsDataURL(file);
+      insertImageFromFile(file)
+        .then(() => scheduleSave())
+        .catch(err => console.error('[image] drop failed', err));
     });
   });
 
@@ -3534,9 +3602,9 @@
           const type = item.types.find(t => t.startsWith('image/'));
           if (!type) continue;
           const blob = await item.getType(type);
-          const reader = new FileReader();
-          reader.onload = (ev) => { insertImage(ev.target.result); scheduleSave(); };
-          reader.readAsDataURL(blob);
+          insertImageFromFile(blob)
+            .then(() => scheduleSave())
+            .catch(err => console.error('[image] pasteImage failed', err));
           found = true;
           break;
         }
@@ -5171,12 +5239,10 @@
   $('#imageReplaceInput').addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (!file || !selectedImg) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      selectedImg.src = ev.target.result;
+    fileToDisplayDataUrl(file).then((dataUrl) => {
+      selectedImg.src = dataUrl;
       scheduleSave();
-    };
-    reader.readAsDataURL(file);
+    }).catch(err => console.error('[image] replace failed', err));
     e.target.value = '';
   });
 
@@ -5203,25 +5269,18 @@
     }
     let remaining = files.length;
     files.forEach(file => {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        try {
-          insertImage(ev.target.result);
-        } catch (err) {
-          console.error('[insertImage] insert failed', err);
-          alert('Resim eklenemedi: ' + err.message);
-        }
+      insertImageFromFile(file).then(() => {
         remaining--;
         if (remaining === 0) {
           updateCounts();
           scheduleSave();
         }
-      };
-      reader.onerror = () => {
-        alert('Resim yüklenemedi: ' + file.name);
+      }).catch((err) => {
+        console.error('[insertImage] insert failed', err);
+        alert('Resim eklenemedi: ' + (err && err.message ? err.message : file.name));
         remaining--;
-      };
-      reader.readAsDataURL(file);
+        if (remaining === 0) { updateCounts(); scheduleSave(); }
+      });
     });
     e.target.value = '';
   });
