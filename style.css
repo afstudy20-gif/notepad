@@ -2854,6 +2854,44 @@ body.has-image-panel .image-panel {
   box-shadow: none;
 }
 
+/* Image source chooser (camera vs gallery) */
+.image-source-dialog {
+  width: min(340px, 90vw);
+}
+
+.image-source-body {
+  display: flex;
+  gap: 12px;
+  padding: 18px 20px 22px;
+}
+
+.image-source-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 18px 10px;
+  border: 1px solid #dbe1ec;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.image-source-btn:hover {
+  background: #eef4ff;
+  border-color: #4361ee;
+  color: #1d3557;
+}
+
+.image-source-btn svg {
+  color: #4361ee;
+}
+
 /* Import Overlay */
 .import-overlay {
   position: fixed;

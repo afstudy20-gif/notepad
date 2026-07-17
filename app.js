@@ -1046,6 +1046,7 @@ let quotaAlerted = false;
     zoomIn: () => stepEditorZoom(1),
     findReplace: () => toggleFindReplace(),
     insertImage: () => {
+      if (window.__npOpenImagePicker) { window.__npOpenImagePicker(); return; }
       const inp = $('#imageInput');
       if (!inp) { console.warn('imageInput not found'); return; }
       inp.value = '';
@@ -3567,6 +3568,7 @@ let quotaAlerted = false;
     editorCtx.hidden = true;
     // Trigger file picker BEFORE any await (user activation required)
     if (action === 'uploadImage') {
+      if (window.__npOpenImagePicker) { window.__npOpenImagePicker(); return; }
       const inp = $('#imageInput');
       if (inp) { inp.value = ''; inp.click(); }
       return;
@@ -5246,10 +5248,9 @@ let quotaAlerted = false;
     e.target.value = '';
   });
 
-  // Image file picker
-  $('#imageInput').addEventListener('change', (e) => {
+  // Image file picker — shared by the gallery input and the camera input
+  function handleImagePick(e) {
     const allFiles = [...e.target.files];
-    console.log('[insertImage] files picked:', allFiles.map(f => f.name + ' ' + f.type));
     const files = allFiles.filter(f => f.type.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp|svg|avif|heic)$/i.test(f.name));
     if (!files.length) {
       alert('Resim dosyası bulunamadı. Seçilen: ' + allFiles.map(f => f.name).join(', '));
@@ -5283,7 +5284,50 @@ let quotaAlerted = false;
       });
     });
     e.target.value = '';
-  });
+  }
+  $('#imageInput').addEventListener('change', handleImagePick);
+  const cameraInput = $('#cameraInput');
+  if (cameraInput) cameraInput.addEventListener('change', handleImagePick);
+
+  // ----- Image source chooser: on touch devices offer camera vs gallery -----
+  const imageSourceDialog = $('#imageSourceDialog');
+  function isTouchDevice() {
+    return ('ontouchstart' in window || navigator.maxTouchPoints > 0) &&
+           /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+  }
+  function closeImageSourceDialog() {
+    if (!imageSourceDialog) return;
+    imageSourceDialog.hidden = true;
+    imageSourceDialog.style.display = 'none';
+  }
+  // Exposed for the toolbar/context-menu image actions.
+  window.__npOpenImagePicker = function openImagePicker() {
+    const gallery = $('#imageInput');
+    if (!gallery) return;
+    gallery.value = '';
+    // Desktop (no camera worth offering): straight to the file dialog.
+    if (!imageSourceDialog || !isTouchDevice() || !cameraInput) {
+      try { gallery.click(); } catch (err) { console.error('imageInput.click failed', err); }
+      return;
+    }
+    imageSourceDialog.hidden = false;
+    imageSourceDialog.style.display = '';
+  };
+  if (imageSourceDialog) {
+    $('#imageSourceClose').addEventListener('click', closeImageSourceDialog);
+    imageSourceDialog.addEventListener('click', (e) => { if (e.target === imageSourceDialog) closeImageSourceDialog(); });
+    $('#imageSourceCamera').addEventListener('click', () => {
+      closeImageSourceDialog();
+      cameraInput.value = '';
+      try { cameraInput.click(); } catch (err) { console.error('cameraInput.click failed', err); }
+    });
+    $('#imageSourceGallery').addEventListener('click', () => {
+      closeImageSourceDialog();
+      const gallery = $('#imageInput');
+      gallery.value = '';
+      try { gallery.click(); } catch (err) { console.error('imageInput.click failed', err); }
+    });
+  }
 
   // Import dropup: each option sets accept attribute then triggers picker
   const IMPORT_ACCEPTS = {
@@ -5694,7 +5738,10 @@ let quotaAlerted = false;
       briefcaseDownloadFailed: 'İndirme başarısız.',
       briefcaseDownloading: 'İndiriliyor: ',
       briefcaseParts: 'parça',
-      briefcaseIncomplete: 'Eksik parça — indirilemez'
+      briefcaseIncomplete: 'Eksik parça — indirilemez',
+      addImageFrom: 'Resim Ekle',
+      fromCamera: 'Kamera',
+      fromGallery: 'Galeri'
     },
     en: {
       notes: 'Notes',
@@ -5924,7 +5971,10 @@ let quotaAlerted = false;
       briefcaseDownloadFailed: 'Download failed.',
       briefcaseDownloading: 'Downloading: ',
       briefcaseParts: 'parts',
-      briefcaseIncomplete: 'Missing parts — cannot download'
+      briefcaseIncomplete: 'Missing parts — cannot download',
+      addImageFrom: 'Add Image',
+      fromCamera: 'Camera',
+      fromGallery: 'Gallery'
     }
   };
 

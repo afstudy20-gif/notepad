@@ -1,0 +1,102 @@
+# Build the Android TWA APK with Bubblewrap and attach it to the GitHub release.
+#
+# Trigger: publishing a release (or manual dispatch).
+#
+# Signing:
+#   Set repo secrets for a stable signature (required for the assetlinks.json
+#   fingerprint to stay valid so the TWA opens without the browser URL bar):
+#     ANDROID_KEYSTORE_B64      base64 of the .keystore file
+#     ANDROID_KEYSTORE_PASSWORD keystore password
+#     ANDROID_KEY_PASSWORD      key password (often same as keystore)
+#   Without secrets a throwaway keystore is generated — the APK installs and
+#   works, but each release has a different signature (users must uninstall
+#   the previous build first, and assetlinks verification won't match).
+name: Release Android APK
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Bubblewrap
+        run: npm install -g @bubblewrap/cli
+
+      - name: Point Bubblewrap at the preinstalled JDK/SDK
+        run: |
+          mkdir -p ~/.bubblewrap
+          cat > ~/.bubblewrap/config.json <<EOF
+          { "jdkPath": "${JAVA_HOME}", "androidSdkPath": "${ANDROID_HOME}" }
+          EOF
+
+      - name: Prepare signing keystore
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > android.keystore
+            echo "Using keystore from secrets."
+          else
+            keytool -genkeypair -v -keystore android.keystore -alias android \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass android -keypass android \
+              -dname "CN=Not, OU=drtr, O=drtr, L=-, S=-, C=TR"
+            echo "::warning::No ANDROID_KEYSTORE_B64 secret — built with a throwaway keystore (signature changes every release)."
+          fi
+
+      - name: Stamp release version into twa-manifest.json
+        run: |
+          TAG="${GITHUB_REF_NAME:-manual}"
+          VERSION="${TAG#v}"
+          [ "$VERSION" = "manual" ] && VERSION="0.0.${GITHUB_RUN_NUMBER}"
+          jq --arg v "$VERSION" --argjson c "${GITHUB_RUN_NUMBER}" \
+            '.appVersionName = $v | .appVersionCode = $c' \
+            twa-manifest.json > twa-manifest.tmp && mv twa-manifest.tmp twa-manifest.json
+          echo "Version: $VERSION (code ${GITHUB_RUN_NUMBER})"
+
+      - name: Build APK
+        env:
+          BUBBLEWRAP_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD || 'android' }}
+          BUBBLEWRAP_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD || 'android' }}
+        run: bubblewrap build --skipPwaValidation
+
+      - name: Print signing fingerprint (for .well-known/assetlinks.json)
+        env:
+          STOREPASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD || 'android' }}
+        run: |
+          keytool -list -v -keystore android.keystore -alias android -storepass "$STOREPASS" \
+            | grep -A1 'SHA256:' || true
+
+      - name: Upload APK to the release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mv app-release-signed.apk notepad.apk
+          gh release upload "${GITHUB_REF_NAME}" notepad.apk --clobber
+
+      - name: Upload APK as workflow artifact (manual runs)
+        if: github.event_name != 'release'
+        uses: actions/upload-artifact@v4
+        with:
+          name: notepad-apk
+          path: app-release-signed.apk
