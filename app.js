@@ -2090,7 +2090,12 @@ let quotaAlerted = false;
   // ===== Calculator =====
   const calcPanel = $('#calcPanel');
   const calcDisp = $('#calcDisp');
+  const calcHistoryEl = $('#calcHistory');
+  const calcUndoBtn = $('#calcUndoBtn');
+  const calcRedoBtn = $('#calcRedoBtn');
   let calcExpr = '';
+  let calcUndoStack = [];
+  let calcRedoStack = [];
 
   function openCalc() {
     calcPanel.hidden = false;
@@ -2106,6 +2111,37 @@ let quotaAlerted = false;
   }
   function calcUpdate() {
     calcDisp.value = calcExpr || '0';
+  }
+  function calcFormatForHistory(s) {
+    return s.replace(/\*/g, '×').replace(/\//g, '÷');
+  }
+  function calcRefreshUndoRedoButtons() {
+    if (calcUndoBtn) calcUndoBtn.disabled = calcUndoStack.length === 0;
+    if (calcRedoBtn) calcRedoBtn.disabled = calcRedoStack.length === 0;
+  }
+  function calcPushUndo() {
+    calcUndoStack.push({ expr: calcExpr, hist: calcHistoryEl.textContent });
+    if (calcUndoStack.length > 50) calcUndoStack.shift();
+    calcRedoStack = [];
+    calcRefreshUndoRedoButtons();
+  }
+  function calcUndo() {
+    if (!calcUndoStack.length) return;
+    calcRedoStack.push({ expr: calcExpr, hist: calcHistoryEl.textContent });
+    const prev = calcUndoStack.pop();
+    calcExpr = prev.expr;
+    calcHistoryEl.textContent = prev.hist;
+    calcUpdate();
+    calcRefreshUndoRedoButtons();
+  }
+  function calcRedo() {
+    if (!calcRedoStack.length) return;
+    calcUndoStack.push({ expr: calcExpr, hist: calcHistoryEl.textContent });
+    const next = calcRedoStack.pop();
+    calcExpr = next.expr;
+    calcHistoryEl.textContent = next.hist;
+    calcUpdate();
+    calcRefreshUndoRedoButtons();
   }
   // Recursive-descent expression parser — no eval/Function (blocked by CSP).
   // Grammar: expr := term (('+'|'-') term)*
@@ -2178,6 +2214,8 @@ let quotaAlerted = false;
     try {
       const result = calcParse(calcExpr);
       if (typeof result !== 'number' || !isFinite(result)) { calcDisp.value = 'ERR'; return; }
+      calcPushUndo();
+      calcHistoryEl.textContent = calcFormatForHistory(calcExpr) + ' =';
       calcExpr = String(Math.round(result * 1e10) / 1e10);
       calcUpdate();
     } catch (_) {
@@ -2185,17 +2223,21 @@ let quotaAlerted = false;
     }
   }
   $('#calcClose').addEventListener('click', closeCalc);
+  calcUndoBtn.addEventListener('click', calcUndo);
+  calcRedoBtn.addEventListener('click', calcRedo);
+  calcRefreshUndoRedoButtons();
   calcPanel.addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-calc]');
     if (!btn) return;
     const k = btn.dataset.calc;
-    if (k === 'clear') { calcExpr = ''; calcUpdate(); return; }
-    if (k === 'back') { calcExpr = calcExpr.slice(0, -1); calcUpdate(); return; }
+    if (k === 'clear') { calcPushUndo(); calcExpr = ''; calcHistoryEl.textContent = ''; calcUpdate(); return; }
+    if (k === 'back') { calcPushUndo(); calcExpr = calcExpr.slice(0, -1); calcUpdate(); return; }
     if (k === 'eq') { calcEval(); return; }
     if (k === 'neg') {
-      if (!calcExpr) { calcExpr = '-'; calcUpdate(); return; }
+      if (!calcExpr) { calcPushUndo(); calcExpr = '-'; calcUpdate(); return; }
       const m = calcExpr.match(/(-?\d+\.?\d*)$/);
       if (m) {
+        calcPushUndo();
         const num = m[1];
         const negd = num.startsWith('-') ? num.slice(1) : '-' + num;
         calcExpr = calcExpr.slice(0, -num.length) + negd;
@@ -2203,8 +2245,9 @@ let quotaAlerted = false;
       calcUpdate();
       return;
     }
-    if (k === 'sqrt') { calcExpr += '√('; calcUpdate(); return; }
-    if (k === 'pi') { calcExpr += 'π'; calcUpdate(); return; }
+    if (k === 'sqrt') { calcPushUndo(); calcExpr += '√('; calcUpdate(); return; }
+    if (k === 'pi') { calcPushUndo(); calcExpr += 'π'; calcUpdate(); return; }
+    calcPushUndo();
     calcExpr += k;
     calcUpdate();
   });
@@ -2212,9 +2255,12 @@ let quotaAlerted = false;
   document.addEventListener('keydown', (e) => {
     if (calcPanel.hidden) return;
     if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) return;
-    if (/^[0-9.+\-*/()%]$/.test(e.key)) { calcExpr += e.key; calcUpdate(); e.preventDefault(); }
+    const mod = e.ctrlKey || e.metaKey;
+    if (mod && !e.shiftKey && e.key.toLowerCase() === 'z') { calcUndo(); e.preventDefault(); return; }
+    if (mod && (e.key.toLowerCase() === 'y' || (e.shiftKey && e.key.toLowerCase() === 'z'))) { calcRedo(); e.preventDefault(); return; }
+    if (/^[0-9.+\-*/()%]$/.test(e.key)) { calcPushUndo(); calcExpr += e.key; calcUpdate(); e.preventDefault(); }
     else if (e.key === 'Enter' || e.key === '=') { calcEval(); e.preventDefault(); }
-    else if (e.key === 'Backspace') { calcExpr = calcExpr.slice(0, -1); calcUpdate(); e.preventDefault(); }
+    else if (e.key === 'Backspace') { calcPushUndo(); calcExpr = calcExpr.slice(0, -1); calcUpdate(); e.preventDefault(); }
     else if (e.key === 'Escape') { closeCalc(); }
   });
   // Draggable header

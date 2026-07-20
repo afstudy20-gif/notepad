@@ -21,7 +21,7 @@
   <title>Not — Browser-First Text Editor</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
-  <link rel="stylesheet" href="style.css?v=117">
+  <link rel="stylesheet" href="style.css?v=118">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -690,8 +690,13 @@
   <div class="calc-panel" id="calcPanel" hidden style="display:none">
     <div class="calc-header">
       <span data-i18n="calculator">Hesap Makinesi</span>
-      <button class="calc-close" id="calcClose">&times;</button>
+      <div class="calc-header-actions">
+        <button class="calc-undo" id="calcUndoBtn" title="Geri al (Ctrl+Z)">↶</button>
+        <button class="calc-redo" id="calcRedoBtn" title="İleri al (Ctrl+Y)">↷</button>
+        <button class="calc-close" id="calcClose">&times;</button>
+      </div>
     </div>
+    <div class="calc-history" id="calcHistory"></div>
     <input class="calc-display" id="calcDisp" readonly value="0">
     <div class="calc-grid">
       <button class="calc-clear" data-calc="clear">C</button>
@@ -878,10 +883,10 @@
 
   <script src="./vendor/html2pdf.bundle.min.js"></script>
   <script src="./vendor/html-docx.js"></script>
-  <script src="js/cloud-config.js?v=117"></script>
-  <script src="js/cloud-sync.js?v=117"></script>
-  <script src="js/briefcase.js?v=117"></script>
-  <script src="app.js?v=117"></script>
-  <script src="js/sw-register.js?v=117"></script>
+  <script src="js/cloud-config.js?v=118"></script>
+  <script src="js/cloud-sync.js?v=118"></script>
+  <script src="js/briefcase.js?v=118"></script>
+  <script src="app.js?v=118"></script>
+  <script src="js/sw-register.js?v=118"></script>
 </body>
 </html>
