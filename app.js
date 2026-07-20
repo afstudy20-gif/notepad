@@ -2107,12 +2107,76 @@ let quotaAlerted = false;
   function calcUpdate() {
     calcDisp.value = calcExpr || '0';
   }
+  // Recursive-descent expression parser — no eval/Function (blocked by CSP).
+  // Grammar: expr := term (('+'|'-') term)*
+  //          term := power (('*'|'/'|'%') power)*
+  //          power := unary ('^' power)?          (right-assoc)
+  //          unary := '-' unary | primary
+  //          primary := number | 'π' | '√(' expr ')' | '(' expr ')'
+  function calcParse(input) {
+    const s = input.replace(/×/g, '*').replace(/÷/g, '/').replace(/\s+/g, '');
+    let pos = 0;
+    function fail() { throw new Error('parse'); }
+    function peek() { return s[pos]; }
+    function expr() {
+      let v = term();
+      while (peek() === '+' || peek() === '-') {
+        const op = s[pos++];
+        const r = term();
+        v = op === '+' ? v + r : v - r;
+      }
+      return v;
+    }
+    function term() {
+      let v = power();
+      while (peek() === '*' || peek() === '/' || peek() === '%') {
+        const op = s[pos++];
+        const r = power();
+        v = op === '*' ? v * r : op === '/' ? v / r : v % r;
+      }
+      return v;
+    }
+    function power() {
+      const v = unary();
+      if (peek() === '^') { pos++; return Math.pow(v, power()); }
+      return v;
+    }
+    function unary() {
+      if (peek() === '-') { pos++; return -unary(); }
+      return primary();
+    }
+    function primary() {
+      const c = peek();
+      if (c === '(') {
+        pos++;
+        const v = expr();
+        if (peek() !== ')') fail();
+        pos++;
+        return v;
+      }
+      if (c === 'π') { pos++; return Math.PI; }
+      if (c === '√') {
+        pos++;
+        if (peek() !== '(') fail();
+        pos++;
+        const v = expr();
+        if (peek() !== ')') fail();
+        pos++;
+        return Math.sqrt(v);
+      }
+      const m = /^\d*\.?\d+/.exec(s.slice(pos));
+      if (!m) fail();
+      pos += m[0].length;
+      return parseFloat(m[0]);
+    }
+    const result = expr();
+    if (pos !== s.length) fail();
+    return result;
+  }
   function calcEval() {
     if (!calcExpr) return;
-    let s = calcExpr.replace(/×/g, '*').replace(/÷/g, '/').replace(/π/g, 'Math.PI').replace(/√\(/g, 'Math.sqrt(').replace(/\^/g, '**');
-    if (!/^[\d+\-*/().% \^MathPIsqrte]*$/.test(s)) { calcDisp.value = 'ERR'; return; }
     try {
-      const result = Function('"use strict"; return (' + s + ')')();
+      const result = calcParse(calcExpr);
       if (typeof result !== 'number' || !isFinite(result)) { calcDisp.value = 'ERR'; return; }
       calcExpr = String(Math.round(result * 1e10) / 1e10);
       calcUpdate();
