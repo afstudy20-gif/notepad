@@ -462,6 +462,7 @@
     <button data-ectx="paste" data-i18n="paste">Yapıştır</button>
     <button data-ectx="pasteImage" data-i18n="pasteImage">Panodan Resim Yapıştır</button>
     <button data-ectx="uploadImage" data-i18n="uploadImage">Resim Yükle (Diskten)</button>
+    <button data-ectx="copyImage" class="ectx-img-only" data-i18n="copyImage" hidden>Resmi Kopyala</button>
     <button data-ectx="saveImage" class="ectx-img-only" data-i18n="saveImage" hidden>Resmi Kaydet</button>
     <button data-ectx="imageZoomOut" class="ectx-img-only" data-i18n="imageZoomOut" hidden>Resim -</button>
     <button data-ectx="imageZoomIn" class="ectx-img-only" data-i18n="imageZoomIn" hidden>Resim +</button>
@@ -612,6 +613,13 @@
         <div class="ip-group-title" data-i18n="bgImageSet">Arka Plan</div>
         <div class="ip-btn-row">
           <button id="ipSetBg" data-i18n="bgImageSet">Arka Plan Yap</button>
+        </div>
+      </div>
+
+      <div class="ip-group">
+        <div class="ip-btn-row">
+          <button id="ipCopy" data-i18n="copyImage">Resmi Kopyala</button>
+          <button id="ipSave" data-i18n="saveImage">Resmi Kaydet</button>
         </div>
       </div>
 
@@ -836,6 +844,7 @@
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg>
             <p data-i18n="briefcaseDropHint">Dosyaları buraya sürükleyin ya da</p>
             <button id="briefcaseChooseBtn" data-i18n="briefcaseChooseFile">Dosya Seç</button>
+            <button id="briefcasePasteImageBtn" data-i18n="briefcasePasteImage">Panodan Resim Yapıştır</button>
             <input type="file" id="briefcaseFileInput" multiple style="display:none">
           </div>
           <p class="briefcase-status" id="briefcaseStatus" hidden></p>
@@ -886,7 +895,7 @@
   <script src="js/cloud-config.js?v=118"></script>
   <script src="js/cloud-sync.js?v=118"></script>
   <script src="js/briefcase.js?v=118"></script>
-  <script src="app.js?v=118"></script>
+  <script src="app.js?v=120"></script>
   <script src="js/sw-register.js?v=118"></script>
 </body>
 </html>

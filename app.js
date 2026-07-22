@@ -1274,44 +1274,58 @@ let quotaAlerted = false;
     e.clipboardData.setData('text/html', html);
   });
 
-  // Download image: data: URLs direct, http(s) URLs via fetch+blob to keep filename.
+  function canvasToPngBlob(canvas) {
+    return new Promise((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error('PNG oluşturulamadı.'));
+      }, 'image/png');
+    });
+  }
+
+  async function imageToPngBlob(img) {
+    if (!img.complete || !img.naturalWidth) {
+      await new Promise((resolve, reject) => {
+        img.addEventListener('load', resolve, { once: true });
+        img.addEventListener('error', () => reject(new Error('Resim yüklenemedi.')), { once: true });
+      });
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas kullanılamıyor.');
+    ctx.drawImage(img, 0, 0);
+    return canvasToPngBlob(canvas);
+  }
+
+  async function copyImageToClipboard(img) {
+    if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') {
+      throw new Error(tr('imageClipboardUnsupported'));
+    }
+    // Start write during click's user activation. ClipboardItem resolves PNG work lazily.
+    const pngBlob = imageToPngBlob(img);
+    await navigator.clipboard.write([
+      new ClipboardItem({ 'image/png': pngBlob })
+    ]);
+  }
+
+  // Always save rendered bitmap as PNG so cropped images keep their new bounds.
   async function downloadImage(img) {
     try {
-      const src = img.src || '';
-      let blobUrl, mime = 'image/png', ext = 'png';
-      if (src.startsWith('data:')) {
-        const m = src.match(/^data:([^;,]+)[;,]/);
-        if (m) {
-          mime = m[1];
-          ext = mime.split('/')[1] || 'png';
-        }
-        // Convert data URL to blob for reliable download
-        const res = await fetch(src);
-        const blob = await res.blob();
-        blobUrl = URL.createObjectURL(blob);
-      } else {
-        const res = await fetch(src, { mode: 'cors' }).catch(() => null);
-        if (res && res.ok) {
-          const blob = await res.blob();
-          mime = blob.type || mime;
-          ext = (mime.split('/')[1] || 'png').replace('jpeg', 'jpg');
-          blobUrl = URL.createObjectURL(blob);
-        } else {
-          // Fallback: direct link (may open in new tab if cross-origin blocks download)
-          blobUrl = src;
-        }
-      }
+      const pngBlob = await imageToPngBlob(img);
+      const blobUrl = URL.createObjectURL(pngBlob);
       const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
       const a = document.createElement('a');
       a.href = blobUrl;
-      a.download = `notepad-image-${ts}.${ext}`;
+      a.download = `notepad-image-${ts}.png`;
       document.body.appendChild(a);
       a.click();
       a.remove();
-      if (blobUrl !== src) setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
     } catch (err) {
       console.error('[saveImage]', err);
-      alert('Resim kaydedilemedi: ' + (err && err.message || err));
+      alert(tr('imageSaveFailed') + ': ' + (err && err.message || err));
     }
   }
 
@@ -3688,7 +3702,12 @@ let quotaAlerted = false;
       if (action === 'cut') {
         document.execCommand('cut');
       } else if (action === 'copy') {
-        document.execCommand('copy');
+        if (selectedImg) {
+          await copyImageToClipboard(selectedImg);
+          if (saveStatusEl) saveStatusEl.textContent = tr('imageCopied');
+        } else {
+          document.execCommand('copy');
+        }
       } else if (action === 'translateSelection') {
         const text = getSavedSelectionText();
         if (text) {
@@ -3730,6 +3749,16 @@ let quotaAlerted = false;
           if (typeof deselectImage === 'function') deselectImage();
           img.remove();
           scheduleSave();
+        }
+      } else if (action === 'copyImage') {
+        if (selectedImg) {
+          try {
+            await copyImageToClipboard(selectedImg);
+            if (saveStatusEl) saveStatusEl.textContent = tr('imageCopied');
+          } catch (err) {
+            console.error('[copyImage]', err);
+            alert(tr('imageCopyFailed') + ': ' + (err && err.message || err));
+          }
         }
       } else if (action === 'saveImage') {
         if (selectedImg && selectedImg.src) {
@@ -4577,6 +4606,7 @@ let quotaAlerted = false;
     const contentBox = $('#briefcaseContent');
     const dropzone = $('#briefcaseDropzone');
     const chooseBtn = $('#briefcaseChooseBtn');
+    const pasteImageBtn = $('#briefcasePasteImageBtn');
     const fileInput = $('#briefcaseFileInput');
     const statusEl = $('#briefcaseStatus');
     const listEl = $('#briefcaseList');
@@ -4731,6 +4761,46 @@ let quotaAlerted = false;
       refreshList();
     }
 
+    function clipboardImageFile(blob) {
+      const subtype = (blob.type.split('/')[1] || 'png')
+        .replace('jpeg', 'jpg')
+        .replace('svg+xml', 'svg')
+        .replace(/[^a-z0-9]+/gi, '') || 'png';
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      return new File([blob], `clipboard-image-${stamp}.${subtype}`, {
+        type: blob.type || 'image/png',
+        lastModified: Date.now()
+      });
+    }
+
+    async function pasteClipboardImage() {
+      if (!navigator.clipboard?.read) {
+        alert(tr('briefcaseClipboardUnsupported'));
+        return;
+      }
+      pasteImageBtn.disabled = true;
+      setStatus(tr('briefcaseReadingClipboard'));
+      try {
+        const items = await navigator.clipboard.read();
+        for (const item of items) {
+          const type = item.types.find((t) => t === 'image/png') ||
+            item.types.find((t) => t.startsWith('image/'));
+          if (!type) continue;
+          const blob = await item.getType(type);
+          await uploadFiles([clipboardImageFile(blob)]);
+          return;
+        }
+        setStatus('');
+        alert(tr('briefcaseClipboardNoImage'));
+      } catch (e) {
+        console.warn('[briefcase] clipboard image', e);
+        setStatus('');
+        alert(tr('briefcaseClipboardReadFailed'));
+      } finally {
+        pasteImageBtn.disabled = false;
+      }
+    }
+
     function renderAuthState() {
       const signedIn = window.__npCloud && window.__npCloud.isSignedIn();
       signinBox.hidden = !!signedIn;
@@ -4761,6 +4831,7 @@ let quotaAlerted = false;
     }
 
     chooseBtn.addEventListener('click', () => fileInput.click());
+    pasteImageBtn.addEventListener('click', pasteClipboardImage);
     fileInput.addEventListener('change', () => {
       if (fileInput.files.length) uploadFiles(Array.from(fileInput.files));
       fileInput.value = '';
@@ -5018,13 +5089,51 @@ let quotaAlerted = false;
     positionOverlay();
   }
 
-  function applyCrop() {
+  async function applyCrop() {
     if (!selectedImg || !cropDraft) { exitCropMode(); return; }
-    const state = getImgState(selectedImg);
-    state.crop = { ...cropDraft };
-    applyImgState(selectedImg, state);
-    exitCropMode();
-    scheduleSave();
+    const img = selectedImg;
+    const c = { ...cropDraft };
+    const sourceW = img.naturalWidth;
+    const sourceH = img.naturalHeight;
+    if (!sourceW || !sourceH) return;
+
+    const sx = Math.round(sourceW * c.left / 100);
+    const sy = Math.round(sourceH * c.top / 100);
+    const right = Math.round(sourceW * c.right / 100);
+    const bottom = Math.round(sourceH * c.bottom / 100);
+    const cropW = Math.max(1, sourceW - sx - right);
+    const cropH = Math.max(1, sourceH - sy - bottom);
+
+    if (sx === 0 && sy === 0 && cropW === sourceW && cropH === sourceH) {
+      exitCropMode();
+      return;
+    }
+
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = cropW;
+      canvas.height = cropH;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Canvas kullanılamıyor.');
+      ctx.drawImage(img, sx, sy, cropW, cropH, 0, 0, cropW, cropH);
+
+      const oldDisplayW = img.offsetWidth;
+      const oldDisplayH = img.offsetHeight;
+      const state = getImgState(img);
+      state.crop = { top: 0, right: 0, bottom: 0, left: 0 };
+      img.style.width = Math.max(1, Math.round(oldDisplayW * cropW / sourceW)) + 'px';
+      img.style.height = Math.max(1, Math.round(oldDisplayH * cropH / sourceH)) + 'px';
+      img.src = canvas.toDataURL('image/png');
+      applyImgState(img, state);
+      exitCropMode();
+      syncPanelToImage(img);
+      syncSizeInputs();
+      updatePanelPreview();
+      scheduleSave();
+    } catch (err) {
+      console.error('[cropImage]', err);
+      alert(tr('imageCropFailed') + ': ' + (err && err.message || err));
+    }
   }
 
   function syncSizeInputs() {
@@ -5265,6 +5374,21 @@ let quotaAlerted = false;
   }
 
   $('#ipGrabText').addEventListener('click', runSelectedImageGrabText);
+
+  $('#ipCopy').addEventListener('click', async () => {
+    if (!selectedImg) return;
+    try {
+      await copyImageToClipboard(selectedImg);
+      if (saveStatusEl) saveStatusEl.textContent = tr('imageCopied');
+    } catch (err) {
+      console.error('[copyImage]', err);
+      alert(tr('imageCopyFailed') + ': ' + (err && err.message || err));
+    }
+  });
+
+  $('#ipSave').addEventListener('click', () => {
+    if (selectedImg) downloadImage(selectedImg);
+  });
 
   $('#ocrInsertText').addEventListener('click', () => {
     const txt = $('#ocrPopupText').value;
@@ -5713,6 +5837,12 @@ let quotaAlerted = false;
       pasteImage: 'Panodan Resim Yapıştır',
       uploadImage: 'Resim Yükle (Diskten)',
       saveImage: 'Resmi Kaydet',
+      copyImage: 'Resmi Kopyala',
+      imageCopied: 'Resim panoya PNG olarak kopyalandı.',
+      imageCopyFailed: 'Resim kopyalanamadı',
+      imageClipboardUnsupported: 'Tarayıcı resim panosunu desteklemiyor. HTTPS bağlantısı kullanın.',
+      imageSaveFailed: 'Resim kaydedilemedi',
+      imageCropFailed: 'Resim kırpılamadı',
       imageZoomOut: 'Resim -',
       imageZoomIn: 'Resim +',
       findReplace: 'Bul ve Değiştir',
@@ -5838,6 +5968,11 @@ let quotaAlerted = false;
       briefcaseSignInNeeded: 'Dosya göndermek ve almak için Google ile bağlanın. Dosyalarınız kişisel Google Drive hesabınızda saklanır ve aynı hesapla girdiğiniz diğer cihazlarda görünür.',
       briefcaseDropHint: 'Dosyaları buraya sürükleyin ya da',
       briefcaseChooseFile: 'Dosya Seç',
+      briefcasePasteImage: 'Panodan Resim Yapıştır',
+      briefcaseReadingClipboard: 'Pano okunuyor...',
+      briefcaseClipboardUnsupported: 'Tarayıcı panodan resim okumayı desteklemiyor. HTTPS bağlantısı kullanın.',
+      briefcaseClipboardNoImage: 'Panoda resim bulunamadı.',
+      briefcaseClipboardReadFailed: 'Pano resmi okunamadı. Pano iznini kontrol edin.',
       briefcaseEmpty: 'Henüz dosya yok.',
       briefcaseUploading: 'Yükleniyor: ',
       briefcaseUploadFailed: 'Yükleme başarısız: ',
@@ -5946,6 +6081,12 @@ let quotaAlerted = false;
       pasteImage: 'Paste Image from Clipboard',
       uploadImage: 'Upload Image (from disk)',
       saveImage: 'Save Image',
+      copyImage: 'Copy Image',
+      imageCopied: 'Image copied to clipboard as PNG.',
+      imageCopyFailed: 'Image could not be copied',
+      imageClipboardUnsupported: 'Browser does not support image clipboard. Use an HTTPS connection.',
+      imageSaveFailed: 'Image could not be saved',
+      imageCropFailed: 'Image could not be cropped',
       imageZoomOut: 'Image -',
       imageZoomIn: 'Image +',
       findReplace: 'Find & Replace',
@@ -6071,6 +6212,11 @@ let quotaAlerted = false;
       briefcaseSignInNeeded: 'Sign in with Google to send and receive files. Your files are stored in your personal Google Drive account and appear on any other device signed into the same account.',
       briefcaseDropHint: 'Drag files here or',
       briefcaseChooseFile: 'Choose File',
+      briefcasePasteImage: 'Paste Image from Clipboard',
+      briefcaseReadingClipboard: 'Reading clipboard...',
+      briefcaseClipboardUnsupported: 'Browser does not support reading clipboard images. Use an HTTPS connection.',
+      briefcaseClipboardNoImage: 'No image found in clipboard.',
+      briefcaseClipboardReadFailed: 'Could not read clipboard image. Check clipboard permission.',
       briefcaseEmpty: 'No files yet.',
       briefcaseUploading: 'Uploading: ',
       briefcaseUploadFailed: 'Upload failed: ',
