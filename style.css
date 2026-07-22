@@ -2183,7 +2183,7 @@ body.has-image-panel .editor-area {
   border: 1px solid #ddd;
   border-radius: 10px;
   box-shadow: 0 12px 40px rgba(0,0,0,0.18);
-  z-index: 100;
+  z-index: 1100;
   display: flex;
   flex-direction: column;
   padding: 12px;

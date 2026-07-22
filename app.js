@@ -4659,12 +4659,23 @@ let quotaAlerted = false;
         dlBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12"/><polyline points="7 10 12 15 17 10"/><path d="M5 21h14"/></svg>';
         dlBtn.disabled = !!f.incomplete;
         dlBtn.addEventListener('click', () => downloadFile(f, li));
+        let ocrBtn = null;
+        if (isBriefcaseImage(f)) {
+          ocrBtn = document.createElement('button');
+          ocrBtn.className = 'briefcase-ocr-btn';
+          ocrBtn.title = tr('briefcaseImageOcr');
+          ocrBtn.setAttribute('aria-label', tr('briefcaseImageOcr'));
+          ocrBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h3M17 4h3v3M20 17v3h-3M7 20H4v-3"/><path d="M7 12h10M12 7v10"/></svg>';
+          ocrBtn.disabled = !!f.incomplete;
+          ocrBtn.addEventListener('click', () => extractBriefcaseImageText(f, li));
+        }
         const delBtn = document.createElement('button');
         delBtn.className = 'briefcase-delete-btn';
         delBtn.title = tr('delete');
         delBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
         delBtn.addEventListener('click', () => deleteFile(f, li));
         actions.appendChild(dlBtn);
+        if (ocrBtn) actions.appendChild(ocrBtn);
         actions.appendChild(delBtn);
 
         li.appendChild(info);
@@ -4685,6 +4696,11 @@ let quotaAlerted = false;
 
     function progressLabel(prefix, name, cur, total) {
       return total > 1 ? `${prefix}${name} — ${cur}/${total}` : `${prefix}${name}`;
+    }
+
+    function isBriefcaseImage(file) {
+      return /^image\//i.test(file.mimeType || '') ||
+        /\.(?:png|jpe?g|webp|gif|bmp|svg|avif)$/i.test(file.name || '');
     }
 
     function setItemBusy(li, busy) {
@@ -4728,6 +4744,32 @@ let quotaAlerted = false;
         console.warn('[briefcase] download', e);
         alert(tr('briefcaseDownloadFailed'));
       } finally {
+        setStatus('');
+        setItemBusy(li, false);
+      }
+    }
+
+    async function extractBriefcaseImageText(f, li) {
+      if (f.incomplete) return;
+      setItemBusy(li, true);
+      setStatus(tr('briefcaseOcrDownloading') + f.name);
+      let blobUrl = '';
+      try {
+        const blob = await window.__npBriefcase.download(f, (cur, total) => {
+          setStatus(progressLabel(tr('briefcaseDownloading'), f.name, cur, total));
+        });
+        blobUrl = URL.createObjectURL(blob);
+        setStatus('');
+        await runOcrToPopup(blobUrl);
+      } catch (e) {
+        console.warn('[briefcase] image OCR', e);
+        if (blobUrl) {
+          $('#ocrPopupStatus').textContent = tr('briefcaseOcrFailed') + ': ' + (e.message || e);
+        } else {
+          alert(tr('briefcaseOcrFailed') + ': ' + (e.message || e));
+        }
+      } finally {
+        if (blobUrl) URL.revokeObjectURL(blobUrl);
         setStatus('');
         setItemBusy(li, false);
       }
@@ -5332,9 +5374,7 @@ let quotaAlerted = false;
     }
   });
 
-  // --- OCR on selected image ---
-  $('#ipOcr').addEventListener('click', async () => {
-    if (!selectedImg) { alert('Önce bir resim seçin.'); return; }
+  async function runOcrToPopup(imageSrc) {
     const popup = $('#ocrPopup');
     const status = $('#ocrPopupStatus');
     const textEl = $('#ocrPopupText');
@@ -5342,15 +5382,24 @@ let quotaAlerted = false;
     textEl.value = '';
     status.textContent = 'OCR başlatılıyor...';
     try {
-      const { text } = await runOcr(selectedImg.src, (p, msg) => {
-        status.textContent = `${msg || 'İşleniyor'} — ${(p*100)|0}%`;
+      const { text } = await runOcr(imageSrc, (p, msg) => {
+        status.textContent = `${msg || 'İşleniyor'} — ${Math.max(0, Math.min(100, p | 0))}%`;
       });
       status.textContent = `Tamamlandı (${text.length} karakter)`;
       textEl.value = text || '(Metin bulunamadı)';
     } catch (err) {
       status.textContent = 'Hata: ' + err.message;
       console.error('[ocr]', err);
+      throw err;
     }
+  }
+
+  // --- OCR on selected image ---
+  $('#ipOcr').addEventListener('click', async () => {
+    if (!selectedImg) { alert('Önce bir resim seçin.'); return; }
+    try {
+      await runOcrToPopup(selectedImg.src);
+    } catch (_) {}
   });
 
   async function runSelectedImageGrabText() {
@@ -5982,6 +6031,9 @@ let quotaAlerted = false;
       briefcaseDeleteFailed: 'Silme başarısız.',
       briefcaseDownloadFailed: 'İndirme başarısız.',
       briefcaseDownloading: 'İndiriliyor: ',
+      briefcaseImageOcr: 'OCR ile Metin Çıkar',
+      briefcaseOcrDownloading: 'OCR için resim indiriliyor: ',
+      briefcaseOcrFailed: 'Resimden metin çıkarılamadı',
       briefcaseParts: 'parça',
       briefcaseIncomplete: 'Eksik parça — indirilemez',
       addImageFrom: 'Resim Ekle',
@@ -6226,6 +6278,9 @@ let quotaAlerted = false;
       briefcaseDeleteFailed: 'Delete failed.',
       briefcaseDownloadFailed: 'Download failed.',
       briefcaseDownloading: 'Downloading: ',
+      briefcaseImageOcr: 'Extract Text with OCR',
+      briefcaseOcrDownloading: 'Downloading image for OCR: ',
+      briefcaseOcrFailed: 'Could not extract text from image',
       briefcaseParts: 'parts',
       briefcaseIncomplete: 'Missing parts — cannot download',
       addImageFrom: 'Add Image',
